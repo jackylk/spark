@@ -96,6 +96,7 @@
     <module>streaming</module>
     <module>sql/catalyst</module>
     <module>sql/core</module>
+    <module>sql/hbase</module>
     <module>sql/hive</module>
     <module>assembly</module>
     <module>external/twitter</module>
@@ -122,8 +123,8 @@
     <hadoop.version>1.0.4</hadoop.version>
     <protobuf.version>2.4.1</protobuf.version>
     <yarn.version>${hadoop.version}</yarn.version>
-    <hbase.version>0.94.6</hbase.version>
     <flume.version>1.4.0</flume.version>
+    <hbase.version>0.96.1.1-hadoop2</hbase.version>
     <zookeeper.version>3.4.5</zookeeper.version>
     <!-- Version used in Maven Hive dependency -->
     <hive.version>0.13.1a</hive.version>
@@ -1282,7 +1283,7 @@
       </properties>
     </profile>
 
-    <profile>
+      <profile>
       <id>hadoop-2.4</id>
       <properties>
         <hadoop.version>2.4.0</hadoop.version>
