@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql.hbase
 
+import org.apache.hadoop.conf.Configuration
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.{SQLConf, SQLContext, SchemaRDD}
@@ -27,8 +28,8 @@ import org.apache.hadoop.hbase._
  * An instance of the Spark SQL execution engine that integrates with data stored in Hive.
  * Configuration for Hive is read from hive-site.xml on the classpath.
  */
-class HBaseSQLContext(sc: SparkContext, hbaseConf : HBaseConfiguration
-            = HBaseConfiguration.create().asInstanceOf[HBaseConfiguration])
+class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
+            = HBaseConfiguration.create())
             extends SQLContext(sc) {
   self =>
 
