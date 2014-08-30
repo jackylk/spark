@@ -33,7 +33,6 @@
   <url>http://spark.apache.org/</url>
   <properties>
     <sbt.project.name>hbase</sbt.project.name>
-    <!--<hbase.version>0.96.1.1</hbase.version>-->
   </properties>
 
   <dependencies>
