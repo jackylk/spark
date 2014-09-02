@@ -42,7 +42,8 @@ import org.apache.spark.util.Utils
 private[hbase] class HBaseCatalog(hbasectx: HBaseSQLContext) extends Catalog with Logging  {
   val logger = Logger.getLogger(getClass.getName)
 
-  lazy val conf = hbasectx.sparkContext.getConf.get("hadoop.configuration").asInstanceOf[Configuration]
+  lazy val conf = hbasectx.sparkContext.getConf.get("hadoop.configuration")
+    .asInstanceOf[Configuration]
   lazy val hbaseConn = {
     val conn = HConnectionManager.createConnection(conf)
     conn
@@ -51,9 +52,21 @@ private[hbase] class HBaseCatalog(hbasectx: HBaseSQLContext) extends Catalog wit
     hbaseConn.getTable(tname)
   }
 
-  def lookupRelation(
-    tableName: String,
-  alias: Option[String]) : LogicalPlan = synchronized {
-    val tblName = processTableName(tableName)
-    val table =
+
+//  def lookupRelation(
+//    tableName: String,
+//  alias: Option[String]) : LogicalPlan = synchronized {
+//    val tblName = processTableName(tableName)
+//    val table =
+  override def caseSensitive: Boolean = ???
+
+  override def unregisterAllTables(): Unit = ???
+
+  override def unregisterTable(databaseName: Option[String], tableName: String): Unit = ???
+
+  override def lookupRelation(databaseName: Option[String], tableName: String,
+                              alias: Option[String]): LogicalPlan = ???
+
+  override def registerTable(databaseName: Option[String], tableName: String,
+                             plan: LogicalPlan): Unit = ???
 }

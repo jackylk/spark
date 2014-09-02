@@ -35,62 +35,65 @@ import org.apache.spark.sql.execution.SparkPlan
  * HBaseStrategies
  * Created by sboesch on 8/22/14.
  */
-object HBaseStrategies extends SQLContext#SparkPlanner {
+object HBaseStrategies { // extends SQLContext#SparkPlanner {
 
-  self: SQLContext#SparkPlanner =>
+//  self: SQLContext#SparkPlanner =>
+//
+//  object HBaseOperations extends Strategy {
 
-  object HBaseOperations extends Strategy {
-    def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-      case PhysicalOperation(projectList, filters: Seq[Expression], relation: HBaseRelation) =>
-        val prunePushedDownFilters =
-          if (sparkContext.conf.getBoolean(HBaseFilters.HBASE_FILTER_PUSHDOWN_ENABLED, true)) {
-            (filters: Seq[Expression]) => {
-              filters.filter { filter =>
-                val recordFilter = HBaseFilters.createFilter(filter)
-                if (!recordFilter.isDefined) {
-                  // First case: the pushdown did not result in any record filter.
-                  true
-                } else {
-                  // Second case: a record filter was created; here we are conservative in
-                  // the sense that even if "A" was pushed and we check for "A AND B" we
-                  // still want to keep "A AND B" in the higher-level filter, not just "B".
-                  !ParquetFilters.findExpression(recordFilter.get, filter).isDefined
-                }
-              }
-            }
-          } else {
-            identity[Seq[Expression]] _
-          }
-        pruneFilterProject(
-          projectList,
-          filters,
-          prunePushedDownFilters,
-          ParquetTableScan(_, relation, filters)) :: Nil
 
-      case _ => Nil
-    }
-  }
-
-  //  private[hbase] val
-  case class RandomAccessByRowkey(context: SQLContext) extends Strategy {
-    def apply(plan: LogicalPlan): Seq[SparkPlan] =  {
-      // val b = new Batch
-      throw new UnsupportedOperationException("RandomAccessByRowkey not yet implemented")
-    }
-  }
-
-  case class SequentialScan(context: SQLContext) extends Strategy {
-    def apply(plan: LogicalPlan): Seq[SparkPlan] =  {
-      val scan = new Scan
-
-      throw new UnsupportedOperationException("RandomAccessByRowkey not yet implemented")
-    }
-  }
-
-  def getHTable(conf : Configuration, tname : String) = {
-    val htable = new HTable(conf, tname)
-    htable
-  }
+//    def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
+//      case PhysicalOperation(projectList, filters: Seq[Expression], relation: HBaseRelation) =>
+//        val prunePushedDownFilters =
+//          if (sparkContext.conf.getBoolean(HBaseFilters.HBASE_FILTER_PUSHDOWN_ENABLED, true)) {
+//            (filters: Seq[Expression]) => {
+//              filters.filter { filter =>
+//                val recordFilter = HBaseFilters.createFilter(filter)
+//                if (!recordFilter.isDefined) {
+//                  // First case: the pushdown did not result in any record filter.
+//                  true
+//                } else {
+//                  // Second case: a record filter was created; here we are conservative in
+//                  // the sense that even if "A" was pushed and we check for "A AND B" we
+//                  // still want to keep "A AND B" in the higher-level filter, not just "B".
+//                  !ParquetFilters.findExpression(recordFilter.get, filter).isDefined
+//                }
+//              }
+//            }
+//          } else {
+//            identity[Seq[Expression]] _
+//          }
+//        pruneFilterProject(
+//          projectList,
+//          filters,
+//          prunePushedDownFilters,
+//          ParquetTableScan(_, relation, filters)) :: Nil
+//
+//      case _ => Nil
+//    }
+//    override def apply(plan: LogicalPlan): Seq[SparkPlan] = ???
+//  }
+//
+//  //  private[hbase] val
+//  case class RandomAccessByRowkey(context: SQLContext) extends Strategy {
+//    def apply(plan: LogicalPlan): Seq[SparkPlan] =  {
+//      // val b = new Batch
+//      throw new UnsupportedOperationException("RandomAccessByRowkey not yet implemented")
+//    }
+//  }
+//
+//  case class SequentialScan(context: SQLContext) extends Strategy {
+//    def apply(plan: LogicalPlan): Seq[SparkPlan] =  {
+//      val scan = new Scan
+//
+//      throw new UnsupportedOperationException("RandomAccessByRowkey not yet implemented")
+//    }
+//  }
+//
+//  def getHTable(conf : Configuration, tname : String) = {
+//    val htable = new HTable(conf, tname)
+//    htable
+//  }
 
 //  def sparkFilterProjectJoinToHBaseScan(sFilter : Filter,
 //                                          sProject : Projection, sJoin : Join) = {
@@ -104,36 +107,36 @@ object HBaseStrategies extends SQLContext#SparkPlanner {
 
 
   private[sql] object HBaseRelation {
-    def enableLogForwading() {
-      val hbaseLogger = java.util.logging.Logger.getLogger("hbase")
-      hbaseLogger.getHandlers.foreach(hbaseLogger.removeHandler)
-      if (!hbaseLogger.getUseParentHandlers) {
-        hbaseLogger.setUseParentHandlers(true)
-      }
-    }
-    type RowType = GenericMutableRow
-//    type CompressionType =
+//    def enableLogForwading() {
+//      val hbaseLogger = java.util.logging.Logger.getLogger("hbase")
+//      hbaseLogger.getHandlers.foreach(hbaseLogger.removeHandler)
+//      if (!hbaseLogger.getUseParentHandlers) {
+//        hbaseLogger.setUseParentHandlers(true)
+//      }
+//    }
+//    type RowType = GenericMutableRow
+////    type CompressionType =
+//
+//    def create(pathString: String,
+//      child: LogicalPlan,
+//    conf: Configuration,
+//    sqlContext: SQLContext) : HBaseRelation = {
+//      if (!child.resolved) {
+//        throw new UnresolvedException[LogicalPlan](
+//        child,
+//        "Attempt to create HBase table from unresolved child (when schemia is not available")
+//      }
+//      createEmpty(pathString, child.output, false, conf, sqlContext)
+//    }
 
-    def create(pathString: String,
-      child: LogicalPlan,
-    conf: Configuration,
-    sqlContext: SQLContext) : HBaseRelation = {
-      if (!child.resolved) {
-        throw new UnresolvedException[LogicalPlan](
-        child,
-        "Attempt to create HBase table from unresolved child (when schemia is not available")
-      }
-      createEmpty(pathString, child.output, false, conf, sqlContext)
-    }
-
-    def createEmpty(pathString: String,
-    atributes: Seq[Attribute],
-    allowExisting: Boolean,
-    conf: Configuration,
-    sqlContext: SQLContext): HBaseRelation = {
-      val path = checkPath(pathString, allowExisting, conf
-
-
+//    def createEmpty(pathString: String,
+//    atributes: Seq[Attribute],
+//    allowExisting: Boolean,
+//    conf: Configuration,
+//    sqlContext: SQLContext): HBaseRelation = {
+//      val path = checkPath(pathString, allowExisting, conf
+//
+//    }
   }
 
 }
