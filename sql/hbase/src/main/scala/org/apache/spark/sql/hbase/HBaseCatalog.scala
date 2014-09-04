@@ -17,7 +17,7 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client.{HBaseAdmin, HConnectionManager}
+import org.apache.hadoop.hbase.client.{HBaseAdmin, HConnectionManager, HTableInterface}
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.log4j.Logger
@@ -60,8 +60,7 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     }
   }
 
-  def createTable(
-                   tableName: String, columnFamily: String): Unit = {
+  def createTable(tableName: String, columnFamily: String): Unit = {
     val admin = new HBaseAdmin(hbaseConnection)
     val descriptor = new HTableDescriptor(TableName.valueOf(tableName))
 
@@ -69,6 +68,13 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     descriptor.addFamily(columnDescriptor)
 
     admin.createTable(descriptor)
+  }
+
+  def deleteTable(tableName: String): Unit = {
+    val admin = new HBaseAdmin(hbaseConnection)
+
+    admin.disableTable(tableName)
+    admin.deleteTable(tableName)
   }
 
   override def registerTable(databaseName: Option[String], tableName: String,
