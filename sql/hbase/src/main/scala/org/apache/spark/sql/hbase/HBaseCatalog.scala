@@ -14,58 +14,62 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client.{HTableInterface, HConnectionManager}
+import org.apache.hadoop.hbase.client.{HBaseAdmin, HConnectionManager}
+import org.apache.hadoop.hbase.util.Bytes
+import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.log4j.Logger
-
-/* Implicit conversions */
-import scala.collection.JavaConversions._
-
-import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.Logging
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.catalyst.analysis.{EliminateAnalysisOperators, Catalog}
-import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.logical
+import org.apache.spark.sql.catalyst.analysis.Catalog
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.rules._
-import org.apache.spark.sql.catalyst.types._
-import org.apache.spark.sql.columnar.InMemoryRelation
-import org.apache.spark.util.Utils
 
 /**
  * HBaseCatalog
  */
-private[hbase] class HBaseCatalog(hbasectx: HBaseSQLContext) extends Catalog with Logging  {
-  val logger = Logger.getLogger(getClass.getName)
-
-  lazy val conf = hbasectx.sparkContext.getConf.get("hadoop.configuration")
+private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog with Logging {
+  lazy val configuration = hbaseContext.sparkContext.getConf.get("hadoop.configuration")
     .asInstanceOf[Configuration]
-  lazy val hbaseConn = {
-    val conn = HConnectionManager.createConnection(conf)
-    conn
+  lazy val hbaseConnection = {
+    val connection = HConnectionManager.createConnection(configuration)
+    connection
   }
-  def getHBaseTable(tname : String) = {
-    hbaseConn.getTable(tname)
-  }
+  val logger = Logger.getLogger(getClass.getName)
+  val caseSensitive: Boolean = false
 
-
-//  def lookupRelation(
-//    tableName: String,
-//  alias: Option[String]) : LogicalPlan = synchronized {
-//    val tblName = processTableName(tableName)
-//    val table =
-  override def caseSensitive: Boolean = ???
-
-  override def unregisterAllTables(): Unit = ???
+  override def unregisterAllTables(): Unit = {}
 
   override def unregisterTable(databaseName: Option[String], tableName: String): Unit = ???
 
   override def lookupRelation(databaseName: Option[String], tableName: String,
-                              alias: Option[String]): LogicalPlan = ???
+                              alias: Option[String]): LogicalPlan = {
+    val tableName = processTableName(tableName)
+    val table = getHBaseTable(tableName)
+  }
+
+  def getHBaseTable(tableName: String): HTableInterface = {
+    hbaseConnection.getTable(tableName)
+  }
+
+  protected def processTableName(tableName: String): String = {
+    if (!caseSensitive) {
+      tableName.toLowerCase
+    } else {
+      tableName
+    }
+  }
+
+  def createTable(
+                   tableName: String, columnFamily: String): Unit = {
+    val admin = new HBaseAdmin(hbaseConnection)
+    val descriptor = new HTableDescriptor(TableName.valueOf(tableName))
+
+    val columnDescriptor = new HColumnDescriptor(Bytes.toBytes(columnFamily))
+    descriptor.addFamily(columnDescriptor)
+
+    admin.createTable(descriptor)
+  }
 
   override def registerTable(databaseName: Option[String], tableName: String,
                              plan: LogicalPlan): Unit = ???
