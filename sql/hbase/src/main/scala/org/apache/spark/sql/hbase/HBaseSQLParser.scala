@@ -8,36 +8,63 @@ import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.types._
 
-class HBaseSQLParser extends SqlParser{
+class HBaseSQLParser extends SqlParser {
   protected val CREATE = Keyword("CREATE")
   protected val DROP = Keyword("DROP")
   protected val ALTER = Keyword("ALTER")
   protected val EXISTS = Keyword("EXISTS")
   protected val MAPPED = Keyword("MAPPED")
+  protected val ADD = Keyword("ADD")
 
   protected lazy val create: Parser[LogicalPlan] =
     CREATE ~> TABLE ~> opt(IF ~ NOT ~ EXISTS ^^^ true) ~ ident ~ ("(" ~> tableCols <~ ")") ~ (MAPPED ~> BY ~> "(" ~> ident <~ ",") ~ colFamilies <~ ")" <~ opt(";") ^^ {
-      case i ~ t ~ r ~ a ~ b=>
+      case ine ~ tn ~ tc ~ htn ~ cf=>
         println("\nin Create")
-        println(i)
-        println(t)
-        println(r)
-        println(a)
-        println(b)
+        println(ine)
+        println(tn)
+        println(tc)
+        println(htn)
+        println(cf)
         null
     }
+
+  override protected lazy val query: Parser[LogicalPlan] = (
+    select * (
+      UNION ~ ALL ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Union(q1, q2)} |
+        INTERSECT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Intersect(q1, q2)} |
+        EXCEPT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)} |
+        UNION ~ opt(DISTINCT) ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2))}
+      )
+      | insert | cache | create | drop | alter
+    )
 
   protected lazy val drop: Parser[LogicalPlan] =
     DROP ~> TABLE ~> ident <~ opt(";") ^^ {
-      case t =>
+      case tn =>
         println("\nin Drop")
-        println(t)
+        println(tn)
         null
     }
 
-  protected lazy val colFamily: Parser[Expression] = expression ^^ {case e => e}
-
-  protected lazy val colFamilies: Parser[Seq[Expression]] = repsep(colFamily, ",")
+  protected lazy val alter: Parser[LogicalPlan] =
+    ALTER ~> TABLE ~> ident ~ DROP ~ ident  <~ opt(";") ^^ {
+      case tn ~ op ~ col=> {
+        println("\nin Alter")
+        println(tn)
+        println(op)
+        println(col)
+        null
+      }
+    } | ALTER ~> TABLE ~> ident ~ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> colFamily <~ ")") ^^ {
+      case tn ~ op ~ tc ~ cf=> {
+        println("\nin Alter")
+        println(tn)
+        println(op)
+        println(tc)
+        println(cf)
+        null
+      }
+    }
 
   protected lazy val tableCol: Parser[Expression] =
     expression ~ (expression | STRING)  ^^ {
@@ -46,11 +73,8 @@ class HBaseSQLParser extends SqlParser{
 
   protected lazy val tableCols: Parser[Seq[Expression]] = repsep(tableCol, ",")
 
-  protected lazy val alter: Parser[LogicalPlan] =
-    ALTER ~> opt(OVERWRITE) ~ inTo ~ select <~ opt(";") ^^ {
-      case o ~ r ~ s =>
-        val overwrite: Boolean = o.getOrElse("") == "OVERWRITE"
-        InsertIntoTable(r, Map[String, Option[String]](), s, overwrite)
-    }
+  protected lazy val colFamily: Parser[Expression] = expression ^^ {case e => e}
+
+  protected lazy val colFamilies: Parser[Seq[Expression]] = repsep(colFamily, ",")
 
 }
