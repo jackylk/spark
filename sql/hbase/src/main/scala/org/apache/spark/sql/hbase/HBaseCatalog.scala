@@ -44,8 +44,9 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
 
   override def lookupRelation(databaseName: Option[String], tableName: String,
                               alias: Option[String]): LogicalPlan = {
-    val tableName = processTableName(tableName)
-    val table = getHBaseTable(tableName)
+  //  val tableName = processTableName(tableName)
+   // val table = getHBaseTable(tableName)
+    null
   }
 
   def getHBaseTable(tableName: String): HTableInterface = {
