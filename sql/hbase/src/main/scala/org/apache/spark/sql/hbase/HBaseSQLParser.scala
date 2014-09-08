@@ -17,12 +17,8 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.spark.sql.catalyst.SqlParser
-import org.apache.spark.sql.catalyst.SqlLexical
-import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.types._
 
 class HBaseSQLParser extends SqlParser {
   protected val CREATE = Keyword("CREATE")
@@ -32,11 +28,11 @@ class HBaseSQLParser extends SqlParser {
   protected val MAPPED = Keyword("MAPPED")
   protected val ADD = Keyword("ADD")
 
-  protected lazy val create: Parser[LogicalPlan] =
-//    CREATE ~> TABLE ~> opt(IF ~ NOT ~ EXISTS) ^^^ notExists) ~ ident
-//  ~ ("(" ~> tableCols <~ ")") ~
-//  (MAPPED ~> BY ~> "(" ~> ident <~ ",") ~ colFamilies <~ ")" <~ opt(";") ^^ {
-//      case ine ~ tn ~ tc ~ htn ~ cf=>
+//  protected lazy val create: Parser[LogicalPlan] =
+//    CREATE ~> TABLE ~> opt(IF ~ NOT ~ EXISTS ^^^ true) ~ ident ~
+//      "(" ~> tableCols <~ ")" ~
+//      (MAPPED ~> BY ~> "(" ~> ident <~ "," ~ colFamilies <~ ")") <~ opt(";") ^^ {
+//      case ine ~ tn ~ tc ~ htn ~ cf =>
 //        println("\nin Create")
 //        println(ine)
 //        println(tn)
@@ -45,7 +41,18 @@ class HBaseSQLParser extends SqlParser {
 //        println(cf)
 //        null
 //    }
-  null
+
+   protected lazy val create: Parser[LogicalPlan] =
+    CREATE ~> TABLE ~> opt(IF ~ NOT ~ EXISTS ^^^ true) ~ ident ~ ("(" ~> tableCols <~ ")") ~ (MAPPED ~> BY ~> "(" ~> ident <~ ",") ~ colFamilies <~ ")" <~ opt(";") ^^ {
+      case ine ~ tn ~ tc ~ htn ~ cf=>
+        println("\nin Create")
+        println(ine)
+        println(tn)
+        println(tc)
+        println(htn)
+        println(cf)
+        null
+    }
 
   override protected lazy val query: Parser[LogicalPlan] = (
     select * (
@@ -66,16 +73,16 @@ class HBaseSQLParser extends SqlParser {
     }
 
   protected lazy val alter: Parser[LogicalPlan] =
-    ALTER ~> TABLE ~> ident ~ DROP ~ ident  <~ opt(";") ^^ {
-      case tn ~ op ~ col=> {
+    ALTER ~> TABLE ~> ident ~ DROP ~ ident <~ opt(";") ^^ {
+      case tn ~ op ~ col => {
         println("\nin Alter")
         println(tn)
         println(op)
         println(col)
         null
       }
-    } | ALTER ~> TABLE ~> ident ~ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> colFamily <~ ")") ^^ {
-      case tn ~ op ~ tc ~ cf=> {
+    } | ALTER ~> TABLE ~> ident ~ ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> colFamily <~ ")") ^^ {
+      case tn ~ op ~ tc ~ cf => {
         println("\nin Alter")
         println(tn)
         println(op)
@@ -86,13 +93,13 @@ class HBaseSQLParser extends SqlParser {
     }
 
   protected lazy val tableCol: Parser[Expression] =
-    expression ~ (expression | STRING)  ^^ {
+    expression ~ (expression | STRING) ^^ {
       case e1 ~ e2 => Alias(e1, e2.toString)()
     }
 
   protected lazy val tableCols: Parser[Seq[Expression]] = repsep(tableCol, ",")
 
-  protected lazy val colFamily: Parser[Expression] = expression ^^ {case e => e}
+  protected lazy val colFamily: Parser[Expression] = expression ^^ { case e => e}
 
   protected lazy val colFamilies: Parser[Seq[Expression]] = repsep(colFamily, ",")
 

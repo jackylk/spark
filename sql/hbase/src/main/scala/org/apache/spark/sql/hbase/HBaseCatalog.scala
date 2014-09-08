@@ -44,9 +44,9 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
 
   override def lookupRelation(databaseName: Option[String], tableName: String,
                               alias: Option[String]): LogicalPlan = {
-  //  val tableName = processTableName(tableName)
-   // val table = getHBaseTable(tableName)
-    null
+    val itableName = processTableName(tableName)
+    val table = getHBaseTable(itableName)
+    new HBaseRelation(table)
   }
 
   def getHBaseTable(tableName: String): HTableInterface = {
@@ -80,4 +80,26 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
 
   override def registerTable(databaseName: Option[String], tableName: String,
                              plan: LogicalPlan): Unit = ???
+
+
+  case class Column(cf: String, cq: String)
+
+  class Columns(val columns: Seq[Column]) {
+
+    import collection.mutable
+
+    val colsMap = columns.foldLeft(mutable.Map[String, Column]()) { case (m, c) =>
+      m(s"$c.cf:$c.cq") = c
+      m
+    }
+  }
+
+  case class HTable(tableName: String, rowKey: RowKey, cols: Columns)
+
+  sealed trait RowKey
+
+  case object RawBytesRowKey extends RowKey
+
+  case class TypedRowKey(columns: Columns) extends RowKey
+
 }
