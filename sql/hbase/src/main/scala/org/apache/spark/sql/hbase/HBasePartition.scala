@@ -14,38 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.spark.sql.hbase
 
-import org.apache.hadoop.hbase.client.HTableInterface
 import org.apache.log4j.Logger
-import org.apache.spark.{Partition, Partitioner}
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
-import org.apache.spark.sql.catalyst.plans.logical.LeafNode
-import org.apache.hadoop.hbase.regionserver.HRegion
-
-import scala.collection.JavaConverters
+import org.apache.spark.Partition
 
 /**
- * HBaseRelation
- *
- * Created by stephen.boesch@huawei.com on 9/8/14
+ * HBasePartition
+ * Created by sboesch on 9/9/14.
  */
-
-
-private[hbase] case class HBaseRelation(tableName: String, alias: Option[String])
-                                       (val table: HTableInterface,
-                                        val partitions: Seq[Partition])
-                                       (@transient hbaseContext: HBaseSQLContext)
-  extends LeafNode {
-
-  self: Product =>
-
+class HBasePartition(idx : Int, bounds : Product2[String,String])  extends Partition {
   val logger = Logger.getLogger(getClass.getName)
 
-  def partitionKeys: Seq[Attribute] = ???
-
-  override def output: Seq[Attribute] = ???
+  /**
+   * Get the split's index within its parent RDD
+   */
+  override def index: Int = idx
 
 }

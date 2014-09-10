@@ -18,10 +18,13 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.spark.SparkContext
+import org.apache.hadoop.hbase.client.HConnectionManager
+import org.apache.spark.{Partitioner, RangePartitioner, SparkContext}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.{SQLConf, SQLContext, SchemaRDD}
+import org.apache.spark.sql.{catalyst, SQLConf, SQLContext, SchemaRDD}
 import org.apache.hadoop.hbase._
+
+import scala.collection.JavaConverters
 
 
 /**
@@ -33,14 +36,44 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
             extends SQLContext(sc) {
   self =>
 
+  @transient val hbasePlanner = new SparkPlanner with HBaseStrategies {
+    val hbaseContext = self
+
+    override val strategies: Seq[Strategy] = Seq(
+      CommandStrategy(self),
+      TakeOrdered,
+      ParquetOperations,
+      InMemoryScans,
+      HBaseTableScans,
+      HashAggregation,
+      LeftSemiJoin,
+      HashJoin,
+      BasicOperators,
+      CartesianProduct,
+      BroadcastNestedLoopJoin
+    )
+  }
+
+  @transient
+  override protected[sql] val planner = hbasePlanner
+
+  @transient
+  private[hbase] val hconnection = HConnectionManager.createConnection(hbaseConf)
+
   // Change the default SQL dialect to HiveQL
   override private[spark] def dialect: String = getConf(SQLConf.DIALECT, "hbaseql")
 
   override protected[sql] def executePlan(plan: LogicalPlan): this.QueryExecution =
     new this.QueryExecution { val logical = plan }
 
+  /** Extends QueryExecution with HBase specific features. */
+  protected[sql] abstract class QueryExecution extends super.QueryExecution {
+  }
+
+  @transient
+  override protected[sql] def parser = new HBaseSQLParser
+
   override def sql(sqlText: String): SchemaRDD = {
-    // TODO: Create a framework for registering parsers instead of just hardcoding if statements.
     if (dialect == "sql") {
       super.sql(sqlText)
     } else if (dialect == "hbaseql") {
@@ -61,4 +94,20 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
     throw new UnsupportedOperationException("analyze not yet supported for HBase")
   }
 
+  def getPartitions(tableName : String) = {
+    import JavaConverters._
+    val regionLocations = hconnection.locateRegions(TableName.valueOf(tableName))
+    case class Bounds(startKey : String, endKey : String)
+    val regionBounds = regionLocations.asScala.map{ hregionLocation =>
+      val regionInfo = hregionLocation.getRegionInfo
+      Bounds( new String(regionInfo.getStartKey), new String(regionInfo.getEndKey))
+    }
+    regionBounds.zipWithIndex.map{ case (rb,ix) =>
+      new HBasePartition(ix, (rb.startKey, rb.endKey))
+    }
+  }
+
+  def close() = {
+    hconnection.close
+  }
 }

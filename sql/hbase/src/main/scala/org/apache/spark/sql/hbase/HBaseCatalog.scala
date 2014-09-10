@@ -17,7 +17,7 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client.{HBaseAdmin, HConnectionManager, HTableInterface}
+import org.apache.hadoop.hbase.client.{HTable, HBaseAdmin, HConnectionManager, HTableInterface}
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.log4j.Logger
@@ -46,7 +46,9 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
                               alias: Option[String]): LogicalPlan = {
     val itableName = processTableName(tableName)
     val table = getHBaseTable(itableName)
-    new HBaseRelation(table)
+    val h : HTable = null
+
+    new HBaseRelation(tableName, alias)(table,hbaseContext.getPartitions(tableName))(hbaseContext)
   }
 
   def getHBaseTable(tableName: String): HTableInterface = {
@@ -94,7 +96,7 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     }
   }
 
-  case class HTable(tableName: String, rowKey: RowKey, cols: Columns)
+  case class HBaseTable(tableName: String, rowKey: RowKey, cols: Columns)
 
   sealed trait RowKey
 

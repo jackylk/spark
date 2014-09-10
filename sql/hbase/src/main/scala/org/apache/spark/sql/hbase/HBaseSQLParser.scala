@@ -28,6 +28,7 @@ class HBaseSQLParser extends SqlParser {
   protected val MAPPED = Keyword("MAPPED")
   protected val ADD = Keyword("ADD")
 
+  override def apply(sql : String) = super.apply(sql)
 //  protected lazy val create: Parser[LogicalPlan] =
 //    CREATE ~> TABLE ~> opt(IF ~ NOT ~ EXISTS ^^^ true) ~ ident ~
 //      "(" ~> tableCols <~ ")" ~
@@ -43,7 +44,9 @@ class HBaseSQLParser extends SqlParser {
 //    }
 
    protected lazy val create: Parser[LogicalPlan] =
-    CREATE ~> TABLE ~> opt(IF ~ NOT ~ EXISTS ^^^ true) ~ ident ~ ("(" ~> tableCols <~ ")") ~ (MAPPED ~> BY ~> "(" ~> ident <~ ",") ~ colFamilies <~ ")" <~ opt(";") ^^ {
+    CREATE ~> TABLE ~> opt(IF ~ NOT ~ EXISTS ^^^ true) ~
+      ident ~ ("(" ~> tableCols <~ ")") ~ (MAPPED ~> BY ~> "(" ~> ident <~ ",") ~
+      colFamilies <~ ")" <~ opt(";") ^^ {
       case ine ~ tn ~ tc ~ htn ~ cf=>
         println("\nin Create")
         println(ine)

@@ -17,35 +17,24 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.hadoop.hbase.client.HTableInterface
 import org.apache.log4j.Logger
-import org.apache.spark.{Partition, Partitioner}
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
-import org.apache.spark.sql.catalyst.plans.logical.LeafNode
-import org.apache.hadoop.hbase.regionserver.HRegion
-
-import scala.collection.JavaConverters
+import org.apache.spark.sql.catalyst.expressions.{Expression, Attribute}
+import org.apache.spark.sql.execution.LeafNode
 
 /**
- * HBaseRelation
- *
- * Created by stephen.boesch@huawei.com on 9/8/14
+ * HBaseTableScan
+ * Created by sboesch on 9/2/14.
  */
-
-
-private[hbase] case class HBaseRelation(tableName: String, alias: Option[String])
-                                       (val table: HTableInterface,
-                                        val partitions: Seq[Partition])
-                                       (@transient hbaseContext: HBaseSQLContext)
+case class HBaseTableScan(
+                          attributes: Seq[Attribute],
+                          relation: HBaseRelation,
+                          partitionPruningPred: Option[Expression])(
+                          @transient val context: HBaseSQLContext)
   extends LeafNode {
-
-  self: Product =>
-
   val logger = Logger.getLogger(getClass.getName)
 
-  def partitionKeys: Seq[Attribute] = ???
+  override def execute() = ???
 
-  override def output: Seq[Attribute] = ???
+  override def output = attributes
 
 }

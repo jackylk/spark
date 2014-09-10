@@ -22,9 +22,12 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 /** Provides a mapping from HiveQL statements to catalyst logical plans and expression trees. */
 private[hbase] object HBaseQl {
 
+  // TODO: convert from HBase ParseUtils to correct HBase
+
   /** Returns a LogicalPlan for a given HiveQL string. */
   def parseSql(sql: String): LogicalPlan = {
-    throw new UnsupportedOperationException("HBaseQL not yet implemented")
+    val tree = new HBaseSQLParser().apply(sql)
+    tree
   }
 
 }
