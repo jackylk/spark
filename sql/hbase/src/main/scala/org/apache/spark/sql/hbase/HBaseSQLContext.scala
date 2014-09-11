@@ -23,7 +23,7 @@ import org.apache.spark.{Partitioner, RangePartitioner, SparkContext}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.{catalyst, SQLConf, SQLContext, SchemaRDD}
 import org.apache.hadoop.hbase._
-
+//import org.apache.spark.sql.execution.SparkStrategies.HashAggregation
 import scala.collection.JavaConverters
 
 
@@ -45,7 +45,7 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
       ParquetOperations,
       InMemoryScans,
       HBaseTableScans,
-      HashAggregation,
+//      HashAggregation,
       LeftSemiJoin,
       HashJoin,
       BasicOperators,
@@ -60,8 +60,7 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
   @transient
   private[hbase] val hconnection = HConnectionManager.createConnection(hbaseConf)
 
-  // Change the default SQL dialect to HiveQL
-  override private[spark] def dialect: String = getConf(SQLConf.DIALECT, "hbaseql")
+  override private[spark] val dialect: String = "hbaseql"
 
   override protected[sql] def executePlan(plan: LogicalPlan): this.QueryExecution =
     new this.QueryExecution { val logical = plan }
@@ -71,7 +70,7 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
   }
 
   @transient
-  override protected[sql] def parser = new HBaseSQLParser
+  override protected[sql] val parser = new HBaseSQLParser
 
   override def sql(sqlText: String): SchemaRDD = {
     if (dialect == "sql") {

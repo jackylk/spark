@@ -32,6 +32,10 @@ import org.apache.spark.sql.catalyst.plans.logical
 import org.apache.spark.sql.catalyst.plans.logical.{LeafNode, Join, Filter, LogicalPlan}
 import org.apache.spark.sql.execution.SparkPlan
 
+
+import scala.collection.JavaConversions._
+
+
 /**
  * HBaseStrategies
  * Created by sboesch on 8/22/14.
@@ -51,16 +55,18 @@ private[hbase] trait HBaseStrategies {
       case PhysicalOperation(projectList, predicates, relation: HBaseRelation) =>
         // Filter out all predicates that only deal with partition keys, these are given to the
         // hive table scan operator to be used for partition pruning.
-        val partitionKeyIds = AttributeSet(relation.partitionKeys)
-        val (pruningPredicates, otherPredicates) = predicates.partition {
-          _.references.subsetOf(partitionKeyIds)
-        }
-
-        pruneFilterProject(
-          projectList,
-          otherPredicates,
-          identity[Seq[Expression]],
-          HBaseTableScan(_, relation, pruningPredicates.reduceLeftOption(And))(hbaseContext)) :: Nil
+//        val partitionKeyIds = org.apache.spark.sql.catalyst.expressions.AttributeSet()
+//        val (pruningPredicates, otherPredicates) = predicates.partition {
+//          _.references.subsetOf(partitionKeyIds)
+//        }
+//
+//        pruneFilterProject(
+//          projectList,
+//          otherPredicates,
+//          identity[Seq[Expression]],
+//          HBaseTableScan(_, relation,
+//              pruningPredicates.reduceLeftOption(And))(hbaseContext)) :: Nil
+        Nil
       case _ =>
         Nil
     }

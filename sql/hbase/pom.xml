@@ -22,7 +22,7 @@
   <parent>
     <groupId>org.apache.spark</groupId>
     <artifactId>spark-parent</artifactId>
-    <version>1.1.0-SNAPSHOT</version>
+    <version>1.2.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
@@ -33,6 +33,7 @@
   <url>http://spark.apache.org/</url>
   <properties>
     <sbt.project.name>hbase</sbt.project.name>
+    <hbase.version>0.98.5-hadoop2</hbase.version>
   </properties>
 
   <dependencies>

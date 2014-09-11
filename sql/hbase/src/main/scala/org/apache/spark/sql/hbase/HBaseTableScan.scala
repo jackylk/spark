@@ -31,7 +31,7 @@ case class HBaseTableScan(
                           partitionPruningPred: Option[Expression])(
                           @transient val context: HBaseSQLContext)
   extends LeafNode {
-  val logger = Logger.getLogger(getClass.getName)
+//  override lazy val logger = Logger.getLogger(getClass.getName)
 
   override def execute() = ???
 
