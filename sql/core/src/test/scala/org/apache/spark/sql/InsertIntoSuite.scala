@@ -67,7 +67,7 @@ class InsertIntoSuite extends QueryTest {
     testData.insertInto("createAndInsertTest", overwrite = true)
 
     // Make sure its there for a new instance of parquet file.
-    checkAnswer(
+    checkAnswer(sq
       parquetFile(testFilePath.getCanonicalPath),
       testData.collect().toSeq
     )

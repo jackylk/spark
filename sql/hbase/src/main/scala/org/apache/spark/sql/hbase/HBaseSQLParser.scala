@@ -28,34 +28,7 @@ class HBaseSQLParser extends SqlParser {
   protected val MAPPED = Keyword("MAPPED")
   protected val ADD = Keyword("ADD")
 
-  override def apply(sql : String) = super.apply(sql)
-//  protected lazy val create: Parser[LogicalPlan] =
-//    CREATE ~> TABLE ~> opt(IF ~ NOT ~ EXISTS ^^^ true) ~ ident ~
-//      "(" ~> tableCols <~ ")" ~
-//      (MAPPED ~> BY ~> "(" ~> ident <~ "," ~ colFamilies <~ ")") <~ opt(";") ^^ {
-//      case ine ~ tn ~ tc ~ htn ~ cf =>
-//        println("\nin Create")
-//        println(ine)
-//        println(tn)
-//        println(tc)
-//        println(htn)
-//        println(cf)
-//        null
-//    }
-
-   protected lazy val create: Parser[LogicalPlan] =
-    CREATE ~> TABLE ~> opt(IF ~ NOT ~ EXISTS ^^^ true) ~
-      ident ~ ("(" ~> tableCols <~ ")") ~ (MAPPED ~> BY ~> "(" ~> ident <~ ",") ~
-      colFamilies <~ ")" <~ opt(";") ^^ {
-      case ine ~ tn ~ tc ~ htn ~ cf=>
-        println("\nin Create")
-        println(ine)
-        println(tn)
-        println(tc)
-        println(htn)
-        println(cf)
-        null
-    }
+  override def apply(sql: String) = super.apply(sql)
 
   override protected lazy val query: Parser[LogicalPlan] = (
     select * (
@@ -66,6 +39,20 @@ class HBaseSQLParser extends SqlParser {
       )
       | insert | cache | create | drop | alter
     )
+
+  protected lazy val create: Parser[LogicalPlan] =
+    CREATE ~> TABLE ~> opt(IF ~ NOT ~ EXISTS ^^^ true) ~
+      ident ~ ("(" ~> tableCols <~ ")") ~ (MAPPED ~> BY ~> "(" ~> ident <~ ",") ~
+      colFamilies <~ ")" <~ opt(";") ^^ {
+      case ine ~ tn ~ tc ~ htn ~ cf =>
+        println("\nin Create")
+        println(ine)
+        println(tn)
+        println(tc)
+        println(htn)
+        println(cf)
+        null
+    }
 
   protected lazy val drop: Parser[LogicalPlan] =
     DROP ~> TABLE ~> ident <~ opt(";") ^^ {
