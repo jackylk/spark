@@ -28,8 +28,6 @@ class HBaseSQLParser extends SqlParser {
   protected val MAPPED = Keyword("MAPPED")
   protected val ADD = Keyword("ADD")
 
-  override def apply(sql: String) = super.apply(sql)
-
   override protected lazy val query: Parser[LogicalPlan] = (
     select * (
       UNION ~ ALL ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Union(q1, q2)} |
@@ -94,3 +92,4 @@ class HBaseSQLParser extends SqlParser {
   protected lazy val colFamilies: Parser[Seq[Expression]] = repsep(colFamily, ",")
 
 }
+
