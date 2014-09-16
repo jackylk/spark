@@ -16,7 +16,10 @@
  */
 package org.apache.spark.sql.hbase
 
+import java.lang.reflect.Method
+
 import org.apache.spark.sql.catalyst.SqlParser
+import org.apache.spark.sql.catalyst.SqlLexical
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 
@@ -27,6 +30,14 @@ class HBaseSQLParser extends SqlParser {
   protected val EXISTS = Keyword("EXISTS")
   protected val MAPPED = Keyword("MAPPED")
   protected val ADD = Keyword("ADD")
+
+  protected val newReservedWords:Seq[String] =
+    this.getClass
+      .getMethods
+      .filter(_.getReturnType == classOf[Keyword])
+      .map(_.invoke(this).asInstanceOf[Keyword].str)
+
+  override val lexical = new SqlLexical(newReservedWords)
 
   override protected lazy val query: Parser[LogicalPlan] = (
     select * (
