@@ -76,7 +76,8 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
     if (dialect == "sql") {
       super.sql(sqlText)
     } else if (dialect == "hbaseql") {
-      new SchemaRDD(this, HBaseQl.parseSql(sqlText))
+      val a = HBaseQl.parseSql(sqlText)
+      new SchemaRDD(this, a)
     }  else {
       sys.error(s"Unsupported SQL dialect: $dialect.  Try 'sql' or 'hbaseql'")
     }

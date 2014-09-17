@@ -30,6 +30,8 @@ class HBaseSQLParser extends SqlParser {
   protected val EXISTS = Keyword("EXISTS")
   protected val MAPPED = Keyword("MAPPED")
   protected val ADD = Keyword("ADD")
+  protected val KEYS = Keyword("KEYS")
+  protected val COLS = Keyword("COLS")
 
   protected val newReservedWords:Seq[String] =
     this.getClass
@@ -50,17 +52,19 @@ class HBaseSQLParser extends SqlParser {
     )
 
   protected lazy val create: Parser[LogicalPlan] =
-    CREATE ~> TABLE ~> opt(IF ~ NOT ~ EXISTS ^^^ true) ~
-      ident ~ ("(" ~> tableCols <~ ")") ~ (MAPPED ~> BY ~> "(" ~> ident <~ ",") ~
-      colFamilies <~ ")" <~ opt(";") ^^ {
-      case ine ~ tn ~ tc ~ htn ~ cf =>
-        println("\nin Create")
-        println(ine)
-        println(tn)
-        println(tc)
-        println(htn)
-        println(cf)
-        null
+    CREATE ~> TABLE ~> ident ~
+      ("(" ~> tableCols <~ ")") ~
+      (MAPPED ~> BY ~> "(" ~> ident <~ ",") ~
+      (KEYS ~> "=" ~> "[" ~> keys <~ "]" <~ ",") ~
+      (COLS ~> "=" ~> "[" ~> expressions <~ "]" <~ ")") <~ opt(";") ^^ {
+      case tableName ~ tableCols ~ htn ~ keys ~ otherCols =>
+//        println("\nin Create")
+//        println(tableName)
+//        println(tableCols)
+//        println(htn)
+//        println(keys)
+//        println(otherCols)
+        CreateTablePlan(tableName, tableCols, htn, keys, otherCols)
     }
 
   protected lazy val drop: Parser[LogicalPlan] =
@@ -80,7 +84,7 @@ class HBaseSQLParser extends SqlParser {
         println(col)
         null
       }
-    } | ALTER ~> TABLE ~> ident ~ ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> colFamily <~ ")") ^^ {
+    } | ALTER ~> TABLE ~> ident ~ ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> expressions <~ ")") ^^ {
       case tn ~ op ~ tc ~ cf => {
         println("\nin Alter")
         println(tn)
@@ -91,16 +95,24 @@ class HBaseSQLParser extends SqlParser {
       }
     }
 
-  protected lazy val tableCol: Parser[Expression] =
-    expression ~ (expression | STRING) ^^ {
-      case e1 ~ e2 => Alias(e1, e2.toString)()
+  protected lazy val tableCol: Parser[(String, String)] =
+    ident ~ (ident | STRING) ^^ {
+      case e1 ~ e2 => (e1, e2)
     }
 
-  protected lazy val tableCols: Parser[Seq[Expression]] = repsep(tableCol, ",")
+  protected lazy val tableCols: Parser[Seq[(String, String)]] = repsep(tableCol, ",")
 
-  protected lazy val colFamily: Parser[Expression] = expression ^^ { case e => e}
+  protected lazy val keys: Parser[Seq[String]] = repsep(ident, ",")
 
-  protected lazy val colFamilies: Parser[Seq[Expression]] = repsep(colFamily, ",")
+  protected lazy val expressions: Parser[Seq[Expression]] = repsep(expression, ",")
 
 }
 
+case class CreateTablePlan( tableName: String,
+                            tableCols: Seq[(String, String)],
+                            hbaseTable: String,
+                            keys: Seq[String],
+                            otherCols: Seq[Expression]) extends LeafNode {
+  self: Product =>
+  def output: Seq[Attribute] = Seq.empty
+}
