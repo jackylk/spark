@@ -58,12 +58,12 @@ class HBaseSQLParser extends SqlParser {
       (KEYS ~> "=" ~> "[" ~> keys <~ "]" <~ ",") ~
       (COLS ~> "=" ~> "[" ~> expressions <~ "]" <~ ")") <~ opt(";") ^^ {
       case tableName ~ tableCols ~ htn ~ keys ~ otherCols =>
-//        println("\nin Create")
-//        println(tableName)
-//        println(tableCols)
-//        println(htn)
-//        println(keys)
-//        println(otherCols)
+        println("\nin Create")
+        println(tableName)
+        println(tableCols)
+        println(htn)
+        println(keys)
+        println(otherCols)
         CreateTablePlan(tableName, tableCols, htn, keys, otherCols)
     }
 
@@ -112,7 +112,7 @@ case class CreateTablePlan( tableName: String,
                             tableCols: Seq[(String, String)],
                             hbaseTable: String,
                             keys: Seq[String],
-                            otherCols: Seq[Expression]) extends LeafNode {
-  self: Product =>
-  def output: Seq[Attribute] = Seq.empty
+                            otherCols: Seq[Expression]) extends Command {
+//  self: Product =>
+//  def output: Seq[Attribute] = Seq.empty
 }

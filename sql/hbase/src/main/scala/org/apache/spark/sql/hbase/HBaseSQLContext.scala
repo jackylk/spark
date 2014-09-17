@@ -18,12 +18,16 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client.HConnectionManager
-import org.apache.spark.{Partitioner, RangePartitioner, SparkContext}
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.{catalyst, SQLConf, SQLContext, SchemaRDD}
 import org.apache.hadoop.hbase._
+import org.apache.hadoop.hbase.client.HConnectionManager
+import org.apache.spark.SparkContext
+import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.expressions.{EqualTo, Attribute, Expression}
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.execution._
+
 //import org.apache.spark.sql.execution.SparkStrategies.HashAggregation
+
 import scala.collection.JavaConverters
 
 
@@ -31,10 +35,13 @@ import scala.collection.JavaConverters
  * An instance of the Spark SQL execution engine that integrates with data stored in Hive.
  * Configuration for Hive is read from hive-site.xml on the classpath.
  */
-class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
-            = HBaseConfiguration.create())
-            extends SQLContext(sc) {
+class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
+= HBaseConfiguration.create())
+  extends SQLContext(sc) {
   self =>
+
+  @transient
+  override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this)
 
   @transient val hbasePlanner = new SparkPlanner with HBaseStrategies {
     val hbaseContext = self
@@ -45,13 +52,25 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
       ParquetOperations,
       InMemoryScans,
       HBaseTableScans,
-//      HashAggregation,
+      //      HashAggregation,
       LeftSemiJoin,
       HashJoin,
       BasicOperators,
       CartesianProduct,
-      BroadcastNestedLoopJoin
+      BroadcastNestedLoopJoin,
+      HbaseStrategy(self)
     )
+
+    case class HbaseStrategy(context: HBaseSQLContext) extends Strategy{
+
+      def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
+        case CreateTablePlan(a, b, c, d, e) => {
+          println("In HbaseStrategy")
+          Seq(CreateTableCommand(a,b,c,d,e)(context))
+        };
+        case _ => Nil
+      }
+    }
   }
 
   @transient
@@ -63,7 +82,9 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
   override private[spark] val dialect: String = "hbaseql"
 
   override protected[sql] def executePlan(plan: LogicalPlan): this.QueryExecution =
-    new this.QueryExecution { val logical = plan }
+    new this.QueryExecution {
+      val logical = plan
+    }
 
   /** Extends QueryExecution with HBase specific features. */
   protected[sql] abstract class QueryExecution extends super.QueryExecution {
@@ -76,9 +97,8 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
     if (dialect == "sql") {
       super.sql(sqlText)
     } else if (dialect == "hbaseql") {
-      val a = HBaseQl.parseSql(sqlText)
-      new SchemaRDD(this, a)
-    }  else {
+      new SchemaRDD(this, parser(sqlText))
+    } else {
       sys.error(s"Unsupported SQL dialect: $dialect.  Try 'sql' or 'hbaseql'")
     }
   }
@@ -94,20 +114,48 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf : Configuration
     throw new UnsupportedOperationException("analyze not yet supported for HBase")
   }
 
-  def getPartitions(tableName : String) = {
-    import JavaConverters._
+  def getPartitions(tableName: String) = {
+    import scala.collection.JavaConverters._
     val regionLocations = hconnection.locateRegions(TableName.valueOf(tableName))
-    case class Bounds(startKey : String, endKey : String)
-    val regionBounds = regionLocations.asScala.map{ hregionLocation =>
+    case class Bounds(startKey: String, endKey: String)
+    val regionBounds = regionLocations.asScala.map { hregionLocation =>
       val regionInfo = hregionLocation.getRegionInfo
-      Bounds( new String(regionInfo.getStartKey), new String(regionInfo.getEndKey))
+      Bounds(new String(regionInfo.getStartKey), new String(regionInfo.getEndKey))
     }
-    regionBounds.zipWithIndex.map{ case (rb,ix) =>
+    regionBounds.zipWithIndex.map { case (rb, ix) =>
       new HBasePartition(ix, (rb.startKey, rb.endKey))
     }
+  }
+
+  def createHbaseTable(tableName: String,
+                       tableCols: Seq[(String, String)],
+                       hbaseTable: String,
+                       keys: Seq[String],
+                       otherCols: Seq[Expression]): Unit = {
+    println("in createHbaseTable")
+    val colsTypeMap: Map[String, String] = 
+      tableCols.map{case(colName, colType) => colName -> colType}.toMap
+    val otherColsMap:Map[String, String] =
+      otherCols.map{case EqualTo(e1, e2) => e1.toString.substring(1) -> e2.toString.substring(1)}.toMap
+    catalog.createTable("DEFAULT", tableName, colsTypeMap, hbaseTable, keys.toList, otherColsMap);
   }
 
   def close() = {
     hconnection.close
   }
+}
+
+case class CreateTableCommand(tableName: String,
+                              tableCols: Seq[(String, String)],
+                              hbaseTable: String,
+                              keys: Seq[String],
+                              otherCols: Seq[Expression])(@transient context: HBaseSQLContext)
+  extends LeafNode with Command {
+
+  override protected[sql] lazy val sideEffectResult = {
+    context.createHbaseTable(tableName, tableCols, hbaseTable, keys, otherCols)
+    Seq.empty[Row]
+  }
+
+  override def output: Seq[Attribute] = Seq.empty
 }
