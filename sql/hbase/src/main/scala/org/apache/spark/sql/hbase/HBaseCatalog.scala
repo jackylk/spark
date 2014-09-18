@@ -134,7 +134,7 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     }
   }
 
-  def retrieveTable(dbName: String, tableName: String): (List[(String, String)], String, Seq[String], List[(String, String)]) = {
+  def retrieveTable(dbName: String, tableName: String): (List[(String, String)], String, List[String], List[(String, String)]) = {
     val conf = HBaseConfiguration.create()
 
     val table = new HTable(conf, METADATA)
