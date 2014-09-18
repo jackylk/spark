@@ -73,7 +73,7 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     }
   }
 
-  def createTable(dbName: String, tableName: String, columnInfo: LinkedHashMap[String, String], hbaseTableName: String, keys: List[String], mappingInfo: LinkedHashMap[String, String]): Unit = {
+  def createTable(dbName: String, tableName: String, columnInfo: List[(String, String)], hbaseTableName: String, keys: List[String], mappingInfo: List[(String, String)]): Unit = {
     val conf = HBaseConfiguration.create()
 
     val admin = new HBaseAdmin(conf)
@@ -134,7 +134,7 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     }
   }
 
-  def retrieveTable(dbName: String, tableName: String): (LinkedHashMap[String, String], String, List[String], LinkedHashMap[String, String]) = {
+  def retrieveTable(dbName: String, tableName: String): (List[(String, String)], String, Seq[String], List[(String, String)]) = {
     val conf = HBaseConfiguration.create()
 
     val table = new HTable(conf, METADATA)
@@ -147,12 +147,12 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
       columnInfo = columnInfo.substring(0, columnInfo.length - 1)
     }
     val columnInfoArray = columnInfo.split(",")
-    val columnInfoMap = new LinkedHashMap[String, String]
+    var columnInfoList = List[(String, String)]()
     for (column <- columnInfoArray) {
       val index = column.indexOf("=")
       val key = column.substring(0, index)
       val value = column.substring(index + 1)
-      columnInfoMap.put(key, value)
+      columnInfoList = columnInfoList :+(key, value)
     }
 
     val hbaseName = Bytes.toString(rest1.getValue(COLUMN_FAMILY, QUAL_HBASE_NAME))
@@ -162,12 +162,12 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
       mappingInfo = mappingInfo.substring(0, mappingInfo.length - 1)
     }
     val mappingInfoArray = mappingInfo.split(",")
-    val mappingInfoMap = new LinkedHashMap[String, String]
+    var mappingInfoList = List[(String, String)]()
     for (mapping <- mappingInfoArray) {
       val index = mapping.indexOf("=")
       val key = mapping.substring(0, index)
       val value = mapping.substring(index + 1)
-      mappingInfoMap.put(key, value)
+      mappingInfoList = mappingInfoList :+(key, value)
     }
 
     var keys = Bytes.toString(rest1.getValue(COLUMN_FAMILY, QUAL_KEYS))
@@ -180,7 +180,7 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
       keysList += key
     }
 
-    (columnInfoMap, hbaseName, keysList.toList, mappingInfoMap)
+    (columnInfoList, hbaseName, keysList.toList, mappingInfoList)
   }
 
   override def registerTable(databaseName: Option[String], tableName: String,
