@@ -133,11 +133,9 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
                        keys: Seq[String],
                        otherCols: Seq[Expression]): Unit = {
     println("in createHbaseTable")
-    val colsTypeMap: Map[String, String] = 
-      tableCols.map{case(colName, colType) => colName -> colType}.toMap
-    val otherColsMap:Map[String, String] =
-      otherCols.map{case EqualTo(e1, e2) => e1.toString.substring(1) -> e2.toString.substring(1)}.toMap
-    catalog.createTable("DEFAULT", tableName, colsTypeMap, hbaseTable, keys.toList, otherColsMap);
+    val otherColsList:List[(String, String)] =
+      otherCols.map{case EqualTo(e1, e2) => (e1.toString.substring(1), e2.toString.substring(1))}.toList
+    catalog.createTable("DEFAULT", tableName, tableCols.toList, hbaseTable, keys.toList, otherColsList);
   }
 
   def close() = {
