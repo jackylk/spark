@@ -58,13 +58,9 @@ class HBaseSQLParser extends SqlParser {
       (KEYS ~> "=" ~> "[" ~> keys <~ "]" <~ ",") ~
       (COLS ~> "=" ~> "[" ~> expressions <~ "]" <~ ")") <~ opt(";") ^^ {
       case tableName ~ tableCols ~ htn ~ keys ~ otherCols =>
-        println("\nin Create")
-        println(tableName)
-        println(tableCols)
-        println(htn)
-        println(keys)
-        println(otherCols)
-        CreateTablePlan(tableName, tableCols, htn, keys, otherCols)
+        val otherColsSeq:Seq[(String, String)] =
+          otherCols.map{case EqualTo(e1, e2) => (e1.toString.substring(1), e2.toString.substring(1))}
+        CreateTablePlan(tableName, tableCols, htn, keys, otherColsSeq)
     }
 
   protected lazy val drop: Parser[LogicalPlan] =
@@ -112,7 +108,4 @@ case class CreateTablePlan( tableName: String,
                             tableCols: Seq[(String, String)],
                             hbaseTable: String,
                             keys: Seq[String],
-                            otherCols: Seq[Expression]) extends Command {
-//  self: Product =>
-//  def output: Seq[Attribute] = Seq.empty
-}
+                            otherCols: Seq[(String, String)]) extends Command 

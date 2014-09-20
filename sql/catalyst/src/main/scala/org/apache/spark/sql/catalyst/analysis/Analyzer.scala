@@ -76,15 +76,15 @@ class Analyzer(catalog: Catalog, registry: FunctionRegistry, caseSensitive: Bool
   object CheckResolution extends Rule[LogicalPlan] {
     def apply(plan: LogicalPlan): LogicalPlan = {
       plan.transform {
-//        case p if p.expressions.exists(!_.resolved) =>
-//          throw new TreeNodeException(p,
-//            s"Unresolved attributes: ${p.expressions.filterNot(_.resolved).mkString(",")}")
-//        case p if !p.resolved && p.childrenResolved =>
-//          throw new TreeNodeException(p, "Unresolved plan found")
-//      } match {
-        // As a backstop, use the root node to check that the entire plan tree is resolved.
-//        case p if !p.resolved =>
-//          throw new TreeNodeException(p, "Unresolved plan in tree")
+        case p if p.expressions.exists(!_.resolved) =>
+          throw new TreeNodeException(p,
+            s"Unresolved attributes: ${p.expressions.filterNot(_.resolved).mkString(",")}")
+        case p if !p.resolved && p.childrenResolved =>
+          throw new TreeNodeException(p, "Unresolved plan found")
+      } match {
+        //As a backstop, use the root node to check that the entire plan tree is resolved.
+        case p if !p.resolved =>
+          throw new TreeNodeException(p, "Unresolved plan in tree")
         case p => p
       }
     }

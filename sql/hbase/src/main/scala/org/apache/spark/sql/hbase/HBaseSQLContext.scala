@@ -131,11 +131,9 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
                        tableCols: Seq[(String, String)],
                        hbaseTable: String,
                        keys: Seq[String],
-                       otherCols: Seq[Expression]): Unit = {
+                       otherCols: Seq[(String, String)]): Unit = {
     println("in createHbaseTable")
-    val otherColsList:List[(String, String)] =
-      otherCols.map{case EqualTo(e1, e2) => (e1.toString.substring(1), e2.toString.substring(1))}.toList
-    catalog.createTable("DEFAULT", tableName, tableCols.toList, hbaseTable, keys.toList, otherColsList);
+    catalog.createTable("DEFAULT", tableName, tableCols.toList, hbaseTable, keys.toList, otherCols.toList);
   }
 
   def close() = {
@@ -147,7 +145,7 @@ case class CreateTableCommand(tableName: String,
                               tableCols: Seq[(String, String)],
                               hbaseTable: String,
                               keys: Seq[String],
-                              otherCols: Seq[Expression])(@transient context: HBaseSQLContext)
+                              otherCols: Seq[(String, String)])(@transient context: HBaseSQLContext)
   extends LeafNode with Command {
 
   override protected[sql] lazy val sideEffectResult = {
