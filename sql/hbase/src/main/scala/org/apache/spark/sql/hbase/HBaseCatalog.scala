@@ -78,10 +78,11 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     }
   }
 
-<<<<<<< HEAD
   def createTable(dbName: String, tableName: String, columnInfo: List[(String, String)],
                   hbaseTableName: String, keys: List[String],
                   mappingInfo: List[(String, String)]): Unit = {
+    //println(System.getProperty("java.class.path"))
+
     val conf = HBaseConfiguration.create
 
     val admin = new HBaseAdmin(conf)
@@ -142,7 +143,6 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     }
   }
 
-<<<<<<< HEAD
   def retrieveTable(dbName: String, tableName: String): (List[(String, String)],
     String, List[String], List[(String, String)]) = {
     val conf = HBaseConfiguration.create()
@@ -200,7 +200,6 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
   case class Column(family: String, qualifier: String, dataType : DataType)
 
   object Column {
-<<<<<<< HEAD
     def toAttribute(col : Column) : Attribute = null
 //      AttributeReference(
 //      col.family,
@@ -231,5 +230,4 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
   case object RawBytesRowKey extends RowKey
 
   case class TypedRowKey(columns: Columns) extends RowKey
-
 }
