@@ -62,7 +62,8 @@ class HBaseSQLParser extends SqlParser {
       // we compose it to expression first and then translate it into Seq(String, String)
       case tableName ~ tableCols ~ htn ~ keys ~ otherCols =>
         val otherColsSeq:Seq[(String, String)] =
-          otherCols.map{case EqualTo(e1, e2) => (e1.toString.substring(1), e2.toString.substring(1))}
+          otherCols.map{case EqualTo(e1, e2) => (e1.toString.substring(1),
+            e2.toString.substring(1))}
         CreateTablePlan(tableName, tableCols, htn, keys, otherColsSeq)
     }
 

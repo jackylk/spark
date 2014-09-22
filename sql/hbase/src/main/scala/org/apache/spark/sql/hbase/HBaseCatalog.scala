@@ -23,7 +23,9 @@ import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDes
 import org.apache.log4j.Logger
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.analysis.Catalog
+import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.types.DataType
 
 import scala.collection.mutable.{HashMap, LinkedHashMap, ListBuffer}
 
@@ -31,12 +33,8 @@ import scala.collection.mutable.{HashMap, LinkedHashMap, ListBuffer}
  * HBaseCatalog
  */
 private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog with Logging {
-  lazy val configuration = hbaseContext.sparkContext.getConf.get("hadoop.configuration")
-    .asInstanceOf[Configuration]
-  lazy val hbaseConnection = {
-    val connection = HConnectionManager.createConnection(configuration)
-    connection
-  }
+  lazy val configuration = HBaseUtils.getConfiguration(hbaseContext)
+  lazy val hconnection = HBaseUtils.getHBaseConnection(configuration)
 
   val METADATA = "metadata"
   val COLUMN_FAMILY = Bytes.toBytes("colfam")
@@ -48,21 +46,28 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
   val logger = Logger.getLogger(getClass.getName)
   val caseSensitive: Boolean = false
 
-  override def unregisterAllTables(): Unit = {}
+  // TODO(Bo): read the entire HBASE_META_TABLE and process it once, then cache it
+  // in this class
+  override def unregisterAllTables(): Unit = { tables.clear }
 
-  override def unregisterTable(databaseName: Option[String], tableName: String): Unit = ???
+  override def unregisterTable(databaseName: Option[String], tableName: String): Unit =
+    tables -= tableName
 
-  override def lookupRelation(databaseName: Option[String], tableName: String,
+  def getTableFromCatalog(tableName : TableName) = {
+    val rowKey : TypedRowKey = null
+    val columns : Columns = null
+    HBaseCatalogTable(tableName, rowKey, columns)
+  }
+  override def lookupRelation(nameSpace: Option[String], tableName: String,
                               alias: Option[String]): LogicalPlan = {
     val itableName = processTableName(tableName)
-    val table = getHBaseTable(itableName)
-    val h : HTable = null
-
-    new HBaseRelation(tableName, alias)(table,hbaseContext.getPartitions(tableName))(hbaseContext)
+    val htable = getHBaseTable(TableName.valueOf(nameSpace.orNull, itableName))
+    val catalogTable = getTableFromCatalog(TableName.valueOf(nameSpace.orNull, tableName))
+    new HBaseRelation(configuration, hbaseContext, htable, catalogTable)
   }
 
-  def getHBaseTable(tableName: String): HTableInterface = {
-    hbaseConnection.getTable(tableName)
+  def getHBaseTable(tableName: TableName): HTableInterface = {
+    hconnection.getTable(tableName)
   }
 
   protected def processTableName(tableName: String): String = {
@@ -73,8 +78,10 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     }
   }
 
-  def createTable(dbName: String, tableName: String, columnInfo: List[(String, String)], hbaseTableName: String, keys: List[String], mappingInfo: List[(String, String)]): Unit = {
-    val conf = HBaseConfiguration.create()
+  def createTable(dbName: String, tableName: String, columnInfo: List[(String, String)],
+                  hbaseTableName: String, keys: List[String],
+                  mappingInfo: List[(String, String)]): Unit = {
+    val conf = HBaseConfiguration.create
 
     val admin = new HBaseAdmin(conf)
 
@@ -134,7 +141,8 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     }
   }
 
-  def retrieveTable(dbName: String, tableName: String): (List[(String, String)], String, List[String], List[(String, String)]) = {
+  def retrieveTable(dbName: String, tableName: String): (List[(String, String)],
+    String, List[String], List[(String, String)]) = {
     val conf = HBaseConfiguration.create()
 
     val table = new HTable(conf, METADATA)
@@ -187,8 +195,16 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
                              plan: LogicalPlan): Unit = ???
 
 
-  case class Column(cf: String, cq: String)
+  case class Column(family: String, qualifier: String, dataType : DataType)
 
+  object Column {
+    def toAttribute(col : Column) : Attribute = null
+//      AttributeReference(
+//      col.family,
+//      col.dataType,
+//      nullable=true
+//    )()
+  }
   class Columns(val columns: Seq[Column]) {
 
     import scala.collection.mutable
@@ -197,9 +213,15 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
       m(s"$c.cf:$c.cq") = c
       m
     }
+    def asAttributes() = {
+      columns.map{ col =>
+        Column.toAttribute(col)
+      }
+    }
   }
 
-  case class HBaseTable(tableName: String, rowKey: RowKey, cols: Columns)
+
+  case class HBaseCatalogTable(tableName: TableName, rowKey: TypedRowKey, cols: Columns)
 
   sealed trait RowKey
 

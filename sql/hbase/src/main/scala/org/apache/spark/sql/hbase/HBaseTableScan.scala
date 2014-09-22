@@ -18,7 +18,9 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.log4j.Logger
-import org.apache.spark.sql.catalyst.expressions.{Expression, Attribute}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.api.java.BooleanType
+import org.apache.spark.sql.catalyst.expressions.{Row, BindReferences, Expression, Attribute}
 import org.apache.spark.sql.execution.LeafNode
 
 /**
@@ -28,12 +30,32 @@ import org.apache.spark.sql.execution.LeafNode
 case class HBaseTableScan(
                           attributes: Seq[Attribute],
                           relation: HBaseRelation,
-                          partitionPruningPred: Option[Expression])(
+                          predicates : Option[Expression],
+//                          partitionPruningPred: Option[Expression])(
                           @transient val context: HBaseSQLContext)
   extends LeafNode {
 //  override lazy val logger = Logger.getLogger(getClass.getName)
 
-  override def execute() = ???
+//  // Bind all partition key attribute references in the partition pruning predicate for later
+//  // evaluation.
+//  private[this] val boundPruningPred = partitionPruningPred.map { pred =>
+//    require(
+//      pred.dataType == BooleanType,
+//      s"Data type of predicate $pred must be BooleanType rather than ${pred.dataType}.")
+//
+//    BindReferences.bindReference(pred, relation.)
+//  }
+
+//  private[this] val hbaseReader = new HBaseReader(attributes, relation, context)
+//  override def execute() = {
+//    HBase
+//  }
+
+
+  /**
+   * Runs this query returning the result as an RDD.
+   */
+  override def execute(): RDD[Row] = ???
 
   override def output = attributes
 

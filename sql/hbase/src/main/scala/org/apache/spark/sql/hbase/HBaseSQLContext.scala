@@ -52,7 +52,7 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
       ParquetOperations,
       InMemoryScans,
       HBaseTableScans,
-      //      HashAggregation,
+      HashAggregation,
       LeftSemiJoin,
       HashJoin,
       BasicOperators,
@@ -93,6 +93,8 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
   @transient
   override protected[sql] val parser = new HBaseSQLParser
 
+  override def parseSql(sql: String): LogicalPlan = parser(sql)
+
   override def sql(sqlText: String): SchemaRDD = {
     if (dialect == "sql") {
       super.sql(sqlText)
@@ -114,26 +116,14 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
     throw new UnsupportedOperationException("analyze not yet supported for HBase")
   }
 
-  def getPartitions(tableName: String) = {
-    import scala.collection.JavaConverters._
-    val regionLocations = hconnection.locateRegions(TableName.valueOf(tableName))
-    case class Bounds(startKey: String, endKey: String)
-    val regionBounds = regionLocations.asScala.map { hregionLocation =>
-      val regionInfo = hregionLocation.getRegionInfo
-      Bounds(new String(regionInfo.getStartKey), new String(regionInfo.getEndKey))
-    }
-    regionBounds.zipWithIndex.map { case (rb, ix) =>
-      new HBasePartition(ix, (rb.startKey, rb.endKey))
-    }
-  }
-
   def createHbaseTable(tableName: String,
-                       tableCols: Seq[(String, String)],
-                       hbaseTable: String,
-                       keys: Seq[String],
-                       otherCols: Seq[(String, String)]): Unit = {
+    tableCols: Seq[(String, String)],
+    hbaseTable: String,
+    keys: Seq[String],
+    otherCols: Seq[(String, String)]): Unit = {
     println("in createHbaseTable")
-    catalog.createTable("DEFAULT", tableName, tableCols.toList, hbaseTable, keys.toList, otherCols.toList);
+    catalog.createTable("DEFAULT", tableName, tableCols.toList, hbaseTable, keys.toList,
+      otherCols.toList);
   }
 
   def close() = {

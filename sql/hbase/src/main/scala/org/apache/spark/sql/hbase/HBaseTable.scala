@@ -17,26 +17,20 @@
 
 package org.apache.spark.sql.hbase
 
+import org.apache.log4j.Logger
+import org.apache.spark.sql.catalyst.expressions.Attribute
 
-//import org.apache.spark.sql.QueryTest
+/**
+ * HBaseTable
+ * Created by sboesch on 9/16/14.
+ */
+case class HBaseTable(
+     tableName: String,
+     alias: Option[String],
+  rowkeyColumns : Seq[Attribute],
+  columns : Seq[Attribute],
+  partitions: Seq[HBasePartition]
+                       ) {
+  val logger = Logger.getLogger(getClass.getName)
 
-/* Implicits */
-import org.apache.spark.sql.hbase.TestHbase._
-
-class CreateTableSuite /* extends QueryTest */ {
-  /*
-  TestData // Initialize TestData
-
-  test("create table") {
-    sql("CREATE TABLE tableName (col1 TYPE1, col2 TYPE2, col3 TYPE3, col4 TYPE4, col5 TYPE5, col6 TYPE6, col7 TYPE7) " +
-      "MAPPED BY (hbaseTableName, KEYS=[col7, col1, col3], COLS=[cf1.cq11=col2, cf1.cq12=col4, cf2.cq21=col5, cf2.cq22=col6])")
-  }
-
-  test("SPARK-3176 Added Parser of SQL ABS()") {
-    checkAnswer(
-      sql("SELECT ABS(-1.3)"),
-      1.3)
-  }
-
-  */
 }

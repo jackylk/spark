@@ -23,8 +23,8 @@ import org.apache.spark.Partition
  * HBasePartition
  * Created by sboesch on 9/9/14.
  */
-class HBasePartition(idx : Int, bounds : Product2[String,String])  extends Partition {
-  val logger = Logger.getLogger(getClass.getName)
+case class HBasePartition(idx : Int, bounds : Product2[Array[Byte],Array[Byte]],
+                          server: String)  extends Partition {
 
   /**
    * Get the split's index within its parent RDD

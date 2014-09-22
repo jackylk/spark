@@ -17,17 +17,13 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.log4j.Logger
 
-/** Provides a mapping from HiveQL statements to catalyst logical plans and expression trees. */
-private[hbase] object HBaseQl {
-
-  // TODO: convert from HBase ParseUtils to correct HBase
-
-  /** Returns a LogicalPlan for a given HiveQL string. */
-  def parseSql(sql: String): LogicalPlan = {
-    val tree = new HBaseSQLParser().apply(sql)
-    tree
-  }
+/**
+ * HBaseSQLReaderRDD
+ * Created by sboesch on 9/16/14.
+ */
+class HBaseSQLWriterRDD(tableName : String) {
+  val logger = Logger.getLogger(getClass.getName)
 
 }

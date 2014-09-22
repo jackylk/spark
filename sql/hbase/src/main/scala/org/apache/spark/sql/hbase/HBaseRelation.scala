@@ -17,15 +17,12 @@
 
 package org.apache.spark.sql.hbase
 
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.client.HTableInterface
 import org.apache.log4j.Logger
-import org.apache.spark.{Partition, Partitioner}
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
+import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
-import org.apache.hadoop.hbase.regionserver.HRegion
-
-import scala.collection.JavaConverters
 
 /**
  * HBaseRelation
@@ -34,15 +31,18 @@ import scala.collection.JavaConverters
  */
 
 
-private[hbase] case class HBaseRelation(tableName: String, alias: Option[String])
-                                       (val table: HTableInterface,
-                                        val partitions: Seq[Partition])
-                                       (@transient hbaseContext: HBaseSQLContext)
+private[hbase] case class HBaseRelation(
+                                         @transient configuration: Configuration,
+                                         @transient hbaseContext: HBaseSQLContext,
+                                         htable: HTableInterface,
+                                         catalogTable: HBaseCatalog#HBaseCatalogTable)
   extends LeafNode {
 
   self: Product =>
 
   val logger = Logger.getLogger(getClass.getName)
+
+  @transient val catalog = hbaseContext.catalog
 
   def partitionKeys: Seq[Attribute] = ???
 

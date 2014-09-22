@@ -19,21 +19,13 @@ package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.{HTable, Scan}
-import org.apache.hadoop.hbase.client.coprocessor.Batch
 import org.apache.hadoop.hbase.filter.{Filter => HFilter}
-import org.apache.hadoop.hbase.regionserver.HRegion
-import org.apache.log4j.Logger
-import org.apache.spark.sql.catalyst.analysis.UnresolvedException
-import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.catalyst.expressions.{AttributeSet, _}
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
-import org.apache.spark.sql.parquet.{ParquetTableScan, ParquetFilters, InsertIntoParquetTable, ParquetRelation}
-import org.apache.spark.sql.{execution, SQLContext}
-import org.apache.spark.sql.catalyst.plans.logical
-import org.apache.spark.sql.catalyst.plans.logical.{LeafNode, Join, Filter, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.{Filter, Join, LogicalPlan}
 import org.apache.spark.sql.execution.SparkPlan
-
-
-import scala.collection.JavaConversions._
+import org.apache.spark.sql.parquet.{ParquetTableScan, ParquetFilters, ParquetRelation}
 
 
 /**
@@ -47,7 +39,7 @@ private[hbase] trait HBaseStrategies {
   val hbaseContext: HBaseSQLContext
 
   /**
-   * Retrieves data using a HiveTableScan.  Partition pruning predicates are also detected and
+   * Retrieves data using a HBaseTableScan.  Partition pruning predicates are also detected and
    * applied.
    */
   object HBaseTableScans extends Strategy {
@@ -55,16 +47,20 @@ private[hbase] trait HBaseStrategies {
       case PhysicalOperation(projectList, predicates, relation: HBaseRelation) =>
         // Filter out all predicates that only deal with partition keys, these are given to the
         // hive table scan operator to be used for partition pruning.
-//        val partitionKeyIds = org.apache.spark.sql.catalyst.expressions.AttributeSet()
-//        val (pruningPredicates, otherPredicates) = predicates.partition {
-//          _.references.subsetOf(partitionKeyIds)
-//        }
-//
-//        pruneFilterProject(
-//          projectList,
-//          otherPredicates,
-//          identity[Seq[Expression]],
-//          HBaseTableScan(_, relation,
+
+        val partitionKeys = relation.catalogTable.rowKey.columns.asAttributes
+
+        val partitionKeyIds = AttributeSet(partitionKeys)
+        val (pruningPredicates, otherPredicates) = predicates.partition {
+          _.references.subsetOf(partitionKeyIds)
+        }
+
+        pruneFilterProject(
+          projectList,
+          predicates, // As opposed to hive, hbase requires all predicates for the Scan's
+          identity[Seq[Expression]],
+        null) :: Nil
+//          HBaseTableScan(partitionKeyIds, relation, predicates,
 //              pruningPredicates.reduceLeftOption(And))(hbaseContext)) :: Nil
         Nil
       case _ =>
@@ -99,6 +95,16 @@ private[hbase] trait HBaseStrategies {
   }
   def sequentialScan(htable : HTable, filter : HFilter) = {
 //    val htable
+  }
+
+  object HBaseOperations extends Strategy {
+    def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
+//      case PhysicalOperation(projectList, filters: Seq[Expression], relation: HBaseRelation) =>
+//          val hBaseColumns = projectList.map{ p =>
+//
+//          new HBaseSQLReaderRDD()
+      case _ => Nil
+    }
   }
 
 }

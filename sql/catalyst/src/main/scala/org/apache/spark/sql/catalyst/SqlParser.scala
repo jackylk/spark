@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.catalyst
 
+import java.lang.reflect.Method
+
 import scala.language.implicitConversions
 
 import org.apache.spark.sql.catalyst.analysis._
@@ -107,6 +109,9 @@ class SqlParser extends AbstractSparkSQLParser {
   protected val WHERE = Keyword("WHERE")
 
   // Use reflection to find the reserved words defined in this class.
+  /* TODO: It will cause the null exception for the subClass of SqlParser. 
+   * Temporary solution: Add one more filter to restrain the class must be SqlParser 
+   */ 
   protected val reservedWords =
     this
       .getClass
