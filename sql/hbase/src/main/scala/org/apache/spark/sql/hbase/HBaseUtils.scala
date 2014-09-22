@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
@@ -43,8 +42,8 @@ object HBaseUtils {
   def getPartitions(hConnection : HConnection, tableName : String) = {
     import JavaConverters._
     val regionLocations = hConnection.locateRegions(TableName.valueOf(tableName))
-    case class BoundsAndServers(startKey : Array[Byte], endKey :
-      Array[Byte], servers : Seq[String])
+    case class BoundsAndServers(startKey : Array[Byte], endKey : Array[Byte],
+                                servers : Seq[String])
     val regionBoundsAndServers = regionLocations.asScala.map{ hregionLocation =>
       val regionInfo = hregionLocation.getRegionInfo
       BoundsAndServers( regionInfo.getStartKey, regionInfo.getEndKey,
