@@ -82,11 +82,6 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
   def createTable(dbName: String, tableName: String, columnInfo: List[(String, String)],
                   hbaseTableName: String, keys: List[String],
                   mappingInfo: List[(String, String)]): Unit = {
-=======
-  def createTable(dbName: String, tableName: String, columnInfo:
-  LinkedHashMap[String, String], hbaseTableName: String, keys: List[String],
-                  mappingInfo: LinkedHashMap[String, String]): Unit = {
->>>>>>> Incremental updates before impl of HBaseRDD
     val conf = HBaseConfiguration.create
 
     val admin = new HBaseAdmin(conf)
@@ -151,11 +146,6 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
   def retrieveTable(dbName: String, tableName: String): (List[(String, String)],
     String, List[String], List[(String, String)]) = {
     val conf = HBaseConfiguration.create()
-=======
-  def retrieveTable(dbName: String, tableName: String): (LinkedHashMap[String, String],
-    String, List[String], LinkedHashMap[String, String]) = {
-    val conf = HBaseConfiguration.create
->>>>>>> Incremental updates before impl of HBaseRDD
 
     val table = new HTable(conf, METADATA)
 
@@ -217,13 +207,6 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
 //      col.dataType,
 //      nullable=true
 //    )()
-=======
-    def toAttribute(col : Column) = AttributeReference(
-      col.family,
-      col.dataType,
-      nullable=true
-    )()
->>>>>>> Incremental updates before impl of HBaseRDD
   }
   class Columns(val columns: Seq[Column]) {
 
