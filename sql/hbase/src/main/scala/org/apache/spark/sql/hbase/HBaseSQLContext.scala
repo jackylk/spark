@@ -65,7 +65,6 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
 
       def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
         case CreateTablePlan(a, b, c, d, e) => {
-          println("In HbaseStrategy")
           Seq(CreateTableCommand(a,b,c,d,e)(context))
         };
         case _ => Nil
@@ -121,7 +120,6 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
     hbaseTable: String,
     keys: Seq[String],
     otherCols: Seq[(String, String)]): Unit = {
-    println("in createHbaseTable")
     catalog.createTable("DEFAULT", tableName, tableCols.toList, hbaseTable, keys.toList,
       otherCols.toList);
   }
