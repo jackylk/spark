@@ -22,7 +22,8 @@ import org.apache.hadoop.hbase._
 import org.apache.hadoop.hbase.client.HConnectionManager
 import org.apache.spark.SparkContext
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.catalyst.analysis.Analyzer
+import org.apache.spark.sql.catalyst.expressions.{EqualTo, Attribute, Expression}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution._
 
@@ -37,6 +38,7 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
 = HBaseConfiguration.create())
   extends SQLContext(sc) {
   self =>
+  @transient val configuration = hbaseConf
 
   @transient
   override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this)
@@ -102,15 +104,8 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
     }
   }
 
-  /**
-   * Analyzes the given table in the current database to generate statistics, which will be
-   * used in query optimizations.
-   *
-   * Right now, it only supports Hive tables and it only updates the size of a Hive table
-   * in the Hive metastore.
-   */
-  def analyze(tableName: String) {
-    throw new UnsupportedOperationException("analyze not yet supported for HBase")
+  override lazy val analyzer = new Analyzer(catalog,
+    functionRegistry, true) {
   }
 
   def createHbaseTable(tableName: String,
@@ -119,10 +114,12 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
     keys: Seq[String],
     otherCols: Seq[(String, String)]): Unit = {
     val columnInfo = new catalog.Columns(tableCols.map{
-      case(name, dataType) => catalog.Column(name, HBaseDataType.withName(dataType))
+      // TODO(Bo): reconcile the invocation of Column including catalystName and hbase family
+      case(name, dataType) => catalog.Column(null, null, name, HBaseDataType.withName(dataType))
     })
-    catalog.createTable("DEFAULT", tableName, columnInfo, hbaseTable, keys.toList,
-      otherCols.toList);
+    // TODO(Bo): reconcile the invocation of createTable to the Catalog
+    catalog.createTable("DEFAULT", tableName, null /*tableCols.toList */, hbaseTable, keys.toList,
+      otherCols.toList)
   }
 
   def close() = {

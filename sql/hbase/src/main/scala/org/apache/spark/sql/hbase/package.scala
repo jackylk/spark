@@ -14,25 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.sql.hbase
+package org.apache.spark.sql
 
-import org.apache.log4j.Logger
-import org.apache.spark.Partition
+import org.apache.spark.sql.catalyst.expressions.{GenericRow, GenericMutableRow}
 
 /**
- * HBasePartition
- * Created by sboesch on 9/9/14.
+ * package
+ * Created by sboesch on 9/22/14.
  */
-case class HBasePartition(idx : Int, bounds : (HBaseRawType,HBaseRawType),
-                          server: Option[String])  extends Partition {
+package object hbase {
 
-  /**
-   * Get the split's index within its parent RDD
-   */
-  override def index: Int = idx
+  type HBaseRawType = Array[Byte]
+  type HBaseRawRow = Array[HBaseRawType]
+  type HBaseRawRowSeq = Seq[HBaseRawType]
 
-}
-object HBasePartition {
-  import HBaseUtils.s2b
-  val SinglePartition = new HBasePartition(1, (s2b("\u0000"),s2b("\u00ff")),None)
+  class HBaseRow(vals : HBaseRawRow) extends GenericRow(vals.asInstanceOf[Array[Any]])
+
 }

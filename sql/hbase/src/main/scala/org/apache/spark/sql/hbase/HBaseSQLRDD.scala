@@ -16,33 +16,37 @@
  */
 package org.apache.spark.sql.hbase
 
+import org.apache.hadoop.hbase.TableName
 import org.apache.log4j.Logger
-import org.apache.spark.{TaskContext, Partition, Dependency}
 import org.apache.spark.annotation.AlphaComponent
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.{Dependency, Partition}
 
 /**
  * HBaseSQLRDD
  * Created by sboesch on 9/15/14.
  */
 @AlphaComponent
-abstract class HBaseSQLRDD (
-                tableName : String,
+abstract class HBaseSQLRDD ( 
+                tableName : TableName,
+                externalResource : ExternalResource,
                  @transient hbaseContext: HBaseSQLContext,
-                 @transient baseLogicalPlan: LogicalPlan)
-  extends SchemaRDD(hbaseContext, baseLogicalPlan) {
+                 @transient plan: LogicalPlan)
+  extends SchemaRDD(hbaseContext, plan) {
 
   val logger = Logger.getLogger(getClass.getName)
 
+  // The SerializedContext will contain the necessary instructions
+  // for all Workers to know how to connect to HBase
+    // For now just hardcode the Config/connection logic
+  @transient lazy val configuration = HBaseUtils.configuration
+  @transient lazy val connection = HBaseUtils.getHBaseConnection(configuration)
+
   override def baseSchemaRDD = this
 
-  lazy val configuration = HBaseUtils.getConfiguration(hbaseContext)
-  lazy val hbaseConnection = HBaseUtils.getHBaseConnection(configuration)
-
   override def getPartitions: Array[Partition] = HBaseUtils.
-    getPartitions(hbaseConnection, tableName)./* unzip._1 . */toArray[Partition]
+    getPartitions(tableName)./* unzip._1 . */toArray[Partition]
 
   override protected def getDependencies: Seq[Dependency[_]] = super.getDependencies
 }

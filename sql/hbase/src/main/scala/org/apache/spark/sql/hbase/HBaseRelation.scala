@@ -17,10 +17,8 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.TableName
-import org.apache.hadoop.hbase.client.HTableInterface
 import org.apache.log4j.Logger
+import org.apache.spark.Partition
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
 
@@ -31,21 +29,33 @@ import org.apache.spark.sql.catalyst.plans.logical.LeafNode
  */
 
 
-private[hbase] case class HBaseRelation(
-                                         @transient configuration: Configuration,
-                                         @transient hbaseContext: HBaseSQLContext,
-                                         htable: HTableInterface,
-                                         catalogTable: HBaseCatalog#HBaseCatalogTable)
+private[hbase] case class HBaseRelation (
+//                                         @transient configuration: Configuration,
+//                                         @transient hbaseContext: HBaseSQLContext,
+//                                         htable: HTableInterface,
+                                         catalogTable: HBaseCatalog#HBaseCatalogTable,
+                                         externalResource : ExternalResource)
   extends LeafNode {
 
   self: Product =>
 
+  // TODO: Set up the external Resource
+  def getExternalResource : HBaseExternalResource = ???
+
+  //  val namespace = catalogTable.tableName.getNamespace
+
+  val tableName = catalogTable.tableName
+
+  val partitions : Seq[HBasePartition] = catalogTable.partitions
   val logger = Logger.getLogger(getClass.getName)
 
-  @transient val catalog = hbaseContext.catalog
+  val partitionKeys: Seq[Attribute] = catalogTable.rowKey.columns.asAttributes
 
-  def partitionKeys: Seq[Attribute] = ???
+  val attributes = catalogTable.columns.asAttributes
 
-  override def output: Seq[Attribute] = ???
+  val colFamilies = catalogTable.colFamilies.seq
+
+  override def output: Seq[Attribute] = attributes ++ partitionKeys
+
 
 }

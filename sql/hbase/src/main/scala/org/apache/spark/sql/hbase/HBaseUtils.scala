@@ -17,31 +17,33 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.client.{HConnection, HConnectionManager}
+import org.apache.hadoop.hbase.{HBaseConfiguration, TableName}
 import org.apache.log4j.Logger
 
 import scala.collection.JavaConverters
 
 /**
  * HBaseUtils
+ * This class needs to be serialized to the Spark Workers so let us keep it slim/trim
+ *
  * Created by sboesch on 9/16/14.
  */
-object HBaseUtils {
-  val logger = Logger.getLogger(getClass.getName)
+object HBaseUtils extends Serializable {
+  @transient val logger = Logger.getLogger(getClass.getName)
 
-  def getConfiguration(hbaseContext : HBaseSQLContext)  =
-  hbaseContext.sparkContext.getConf.get("hadoop.configuration")
-    .asInstanceOf[Configuration]
+  @transient private lazy val lazyConfig =   HBaseConfiguration.create()
+  def configuration() = lazyConfig
 
   def getHBaseConnection(configuration : Configuration)  = {
     val connection = HConnectionManager.createConnection(configuration)
     connection
   }
 
-  def getPartitions(hConnection : HConnection, tableName : String) = {
-    import JavaConverters._
-    val regionLocations = hConnection.locateRegions(TableName.valueOf(tableName))
+  def getPartitions(tableName : TableName) = {
+    import scala.collection.JavaConverters._
+    val hConnection = getHBaseConnection(lazyConfig)
+    val regionLocations = hConnection.locateRegions(tableName)
     case class BoundsAndServers(startKey : Array[Byte], endKey : Array[Byte],
                                 servers : Seq[String])
     val regionBoundsAndServers = regionLocations.asScala.map{ hregionLocation =>
@@ -50,8 +52,11 @@ object HBaseUtils {
         Seq(hregionLocation.getServerName.getHostname))
     }
     regionBoundsAndServers.zipWithIndex.map{ case (rb,ix) =>
-      new HBasePartition(ix, (rb.startKey, rb.endKey), rb.servers(0))
+      new HBasePartition(ix, (rb.startKey, rb.endKey), Some(rb.servers(0)))
     }
   }
+
+  val ByteEncoding = "ISO-8859-1"
+  def s2b(str: String) = str.getBytes(ByteEncoding)
 
 }

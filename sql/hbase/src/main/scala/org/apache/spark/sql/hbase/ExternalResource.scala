@@ -17,22 +17,17 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.log4j.Logger
-import org.apache.spark.Partition
 
 /**
- * HBasePartition
- * Created by sboesch on 9/9/14.
+ * ExternalResource: Temporary placeholder until the real one is implemented by Bo/Yan
+ *
+ * TODO(Bo): move this to core when it is filled out
+ *
+ * Created by sboesch on 9/24/14.
  */
-case class HBasePartition(idx : Int, bounds : (HBaseRawType,HBaseRawType),
-                          server: Option[String])  extends Partition {
-
-  /**
-   * Get the split's index within its parent RDD
-   */
-  override def index: Int = idx
+class ExternalResource {
+  val logger = Logger.getLogger(getClass.getName)
 
 }
-object HBasePartition {
-  import HBaseUtils.s2b
-  val SinglePartition = new HBasePartition(1, (s2b("\u0000"),s2b("\u00ff")),None)
-}
+
+object EmptyExternalResource extends ExternalResource

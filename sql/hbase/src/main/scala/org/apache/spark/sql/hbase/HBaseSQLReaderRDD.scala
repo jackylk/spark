@@ -16,13 +16,99 @@
  */
 package org.apache.spark.sql.hbase
 
-import org.apache.log4j.Logger
+import org.apache.hadoop.hbase.TableName
+import org.apache.hadoop.hbase.client.{Result, Scan}
+import org.apache.hadoop.hbase.filter.FilterList
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.{Partitioner, Partition, TaskContext}
+import HBaseUtils.s2b
 
 /**
  * HBaseSQLReaderRDD
  * Created by sboesch on 9/16/14.
  */
-class HBaseSQLReaderRDD(tableName : String) {
-  val logger = Logger.getLogger(getClass.getName)
+class HBaseSQLReaderRDD(tableName: TableName,
+                        externalResource: HBaseExternalResource,
+                        hbaseRelation: HBaseRelation,
+                        projList: Seq[ColumnName],
+                        //      rowKeyPredicates : Option[Seq[ColumnPredicate]],
+                        //      colPredicates : Option[Seq[ColumnPredicate]],
+                        partitions: Seq[HBasePartition],
+                        colFamilies: Set[String],
+                        colFilters: Option[FilterList],
+                          @transient hbaseContext: HBaseSQLContext,
+                        @transient plan: LogicalPlan)
+  extends HBaseSQLRDD(tableName, externalResource, hbaseContext, plan) {
+
+  override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
+    val conn = Some(externalResource.getConnection(HBaseUtils.configuration(),
+      hbaseRelation.tableName))
+    try {
+      val hbPartition = split.asInstanceOf[HBasePartition]
+      val scan = new Scan(hbPartition.bounds._1, hbPartition.bounds._2)
+      colFamilies.foreach { cf =>
+        scan.addFamily(s2b(cf))
+      }
+      colFilters.map { flist => scan.setFilter(flist)}
+      scan.setMaxVersions(1)
+      val htable = conn.get.getTable(hbaseRelation.tableName)
+      val scanner = htable.getScanner(scan)
+      new Iterator[Row] {
+
+        import collection.mutable
+
+        val map = new mutable.HashMap[String, HBaseRawType]()
+
+        def toRow(result: Result, projList: Seq[ColumnName]) :  HBaseRow = {
+          // TODO(sboesch): analyze if can be multiple Cells in the result
+          // Also, consider if we should go lower level to the cellScanner()
+          val vmap = result.getNoVersionMap
+          val rowArr = projList.zipWithIndex.
+            foldLeft(new Array[HBaseRawType](projList.size)) { case (arr, (cname, ix)) =>
+            arr(ix) = vmap.get(s2b(projList(ix).fullName)).asInstanceOf[HBaseRawType]
+            arr
+          }
+          new HBaseRow(rowArr)
+        }
+
+        var onextVal: Option[HBaseRow] = None
+
+        def nextRow() : Option[HBaseRow] = {
+          val result = scanner.next
+          if (result!=null) {
+            onextVal = Some(toRow(result, projList))
+            onextVal
+          } else {
+            None
+          }
+        }
+
+        override def hasNext: Boolean = {
+          if (onextVal.isDefined) {
+            true
+          } else {
+            nextRow.isDefined
+          }
+        }
+        override def next(): Row = {
+          nextRow()
+          onextVal.get
+        }
+      }
+    } finally {
+      // TODO: set up connection caching possibly by HConnectionPool
+      if (!conn.isEmpty) {
+        externalResource.releaseConnection(conn.get)
+      }
+    }
+  }
+
+  /**
+   * Optionally overridden by subclasses to specify placement preferences.
+   */
+  override protected def getPreferredLocations(split: Partition) : Seq[String]
+    = super.getPreferredLocations(split)
+
 
 }

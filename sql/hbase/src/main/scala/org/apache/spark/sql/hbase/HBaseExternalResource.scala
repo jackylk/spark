@@ -16,23 +16,21 @@
  */
 package org.apache.spark.sql.hbase
 
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.hbase.TableName
+import org.apache.hadoop.hbase.client.HConnection
 import org.apache.log4j.Logger
-import org.apache.spark.Partition
 
 /**
- * HBasePartition
- * Created by sboesch on 9/9/14.
+ * HBaseExternalResource
+ * Created by sboesch on 9/24/14.
  */
-case class HBasePartition(idx : Int, bounds : (HBaseRawType,HBaseRawType),
-                          server: Option[String])  extends Partition {
+class HBaseExternalResource extends ExternalResource {
 
-  /**
-   * Get the split's index within its parent RDD
-   */
-  override def index: Int = idx
+  override val logger = Logger.getLogger(getClass.getName)
 
-}
-object HBasePartition {
-  import HBaseUtils.s2b
-  val SinglePartition = new HBasePartition(1, (s2b("\u0000"),s2b("\u00ff")),None)
+  def getConnection(conf : Configuration, tableName : TableName) : HConnection = ???
+
+  def releaseConnection(connection: HConnection) = ???
+
 }
