@@ -58,18 +58,8 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
       BasicOperators,
       CartesianProduct,
       BroadcastNestedLoopJoin,
-      HbaseStrategy(self)
+      HBaseOperations
     )
-
-    case class HbaseStrategy(context: HBaseSQLContext) extends Strategy{
-
-      def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-        case CreateTablePlan(tableName, tableCols, hbaseTable, keys, otherCols) => {
-          Seq(CreateTableCommand(tableName, tableCols, hbaseTable, keys, otherCols)(context))
-        };
-        case _ => Nil
-      }
-    }
   }
 
   @transient
@@ -125,19 +115,4 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
   def close() = {
     hconnection.close
   }
-}
-
-case class CreateTableCommand(tableName: String,
-                              tableCols: Seq[(String, String)],
-                              hbaseTable: String,
-                              keys: Seq[String],
-                              otherCols: Seq[(String, String)])(@transient context: HBaseSQLContext)
-  extends LeafNode with Command {
-
-  override protected[sql] lazy val sideEffectResult = {
-    context.createHbaseTable(tableName, tableCols, hbaseTable, keys, otherCols)
-    Seq.empty[Row]
-  }
-
-  override def output: Seq[Attribute] = Seq.empty
 }

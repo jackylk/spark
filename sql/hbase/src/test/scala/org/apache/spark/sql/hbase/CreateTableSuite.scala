@@ -17,13 +17,12 @@
 
 package org.apache.spark.sql.hbase
 
-
 //import org.apache.spark.sql.QueryTest
-
-// Implicits 
+//
+////Implicits
 //import org.apache.spark.sql.hbase.TestHbase._
-
-class CreateTableSuite /* extends QueryTest */ {
+//
+//class CreateTableSuite extends QueryTest {
 //  TestData // Initialize TestData
 //
 //  test("create table") {
@@ -36,4 +35,4 @@ class CreateTableSuite /* extends QueryTest */ {
 //      sql("SELECT ABS(-1.3)"),
 //      1.3)
 //  }
-}
+//}

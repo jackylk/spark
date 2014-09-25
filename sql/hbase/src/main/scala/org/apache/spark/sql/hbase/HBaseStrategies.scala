@@ -231,4 +231,16 @@ private[hbase] trait HBaseStrategies {
     //    val htable
   }
 
+  object HBaseOperations extends Strategy {
+    def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
+//      case PhysicalOperation(projectList, filters: Seq[Expression], relation: HBaseRelation) =>
+//          val hBaseColumns = projectList.map{ p =>
+//
+//          new HBaseSQLReaderRDD()
+      case CreateTablePlan(tableName, tableCols, hbaseTable, keys, otherCols) => {
+        Seq(CreateTableCommand(tableName, tableCols, hbaseTable, keys, otherCols)(hbaseContext))
+      };
+      case _ => Nil
+    }
+  }
 }
