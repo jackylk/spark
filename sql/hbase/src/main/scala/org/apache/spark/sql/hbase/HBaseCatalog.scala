@@ -25,7 +25,7 @@ import org.apache.spark.sql.catalyst.analysis.Catalog
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical._
 
-import scala.collection.mutable.{HashMap, ListBuffer}
+import scala.collection.mutable.HashMap
 
 /**
  * HBaseCatalog
@@ -118,12 +118,14 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
       keys = keys.substring(0, keys.length - 1)
     }
     val keysArray = keys.split(",")
-    var keysList = new ListBuffer[String]()
+    var keysList = List[Column]()
     for (key <- keysArray) {
-      keysList += key
+      val col = Column(key, null)
+      keysList = keysList :+ col
     }
+    val keysInfoList = TypedRowKey(new Columns(keysList))
 
-    HBaseCatalogTable(dbName, tableName, columnInfoList, hbaseName, keysList.toList, mappingInfoList)
+    HBaseCatalogTable(dbName, tableName, columnInfoList, hbaseName, keysInfoList, mappingInfoList)
   }
 
   def createTable(dbName: String, tableName: String, columnInfo: Columns,
@@ -207,15 +209,15 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     //      m
     //    }
     //
-    //    def asAttributes() = {
-    //      columns.map { col =>
-    //        Column.toAttribute(col)
-    //      }
-    //    }
+    def asAttributes() = {
+      columns.map { col =>
+        Column.toAttribute(col)
+      }
+    }
   }
 
 
-  case class HBaseCatalogTable(dbName: String, tableName: String, columnInfo: Columns, hbaseTableName: String, keys: List[String],
+  case class HBaseCatalogTable(dbName: String, tableName: String, columnInfo: Columns, hbaseTableName: String, rowKey: TypedRowKey,
                                mappingInfo: List[(String, String)])
 
   case class TypedRowKey(columns: Columns) extends RowKey
