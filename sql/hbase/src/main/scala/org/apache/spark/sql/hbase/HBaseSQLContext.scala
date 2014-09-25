@@ -25,8 +25,6 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.hbase.HBaseDataType
-import org.apache.spark.sql.hbase.HBaseCatalog
 
 //import org.apache.spark.sql.execution.SparkStrategies.HashAggregation
 
