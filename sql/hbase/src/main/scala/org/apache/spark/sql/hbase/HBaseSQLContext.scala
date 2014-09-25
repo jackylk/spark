@@ -22,13 +22,13 @@ import org.apache.hadoop.hbase._
 import org.apache.hadoop.hbase.client.HConnectionManager
 import org.apache.spark.SparkContext
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.expressions.{EqualTo, Attribute, Expression}
+import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution._
+import org.apache.spark.sql.hbase.HBaseDataType
+import org.apache.spark.sql.hbase.HBaseCatalog
 
 //import org.apache.spark.sql.execution.SparkStrategies.HashAggregation
-
-import scala.collection.JavaConverters
 
 
 /**
@@ -64,8 +64,8 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
     case class HbaseStrategy(context: HBaseSQLContext) extends Strategy{
 
       def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-        case CreateTablePlan(a, b, c, d, e) => {
-          Seq(CreateTableCommand(a,b,c,d,e)(context))
+        case CreateTablePlan(tableName, tableCols, hbaseTable, keys, otherCols) => {
+          Seq(CreateTableCommand(tableName, tableCols, hbaseTable, keys, otherCols)(context))
         };
         case _ => Nil
       }
@@ -120,7 +120,10 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
     hbaseTable: String,
     keys: Seq[String],
     otherCols: Seq[(String, String)]): Unit = {
-    catalog.createTable("DEFAULT", tableName, tableCols.toList, hbaseTable, keys.toList,
+    val columnInfo = new catalog.Columns(tableCols.map{
+      case(name, dataType) => catalog.Column(name, HBaseDataType.withName(dataType))
+    })
+    catalog.createTable("DEFAULT", tableName, columnInfo, hbaseTable, keys.toList,
       otherCols.toList);
   }
 

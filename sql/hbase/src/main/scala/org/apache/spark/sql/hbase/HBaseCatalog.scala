@@ -224,7 +224,6 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
 
   object Column {
     def toAttribute(col: Column): Attribute = null
-
     //      AttributeReference(
     //      col.family,
     //      col.dataType,
@@ -232,10 +231,10 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     //    )()
   }
 
-  object HBaseDataType extends Enumeration {
-    val STRING, BYTE, SHORT, INTEGER, LONG, FLOAT, DOUBLE, BOOLEAN = Value
-  }
-
   case object RawBytesRowKey extends RowKey
 
+}
+
+object HBaseDataType extends Enumeration {
+  val STRING, BYTE, SHORT, INTEGER, LONG, FLOAT, DOUBLE, BOOLEAN = Value
 }

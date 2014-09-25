@@ -16,10 +16,7 @@
  */
 package org.apache.spark.sql.hbase
 
-import java.lang.reflect.Method
-
-import org.apache.spark.sql.catalyst.SqlParser
-import org.apache.spark.sql.catalyst.SqlLexical
+import org.apache.spark.sql.catalyst.{SqlLexical, SqlParser}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 
@@ -32,8 +29,15 @@ class HBaseSQLParser extends SqlParser {
   protected val ADD = Keyword("ADD")
   protected val KEYS = Keyword("KEYS")
   protected val COLS = Keyword("COLS")
+  protected val BYTE = Keyword("BYTE")
+  protected val SHORT = Keyword("SHORT")
+  protected val INTEGER = Keyword("INTEGER")
+  protected val LONG = Keyword("LONG")
+  protected val FLOAT = Keyword("FLOAT")
+  protected val DOUBLE = Keyword("DOUBLE")
+  protected val BOOLEAN = Keyword("BOOLEAN")
 
-  protected val newReservedWords:Seq[String] =
+  protected val newReservedWords: Seq[String] =
     this.getClass
       .getMethods
       .filter(_.getReturnType == classOf[Keyword])
@@ -61,42 +65,36 @@ class HBaseSQLParser extends SqlParser {
       //Since the lexical can not recognize the symbol "=" as we expected,
       // we compose it to expression first and then translate it into Seq(String, String)
       case tableName ~ tableCols ~ htn ~ keys ~ otherCols =>
-        val otherColsSeq:Seq[(String, String)] =
-          otherCols.map{case EqualTo(e1, e2) => (e1.toString.substring(1),
-            e2.toString.substring(1))}
+        val otherColsSeq: Seq[(String, String)] =
+          otherCols.map { case EqualTo(e1, e2) =>
+            val s1 = e1.toString.substring(1)
+            val e2_str = e2.toString
+            val s2 = if (e2_str.contains('.')) e2_str.substring(1, e2_str.length - 2)
+            else e2_str.substring(1)
+            (s1, s2)
+          }
         CreateTablePlan(tableName, tableCols, htn, keys, otherColsSeq)
     }
 
   protected lazy val drop: Parser[LogicalPlan] =
     DROP ~> TABLE ~> ident <~ opt(";") ^^ {
       case tn =>
-        println("\nin Drop")
-        println(tn)
         null
     }
 
   protected lazy val alter: Parser[LogicalPlan] =
     ALTER ~> TABLE ~> ident ~ DROP ~ ident <~ opt(";") ^^ {
       case tn ~ op ~ col => {
-        println("\nin Alter")
-        println(tn)
-        println(op)
-        println(col)
         null
       }
     } | ALTER ~> TABLE ~> ident ~ ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> expressions <~ ")") ^^ {
       case tn ~ op ~ tc ~ cf => {
-        println("\nin Alter")
-        println(tn)
-        println(op)
-        println(tc)
-        println(cf)
         null
       }
     }
 
   protected lazy val tableCol: Parser[(String, String)] =
-    ident ~ (ident | STRING) ^^ {
+    ident ~ (STRING | BYTE | SHORT | INTEGER | LONG | FLOAT | DOUBLE | BOOLEAN) ^^ {
       case e1 ~ e2 => (e1, e2)
     }
 
@@ -108,8 +106,8 @@ class HBaseSQLParser extends SqlParser {
 
 }
 
-case class CreateTablePlan( tableName: String,
-                            tableCols: Seq[(String, String)],
-                            hbaseTable: String,
-                            keys: Seq[String],
-                            otherCols: Seq[(String, String)]) extends Command
+case class CreateTablePlan(tableName: String,
+                           tableCols: Seq[(String, String)],
+                           hbaseTable: String,
+                           keys: Seq[String],
+                           otherCols: Seq[(String, String)]) extends Command
