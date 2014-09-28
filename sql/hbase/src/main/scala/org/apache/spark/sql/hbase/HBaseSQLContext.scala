@@ -116,7 +116,8 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
       otherCols.toList)
   }
 
-  def close() = {
+  def stop() = {
     hconnection.close
+    super.sparkContext.stop()
   }
 }

@@ -5,11 +5,11 @@ import org.apache.log4j.Logger
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
 /**
- * HBaseSharedSparkContext.  Modeled after Shared
+ * HBaseSharedSparkContext.  Modeled after SharedSparkContext
  *
  * Created by sboesch on 9/28/14.
  */
-trait HBaseTestingSparkContext extends BeforeAndAfterAll {
+class HBaseTestingSparkContext(nSlaves: Int) extends BeforeAndAfterAll {
   self: Suite  =>
   val logger = Logger.getLogger(getClass.getName)
   @transient private var _sc: SparkContext = _
@@ -18,10 +18,10 @@ trait HBaseTestingSparkContext extends BeforeAndAfterAll {
 
   var conf = new SparkConf(false)
 
-  val NSlaves = 2
-  val Masters = s"local[$NSlaves]"
+//  val NSlaves = 2
+  val slaves = s"local[$nSlaves]"
   override def beforeAll() {
-    _sc = new SparkContext(Masters, "test", conf)
+    _sc = new SparkContext(slaves, "test", conf)
   }
 
   override def afterAll() {

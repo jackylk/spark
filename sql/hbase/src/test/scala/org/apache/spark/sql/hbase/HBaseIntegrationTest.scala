@@ -12,13 +12,14 @@ import org.apache.hadoop.hbase.{HBaseConfiguration, HBaseTestingUtility, MiniHBa
  * HBaseIntegrationTest
  * Created by sboesch on 9/27/14.
  */
-class HBaseIntegrationTest extends FunSuite
-    with HBaseTestingSparkContext with BeforeAndAfterAll {
-  override val logger = Logger.getLogger(getClass.getName)
+class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll {
+  val logger = Logger.getLogger(getClass.getName)
 
   val NMasters = 1
   val NRegionServers = 3
   val NDataNodes = 0
+
+  val NWorkers = 1
 
   var hbContext : HBaseSQLContext = _
   var cluster : MiniHBaseCluster = _
@@ -28,7 +29,6 @@ class HBaseIntegrationTest extends FunSuite
   var testUtil :HBaseTestingUtility = _
 
   override def beforeAll() = {
-    super.beforeAll()
     logger.info(s"Spin up hbase minicluster w/ $NMasters mast, $NRegionServers RS, $NDataNodes dataNodes")
     testUtil = new HBaseTestingUtility
 //    cluster = HBaseTestingUtility.createLocalHTU.
@@ -38,7 +38,7 @@ class HBaseIntegrationTest extends FunSuite
     config.set("hbase.regionserver.info.port","-1")
     cluster = testUtil.startMiniCluster(NMasters, NRegionServers)
     println(s"# of region servers = ${cluster.countServedRegions}")
-    val sc = new SparkContext("local[1]", "HBaseTestsSparkContext")
+    val sc = new SparkContext(s"local[$NWorkers]", "HBaseTestsSparkContext")
     hbContext = new HBaseSQLContext(sc, config)
     catalog = hbContext.catalog
     hbaseAdmin = new HBaseAdmin(config)
@@ -87,7 +87,7 @@ class HBaseIntegrationTest extends FunSuite
 
   override def afterAll() = {
     cluster.shutdown
-    super.afterAll()
+    hbContext.stop
   }
 
 }
