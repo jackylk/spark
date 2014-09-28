@@ -27,6 +27,7 @@ import org.apache.spark.sql.catalyst.expressions.{AttributeSet, _}
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, Join, LogicalPlan}
 import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.hbase.HBaseCatalog.Columns
 import org.apache.spark.sql.parquet.{ParquetTableScan, ParquetFilters, ParquetRelation}
 
 
@@ -57,7 +58,7 @@ private[hbase] trait HBaseStrategies {
         val partitionKeys = relation.catalogTable.rowKey.columns.asAttributes()
 
         val partitionKeyIds = AttributeSet(partitionKeys)
-        var (pruningPredicates, otherPredicates) = predicates.partition {
+        var (rowKeyPredicates, _ /*otherPredicates*/) = predicates.partition {
           _.references.subsetOf(partitionKeyIds)
         }
 
@@ -69,19 +70,21 @@ private[hbase] trait HBaseStrategies {
         val foundx = new AtomicLong
         val rowPrefixPredicates = for {pki <- partitionKeyIds
                                        if ((loopx.incrementAndGet >= 0)
-                                         && pruningPredicates.flatMap {
+                                         && rowKeyPredicates.flatMap {
                                          _.references
                                        }.contains(pki)
                                          && (foundx.incrementAndGet == loopx.get))
-                                       attrib <- pruningPredicates.filter {
+                                       attrib <- rowKeyPredicates.filter {
                                          _.references.contains(pki)
                                        }
         } yield attrib
 
+        val otherPredicates = predicates.filterNot (rowPrefixPredicates.toList.contains)
+
         def rowKeyOrdinal(name: ColumnName) = relation.catalogTable.rowKey.columns(name).ordinal
 
-        val catColumns: HBaseCatalog#Columns = relation.catalogTable.columns
-        val keyColumns: HBaseCatalog#Columns = relation.catalogTable.rowKey.columns
+        val catColumns: Columns = relation.catalogTable.columns
+        val keyColumns: Columns = relation.catalogTable.rowKey.columns
         def catalystToHBaseColumnName(catColName: String) = {
           catColumns.findBySqlName(catColName)
         }
@@ -111,9 +114,9 @@ private[hbase] trait HBaseStrategies {
 
         // If any predicates passed all restrictions then let us now build the RowKeyFilter
         var invalidRKPreds = false
-        var rowKeyPredicates: Option[Seq[ColumnPredicate]] =
+        var rowKeyColumnPredicates: Option[Seq[ColumnPredicate]] =
           if (!sortedRowPrefixPredicates.isEmpty) {
-          val bins = pruningPredicates.map {
+          val bins = rowKeyPredicates.map {
             case pp: BinaryComparison =>
               Some(ColumnPredicate.catalystToHBase(pp))
             case s =>
@@ -130,7 +133,7 @@ private[hbase] trait HBaseStrategies {
           None
         }
         if (invalidRKPreds) {
-          rowKeyPredicates = None
+          rowKeyColumnPredicates = None
         }
         // TODO(sboesch): map the RowKey predicates to the Partitions
         // to achieve Partition Pruning.
@@ -164,7 +167,8 @@ private[hbase] trait HBaseStrategies {
           Seq(rowKeyPredicates.getOrElse(Seq(ColumnPredicate.EmptyColumnPredicate)))
         }
 
-        val partitionRowKeyPredicates = partitionRowKeyPredicatesByHBasePartition(rowKeyPredicates)
+        val partitionRowKeyPredicates =
+          partitionRowKeyPredicatesByHBasePartition(rowKeyColumnPredicates)
 
         partitionRowKeyPredicates.flatMap { partitionSpecificRowKeyPredicates =>
           def projectionToHBaseColumn(expr: NamedExpression,
@@ -175,26 +179,26 @@ private[hbase] trait HBaseStrategies {
           val columnNames = projectList.map(projectionToHBaseColumn(_, relation))
 
           val effectivePartitionSpecificRowKeyPredicates =
-            if (rowKeyPredicates == ColumnPredicate.EmptyColumnPredicate) {
+            if (rowKeyColumnPredicates == ColumnPredicate.EmptyColumnPredicate) {
               None
             } else {
-              rowKeyPredicates
+              rowKeyColumnPredicates
             }
 
           val scanBuilder = HBaseSQLTableScan(partitionKeyIds.toSeq,
             relation,
             columnNames,
             predicates.reduceLeftOption(And),
-            pruningPredicates.reduceLeftOption(And),
+            rowKeyPredicates.reduceLeftOption(And),
             effectivePartitionSpecificRowKeyPredicates,
             externalResource,
-            plan)(hbaseContext)
+            plan)(hbaseContext).asInstanceOf[Seq[Expression] => SparkPlan]
 
           pruneFilterProject(
             projectList,
-            predicates, // As opposed to hive, hbase requires all predicates for the Scan's
-            identity[Seq[Expression]],
-            null /* scanBuilder */) :: Nil
+            otherPredicates,
+              identity[Seq[Expression]], // removeRowKeyPredicates,
+            scanBuilder) :: Nil
         }
       case _ =>
         Nil

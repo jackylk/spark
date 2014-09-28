@@ -31,14 +31,15 @@ import HBaseUtils._
  *
  * Created by sboesch on 9/22/14.
  */
-class HBaseSQLFilters(colFamilies: Set[String], rowKeyPreds: Option[Seq[ColumnPredicate]],
-                      opreds: Option[Seq[ColumnPredicate]], rowKeyParser: RowKeyParser)
+class HBaseSQLFilters(colFamilies: Set[String], colNames : Seq[ColumnName],
+                      rowKeyPreds: Option[Seq[ColumnPredicate]],
+                      opreds: Option[Seq[ColumnPredicate]])
   extends FilterBase {
   val logger = Logger.getLogger(getClass.getName)
 
   def createColumnFilters(): Option[FilterList] = {
     val colFilters: FilterList = new FilterList(FilterList.Operator.MUST_PASS_ALL)
-    colFilters.addFilter(new HBaseRowFilter(colFamilies, rowKeyParser, rowKeyPreds.orNull))
+    colFilters.addFilter(new HBaseRowFilter(colFamilies, colNames, rowKeyPreds.orNull))
     val filters = opreds.map {
       case preds: Seq[ColumnPredicate] =>
         preds.filter { p: ColumnPredicate =>
@@ -73,13 +74,14 @@ class HBaseSQLFilters(colFamilies: Set[String], rowKeyPreds: Option[Seq[ColumnPr
  * Presently only a sequence of AND predicates supported. TODO(sboesch): support simple tree
  * of AND/OR predicates
  */
-class HBaseRowFilter(colFamilies: Set[String], rowKeyParser: RowKeyParser,
+class HBaseRowFilter(colFamilies: Set[String], rkCols : Seq[ColumnName],
                      rowKeyPreds: Seq[ColumnPredicate]
  /*, preds: Seq[ColumnPredicate] */) extends FilterBase {
   val logger = Logger.getLogger(getClass.getName)
 
   override def filterRowKey(rowKey: Array[Byte], offset: Int, length: Int): Boolean = {
-    val rowKeyColsMap = rowKeyParser.parseRowKeyWithMetaData(rowKey.slice(offset, offset + length))
+    val rowKeyColsMap = RowKeyParser.parseRowKeyWithMetaData(rkCols,
+      rowKey.slice(offset, offset + length))
     val result = rowKeyPreds.forall { p =>
       var col: HColumn = null
       var colval: HLiteral = null

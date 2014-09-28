@@ -18,9 +18,9 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.log4j.Logger
-import org.apache.spark.Partition
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
+import org.apache.spark.sql.hbase.HBaseCatalog._
 
 /**
  * HBaseRelation
@@ -33,7 +33,7 @@ private[hbase] case class HBaseRelation (
 //                                         @transient configuration: Configuration,
 //                                         @transient hbaseContext: HBaseSQLContext,
 //                                         htable: HTableInterface,
-                                         catalogTable: HBaseCatalog#HBaseCatalogTable,
+                                         catalogTable: HBaseCatalogTable,
                                          externalResource : ExternalResource)
   extends LeafNode {
 

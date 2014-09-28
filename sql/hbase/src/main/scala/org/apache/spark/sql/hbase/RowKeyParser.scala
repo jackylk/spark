@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql.hbase
 
-import java.util
+import java.util.concurrent.atomic.AtomicInteger
 
 case class RowKey(colVals: Seq[HColumn])
 
@@ -33,15 +33,44 @@ case class RowKey(colVals: Seq[HColumn])
  * each dimension value is contiguous, i.e there are no delimiters
  *
  */
-trait RowKeyParser {
+trait AbstractRowKeyParser {
+  def createKey(rawBytes : HBaseRawRowSeq, version : Byte) : HBaseRawType
+
   def parseRowKey(rowKey: HBaseRawType): HBaseRawRowSeq // .NavigableMap[String, HBaseRawType]
 
-  def parseRowKeyWithMetaData(rowKey: HBaseRawType): Map[ColumnName, HBaseRawType]
+  def parseRowKeyWithMetaData(rkCols: Seq[ColumnName], rowKey: HBaseRawType)
+        : Map[ColumnName, HBaseRawType]
 }
 
-case class RowKeySpec(offsets: Seq[Int])
+case class RowKeySpec(offsets: Seq[Int], version : Byte = 1)
 
-case class CompositeRowKeyParser(rkCols: Seq[ColumnName]) extends RowKeyParser {
+object RowKeyParser extends AbstractRowKeyParser {
+
+  val VersionFieldLen = 1  // Length in bytes of the RowKey version field
+  val LenFieldLen = 1  // One byte for the number of key dimensions
+  val MaxDimensions = 255
+  val OffsetFieldLen = 2   // Two bytes for the value of each dimension offset.
+
+  // Therefore max size of rowkey is 65535.  Note: if longer rowkeys desired in future
+  // then simply define a new RowKey version to support it. Otherwise would be wasteful
+  // to define as 4 bytes now.
+  def computeLength(keys: HBaseRawRowSeq) = {
+    VersionFieldLen + LenFieldLen + OffsetFieldLen * keys.size + keys.map{_.length}.sum
+  }
+  def copyToArr[T](a : Array[T], b : Array[T], aoffset : Int) = {
+//    System.arraycopy(a,aoffset,b,0,b.length)
+    b.copyToArray(a,aoffset)
+  }
+
+  override def createKey(keys: HBaseRawRowSeq, version : Byte = 1): HBaseRawType = {
+    var barr = new Array[Byte](computeLength(keys))
+    barr(0) = 1.toByte
+    barr(0) = keys.length.toByte
+    val ax = new AtomicInteger(VersionFieldLen + LenFieldLen)
+    keys.foreach{ k => copyToArr(barr, k, ax.addAndGet(OffsetFieldLen)) }
+    keys.foreach{ k => copyToArr(barr, k, ax.addAndGet(k.length)) }
+    barr
+  }
 
   override def parseRowKey(rowKey: HBaseRawType): HBaseRawRowSeq = {
 
@@ -57,7 +86,8 @@ case class CompositeRowKeyParser(rkCols: Seq[ColumnName]) extends RowKeyParser {
     }
   }.asInstanceOf[HBaseRawRowSeq]
 
-  override def parseRowKeyWithMetaData(rowKey: HBaseRawType): Map[ColumnName, HBaseRawType] = {
+  override def parseRowKeyWithMetaData(rkCols: Seq[ColumnName], rowKey: HBaseRawType):
+  Map[ColumnName, HBaseRawType] = {
     import scala.collection.mutable.HashMap
 
     val rowKeyVals = parseRowKey(rowKey)

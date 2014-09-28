@@ -63,11 +63,14 @@ case class HBaseSQLTableScan(
       colPredicates = None
     }
 
+    val colNames = relation.catalogTable.rowKey.columns.columns.
+      map{ c => ColumnName(c.family, c.qualifier)
+    }
+
     // TODO: Do column pruning based on only the required colFamilies
-    val filters = new HBaseSQLFilters(relation.colFamilies, rowKeyPredicates, colPredicates,
-      CompositeRowKeyParser(relation.catalogTable.rowKey.columns.columns.
-        map{ c => ColumnName(c.family, c.qualifier) }
-      ))
+    val filters = new HBaseSQLFilters(relation.colFamilies, colNames,
+      rowKeyPredicates, colPredicates
+      )
     val colFilters = filters.createColumnFilters
 
     // TODO(sboesch): Perform Partition pruning based on the rowKeyPredicates

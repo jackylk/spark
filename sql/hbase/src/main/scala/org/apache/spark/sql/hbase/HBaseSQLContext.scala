@@ -26,6 +26,7 @@ import org.apache.spark.sql.catalyst.analysis.Analyzer
 import org.apache.spark.sql.catalyst.expressions.{EqualTo, Attribute, Expression}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution._
+import org.apache.spark.sql.hbase.HBaseCatalog.{Column, HBaseDataType, Columns}
 
 //import org.apache.spark.sql.execution.SparkStrategies.HashAggregation
 
@@ -103,12 +104,15 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
     hbaseTable: String,
     keys: Seq[String],
     otherCols: Seq[(String, String)]): Unit = {
-    val columnInfo = new catalog.Columns(tableCols.map{
+    val columnInfo = new Columns(tableCols.map{
       // TODO(Bo): reconcile the invocation of Column including catalystName and hbase family
-      case(name, dataType) => catalog.Column(null, null, name, HBaseDataType.withName(dataType))
+      case(name, dataType) => Column(null, null, name, HBaseDataType.withName(dataType))
     })
     // TODO(Bo): reconcile the invocation of createTable to the Catalog
-    catalog.createTable("DEFAULT", tableName, null /*tableCols.toList */, hbaseTable, keys.toList,
+    val keyCols = new Columns(keys.map{ k =>
+      Column(k, null /* Bo: fix! */, k, HBaseDataType.STRING)
+    })
+    catalog.createTable("DEFAULT", tableName, null /*tableCols.toList */, hbaseTable, keyCols,
       otherCols.toList)
   }
 

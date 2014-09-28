@@ -16,6 +16,7 @@
  */
 package org.apache.spark.sql.hbase
 
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.{Get, HBaseAdmin, HTable, HTableInterface, Put}
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
@@ -31,15 +32,12 @@ import scala.collection.mutable.{HashMap, ListBuffer}
  * HBaseCatalog
  */
 private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog with Logging {
+
+  import HBaseCatalog._
+
   lazy val configuration = HBaseUtils.configuration
   lazy val hconnection = HBaseUtils.getHBaseConnection(configuration)
 
-  val METADATA = "metadata"
-  val COLUMN_FAMILY = Bytes.toBytes("colfam")
-  val QUAL_KEYS = Bytes.toBytes("keys")
-  val QUAL_COLUMN_INFO = Bytes.toBytes("columnInfo")
-  val QUAL_HBASE_NAME = Bytes.toBytes("hbaseName")
-  val QUAL_MAPPING_INFO = Bytes.toBytes("mappingInfo")
   val tables = new HashMap[String, LogicalPlan]()
   val logger = Logger.getLogger(getClass.getName)
   val caseSensitive: Boolean = false
@@ -107,12 +105,12 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
   def getTableFromCatalog(dbName: String, tableName: String): HBaseCatalogTable = {
     val conf = HBaseConfiguration.create()
 
-    val table = new HTable(conf, METADATA)
+    val table = new HTable(conf, MetaData)
 
     val get = new Get(Bytes.toBytes(dbName + "." + tableName))
     val rest1 = table.get(get)
 
-    var columnInfo = Bytes.toString(rest1.getValue(COLUMN_FAMILY, QUAL_COLUMN_INFO))
+    var columnInfo = Bytes.toString(rest1.getValue(ColumnFamily, QualColumnInfo))
     if (columnInfo.length > 0) {
       columnInfo = columnInfo.substring(0, columnInfo.length - 1)
     }
@@ -129,9 +127,9 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
       infoColumns = infoColumns :+ col
     }
 
-    val hbaseName = Bytes.toString(rest1.getValue(COLUMN_FAMILY, QUAL_HBASE_NAME))
+    val hbaseName = Bytes.toString(rest1.getValue(ColumnFamily, QualHbaseName))
 
-    var mappingInfo = Bytes.toString(rest1.getValue(COLUMN_FAMILY, QUAL_MAPPING_INFO))
+    var mappingInfo = Bytes.toString(rest1.getValue(ColumnFamily, QualMappingInfo))
     if (mappingInfo.length > 0) {
       mappingInfo = mappingInfo.substring(0, mappingInfo.length - 1)
     }
@@ -166,7 +164,7 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     }
     val columns = new Columns(columnList)
 
-    var keys = Bytes.toString(rest1.getValue(COLUMN_FAMILY, QUAL_KEYS))
+    var keys = Bytes.toString(rest1.getValue(ColumnFamily, QualKeys))
     if (keys.length > 0) {
       keys = keys.substring(0, keys.length - 1)
     }
@@ -185,26 +183,30 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
       HBaseUtils.getPartitions(tName))
   }
 
-  def createTable(dbName: String, tableName: String, columnInfo: Columns,
-                  hbaseTableName: String, keys: List[String],
-                  mappingInfo: List[(String, String)]): Unit = {
-    //println(System.getProperty("java.class.path"))
+  def createMetadataTable(admin: HBaseAdmin) = {
+    val desc = new HTableDescriptor(TableName.valueOf(MetaData))
+    val coldef = new HColumnDescriptor(ColumnFamily)
+    desc.addFamily(coldef)
+    admin.createTable(desc)
+  }
 
-    val conf = HBaseConfiguration.create
+
+  def createTable(dbName: String, tableName: String, columnInfo: Columns,
+                  hbaseTableName: String, keys: Columns,
+                  mappingInfo: List[(String, String)],
+                  conf: Configuration = HBaseConfiguration.create): Unit = {
+    //println(System.getProperty("java.class.path"))
 
     val admin = new HBaseAdmin(conf)
 
-    val avail = admin.isTableAvailable(METADATA)
+    val avail = admin.isTableAvailable(MetaData)
 
     if (!avail) {
       // create table
-      val desc = new HTableDescriptor(TableName.valueOf(METADATA))
-      val coldef = new HColumnDescriptor(COLUMN_FAMILY)
-      desc.addFamily(coldef)
-      admin.createTable(desc)
+      createMetadataTable(admin)
     }
 
-    val table = new HTable(conf, METADATA)
+    val table = new HTable(conf, MetaData)
     table.setAutoFlushTo(false)
     val rowKey = dbName + "." + tableName
 
@@ -224,11 +226,11 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
         result1.append(value.toString)
         result1.append(",")
       }
-      put.add(COLUMN_FAMILY, QUAL_COLUMN_INFO, Bytes.toBytes(result1.toString))
+      put.add(ColumnFamily, QualColumnInfo, Bytes.toBytes(result1.toString))
 
       val result2 = new StringBuilder
       result2.append(hbaseTableName)
-      put.add(COLUMN_FAMILY, QUAL_HBASE_NAME, Bytes.toBytes(result2.toString))
+      put.add(ColumnFamily, QualHbaseName, Bytes.toBytes(result2.toString))
 
       val result3 = new StringBuilder
       for ((key, value) <- mappingInfo) {
@@ -237,14 +239,16 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
         result3.append(value)
         result3.append(",")
       }
-      put.add(COLUMN_FAMILY, QUAL_MAPPING_INFO, Bytes.toBytes(result3.toString))
+      put.add(ColumnFamily, QualMappingInfo, Bytes.toBytes(result3.toString))
 
       val result4 = new StringBuilder
-      for (key <- keys) {
-        result4.append(key)
+      // TODO(Bo): need to handle keys properly, not just a single
+      // string name: they are Column objects
+      for (key <- keys.columns) {
+        result4.append(key.fullName)
         result4.append(",")
       }
-      put.add(COLUMN_FAMILY, QUAL_KEYS, Bytes.toBytes(result4.toString))
+      put.add(ColumnFamily, QualKeys, Bytes.toBytes(result4.toString))
 
       table.put(put)
 
@@ -252,8 +256,76 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
     }
   }
 
+  def retrieveTable(dbName: String, tableName: String): HBaseCatalogTable = {
+    //  def retrieveTable(dbName: String, tableName: String): (List[(String, String)],
+    //    String, List[String], List[(String, String)]) = {
+    val conf = HBaseConfiguration.create()
+
+    val table = new HTable(conf, MetaData)
+
+    val get = new Get(Bytes.toBytes(dbName + "." + tableName))
+    val rest1 = table.get(get)
+
+    var columnInfo = Bytes.toString(rest1.getValue(ColumnFamily, QualColumnInfo))
+    if (columnInfo.length > 0) {
+      columnInfo = columnInfo.substring(0, columnInfo.length - 1)
+    }
+    val columnInfoArray = columnInfo.split(",")
+    var columnInfoList = List[(String, String)]()
+    for (column <- columnInfoArray) {
+      val index = column.indexOf("=")
+      val key = column.substring(0, index)
+      val value = column.substring(index + 1)
+      columnInfoList = columnInfoList :+(key, value)
+    }
+
+    val hbaseName = Bytes.toString(rest1.getValue(ColumnFamily, QualHbaseName))
+
+    var mappingInfo = Bytes.toString(rest1.getValue(ColumnFamily, QualMappingInfo))
+    if (mappingInfo.length > 0) {
+      mappingInfo = mappingInfo.substring(0, mappingInfo.length - 1)
+    }
+    val mappingInfoArray = mappingInfo.split(",")
+    var mappingInfoList = List[(String, String)]()
+    for (mapping <- mappingInfoArray) {
+      val index = mapping.indexOf("=")
+      val key = mapping.substring(0, index)
+      val value = mapping.substring(index + 1)
+      mappingInfoList = mappingInfoList :+(key, value)
+    }
+
+    var keys = Bytes.toString(rest1.getValue(ColumnFamily, QualKeys))
+    if (keys.length > 0) {
+      keys = keys.substring(0, keys.length - 1)
+    }
+    val keysArray = keys.split(",")
+    var keysList = new ListBuffer[String]()
+    for (key <- keysArray) {
+      keysList += key
+    }
+
+    //    (columnInfoList, hbaseName, keysList.toList, mappingInfoList)
+    null // TODO(Bo): Make return value of HBaseCatalogTable
+    // BTW should we just go ahead and return an HBaseRelation??
+  }
+
   override def registerTable(databaseName: Option[String], tableName: String,
                              plan: LogicalPlan): Unit = ???
+
+}
+
+object HBaseCatalog {
+
+  val MetaData = "metadata"
+  val ColumnFamily = Bytes.toBytes("colfam")
+  val QualKeys = Bytes.toBytes("keys")
+  val QualColumnInfo = Bytes.toBytes("columnInfo")
+  val QualHbaseName = Bytes.toBytes("hbaseName")
+  val QualMappingInfo = Bytes.toBytes("mappingInfo")
+
+  object HBaseDataType extends Enumeration {
+    val STRING, BYTE, SHORT, INTEGER, LONG, FLOAT, DOUBLE, BOOLEAN = Value
+  }
 
   sealed trait RowKey
 
@@ -280,16 +352,13 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
   }
 
   class Columns(val columns: Seq[Column]) {
+
+    import scala.collection.mutable
+
     val colx = new java.util.concurrent.atomic.AtomicInteger
 
     def apply(colName: ColumnName) = {
       map(colName)
-    }
-
-    def lift[A: reflect.ClassTag](a: A): Option[A] = a match {
-      case a: Some[A] => a
-      case None => None
-      case a: A => Some(a)
     }
 
     def apply(colName: String): Option[Column] = {
@@ -323,6 +392,12 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
         Column.toAttribute(col)
       }
     }
+
+    def lift[A: reflect.ClassTag](a: A): Option[A] = a match {
+      case a: Some[A] => a
+      case None => None
+      case a: A => Some(a)
+    }
   }
 
   case class HBaseCatalogTable(catalystTablename: String,
@@ -336,8 +411,4 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext) extends Catalog
 
   case object RawBytesRowKey extends RowKey
 
-}
-
-object HBaseDataType extends Enumeration {
-  val STRING, BYTE, SHORT, INTEGER, LONG, FLOAT, DOUBLE, BOOLEAN = Value
 }

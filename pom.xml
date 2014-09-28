@@ -937,6 +937,7 @@
           <configuration>
             <source>${java.version}</source>
             <target>${java.version}</target>
+            <debug>true</debug>
             <encoding>UTF-8</encoding>
             <maxmem>1024m</maxmem>
             <fork>true</fork>
