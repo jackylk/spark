@@ -118,6 +118,6 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
 
   def stop() = {
     hconnection.close
-    super.sparkContext.stop()
+    sparkContext.stop()
   }
 }

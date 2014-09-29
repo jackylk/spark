@@ -9,7 +9,7 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
  *
  * Created by sboesch on 9/28/14.
  */
-class HBaseTestingSparkContext(nSlaves: Int) extends BeforeAndAfterAll {
+class HBaseTestingSparkContext(nSlaves: Int) /* extends BeforeAndAfterAll */ {
   self: Suite  =>
   val logger = Logger.getLogger(getClass.getName)
   @transient private var _sc: SparkContext = _
@@ -20,11 +20,11 @@ class HBaseTestingSparkContext(nSlaves: Int) extends BeforeAndAfterAll {
 
 //  val NSlaves = 2
   val slaves = s"local[$nSlaves]"
-  override def beforeAll() {
+  def beforeAll() {
     _sc = new SparkContext(slaves, "test", conf)
   }
 
-  override def afterAll() {
+  def afterAll() {
     LocalSparkContext.stop(_sc)
     _sc = null
   }
