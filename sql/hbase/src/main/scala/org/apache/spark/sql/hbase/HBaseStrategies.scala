@@ -241,8 +241,9 @@ private[hbase] trait HBaseStrategies {
 //          val hBaseColumns = projectList.map{ p =>
 //
 //          new HBaseSQLReaderRDD()
-      case CreateTablePlan(tableName, tableCols, hbaseTable, keys, otherCols) => {
-        Seq(CreateTableCommand(tableName, tableCols, hbaseTable, keys, otherCols)(hbaseContext))
+      case CreateTablePlan(tableName, hbaseTable, keyCols, tableCols, mappingCols) => {
+        Seq(CreateTableCommand(tableName, hbaseTable, keyCols, tableCols,mappingCols)
+          (hbaseContext))
       };
       case _ => Nil
     }

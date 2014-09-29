@@ -46,7 +46,8 @@ abstract class HBaseSQLRDD (
   override def baseSchemaRDD = this
 
   override def getPartitions: Array[Partition] = HBaseUtils.
-    getPartitions(tableName)./* unzip._1 . */toArray[Partition]
+    getPartitions(tableName,
+      hbaseContext.configuration)./* unzip._1 . */toArray[Partition]
 
   override protected def getDependencies: Seq[Dependency[_]] = super.getDependencies
 }

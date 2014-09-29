@@ -4,7 +4,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.{Result, Scan, HTable, HBaseAdmin}
 import org.apache.log4j.Logger
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.hbase.HBaseCatalog.{Columns, HBaseDataType, Column}
+import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Columns, HBaseDataType, Column}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfter, FunSuite}
 import org.apache.hadoop.hbase.{HBaseConfiguration, HBaseTestingUtility, MiniHBaseCluster}
 
@@ -55,18 +55,16 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll {
       Column(s"sqlColName$ax",s"cf${ax % 2}",s"cq${ax %2}ax",
         if (ax % 2 == 0) HBaseDataType.LONG else HBaseDataType.STRING)
     })
-    val keys = new Columns(Array.tabulate[Column](4){ ax =>
-      Column(s"sqlColName$ax",s"cfk${ax % 2}",s"cqk${ax %2}ax",
+    val keys = Array.tabulate(4){ ax =>
+      KeyColumn(s"sqlColName$ax",
         if (ax % 2 == 0) HBaseDataType.LONG else HBaseDataType.STRING)
-    })
+    }.toSeq
 
-    val mappingInfo = columns.columns.map{m =>
-      (m.family, m.qualifier)
-    }.toList
+    val DbName = "testdb"
+    val TabName = "testtaba"
+    val HbaseTabName = "hbasetaba"
+    catalog.createTable(DbName, TabName, HbaseTabName, keys, columns)
 
-    catalog.createTable("testdb","testtaba",  columns,
-      "hbasetaba", keys, mappingInfo, config)
-    
     val metaTable = new HTable(config, HBaseCatalog.MetaData)
     val scanner = metaTable.getScanner(new Scan())
     import collection.mutable
@@ -81,8 +79,11 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll {
     assert(!rows.isEmpty, "Hey where did our metadata row go?")
     val tname = rows(0).getColumnLatestCell(HBaseCatalog.ColumnFamily,
       HBaseCatalog.QualColumnInfo)
-    assert(tname.getQualifierArray.contains(HBaseCatalog.QualColumnInfo),
-      "We were unable to read the columnInfo cell")
+//    assert(new String(tname.getQualifierArray).contains(HBaseCatalog.QualColumnInfo),
+//      "We were unable to read the columnInfo cell")
+    val catTab = catalog.getTable("testdb","testtaba")
+    assert(catTab.catalystTablename == TabName)
+    assert(catTab.tableName.toString == s"$DbName:$HbaseTabName")
   }
 
   override def afterAll() = {

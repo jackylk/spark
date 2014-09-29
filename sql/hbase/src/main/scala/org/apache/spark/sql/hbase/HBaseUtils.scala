@@ -40,9 +40,10 @@ object HBaseUtils extends Serializable {
     connection
   }
 
-  def getPartitions(tableName : TableName) = {
+  def getPartitions(tableName : TableName,
+                    config : Configuration) = {
     import scala.collection.JavaConverters._
-    val hConnection = getHBaseConnection(lazyConfig)
+    val hConnection = getHBaseConnection(config)
     val regionLocations = hConnection.locateRegions(tableName)
     case class BoundsAndServers(startKey : Array[Byte], endKey : Array[Byte],
                                 servers : Seq[String])

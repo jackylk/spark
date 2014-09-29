@@ -64,16 +64,16 @@ class HBaseSQLParser extends SqlParser {
 
       //Since the lexical can not recognize the symbol "=" as we expected,
       // we compose it to expression first and then translate it into Seq(String, String)
-      case tableName ~ tableCols ~ htn ~ keys ~ otherCols =>
-        val otherColsSeq: Seq[(String, String)] =
-          otherCols.map { case EqualTo(e1, e2) =>
+      case tableName ~ tableCols ~ htn ~ keys ~ mappingCols =>
+        val mappingColsSeq: Seq[(String, String)] =
+          mappingCols.map { case EqualTo(e1, e2) =>
             val s1 = e1.toString.substring(1)
             val e2_str = e2.toString
             val s2 = if (e2_str.contains('.')) e2_str.substring(1, e2_str.length - 2)
             else e2_str.substring(1)
             (s1, s2)
           }
-        CreateTablePlan(tableName, tableCols, htn, keys, otherColsSeq)
+        CreateTablePlan(tableName, htn, keys, tableCols, mappingColsSeq)
     }
 
   protected lazy val drop: Parser[LogicalPlan] =
@@ -107,7 +107,7 @@ class HBaseSQLParser extends SqlParser {
 }
 
 case class CreateTablePlan(tableName: String,
-                           tableCols: Seq[(String, String)],
                            hbaseTable: String,
                            keys: Seq[String],
-                           otherCols: Seq[(String, String)]) extends Command
+                           tableCols: Seq[(String, String)],
+                            mappingCols: Seq[(String,String)]) extends Command

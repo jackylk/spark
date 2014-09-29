@@ -26,7 +26,7 @@ import org.apache.spark.sql.catalyst.analysis.Analyzer
 import org.apache.spark.sql.catalyst.expressions.{EqualTo, Attribute, Expression}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.hbase.HBaseCatalog.{Column, HBaseDataType, Columns}
+import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Column, HBaseDataType, Columns}
 
 //import org.apache.spark.sql.execution.SparkStrategies.HashAggregation
 
@@ -42,7 +42,7 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
   @transient val configuration = hbaseConf
 
   @transient
-  override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this)
+  override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this, configuration)
 
   @transient val hbasePlanner = new SparkPlanner with HBaseStrategies {
     val hbaseContext = self
@@ -100,20 +100,12 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
   }
 
   def createHbaseTable(tableName: String,
-    tableCols: Seq[(String, String)],
-    hbaseTable: String,
-    keys: Seq[String],
-    otherCols: Seq[(String, String)]): Unit = {
-    val columnInfo = new Columns(tableCols.map{
-      // TODO(Bo): reconcile the invocation of Column including catalystName and hbase family
-      case(name, dataType) => Column(null, null, name, HBaseDataType.withName(dataType))
-    })
+                       hbaseTable: String,
+                       keyCols: Seq[KeyColumn],
+                       tableCols: Columns): Unit = {
     // TODO(Bo): reconcile the invocation of createTable to the Catalog
-    val keyCols = new Columns(keys.map{ k =>
-      Column(k, null /* Bo: fix! */, k, HBaseDataType.STRING)
-    })
-    catalog.createTable("DEFAULT", tableName, null /*tableCols.toList */, hbaseTable, keyCols,
-      otherCols.toList)
+    // TODO(Bo): replace "DEFAULT" with the correct HBase namespace
+    catalog.createTable("DEFAULT", tableName, hbaseTable, keyCols, tableCols)
   }
 
   def stop() = {
