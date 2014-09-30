@@ -103,10 +103,10 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
     }
   }
 
-  def getTable(dbName: String, tableName: String): HBaseCatalogTable = {
+  def getTable(namespace: String, tableName: String): HBaseCatalogTable = {
     val table = new HTable(configuration, MetaData)
 
-    val get = new Get(Bytes.toBytes(dbName + "." + tableName))
+    val get = new Get(Bytes.toBytes(namespace + "." + tableName))
     val rest1 = table.get(get)
 
     var columnList = List[Column]()
@@ -147,8 +147,14 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
     }
     val rowKey = TypedRowKey(new Columns(keysList))
 
-    // TODO: suport the full (namespace,tableName)
-    val fullHBaseName = TableName.valueOf(hbaseName)
+    val fullHBaseName =
+      if (namespace.length == 0) {
+        TableName.valueOf(hbaseName)
+      }
+      else {
+        TableName.valueOf(namespace, hbaseName)
+      }
+
     HBaseCatalogTable(tableName, fullHBaseName, rowKey,
       columnFamilies,
       new Columns(columnList),
@@ -162,7 +168,7 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
     admin.createTable(desc)
   }
 
-  def createTable(dbName: String, tableName: String,
+  def createTable(namespace: String, tableName: String,
                   hbaseTableName: String,
                   keyColumns: Seq[KeyColumn],
                   nonKeyColumns: Columns
@@ -180,7 +186,7 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
 
     val table = new HTable(configuration, MetaData)
     table.setAutoFlushTo(false)
-    val rowKey = dbName + "." + tableName
+    val rowKey = namespace + "." + tableName
 
     val get = new Get(Bytes.toBytes(rowKey))
     if (table.exists(get)) {
