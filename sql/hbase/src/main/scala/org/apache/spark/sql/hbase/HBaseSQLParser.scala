@@ -81,11 +81,15 @@ class HBaseSQLParser extends SqlParser {
           throw new Exception("\nSyntx Error of Create Table")
         }
 
-        val partitionResultOfTableColumns = tableColumns.partition { case (name, _) => keySeq.contains(name)}
+        val partitionResultOfTableColumns = tableColumns.partition {
+          case (name, _) =>
+            keySeq.contains(name)
+        }
         val keyCols = partitionResultOfTableColumns._1
-        val nonKeyCols = partitionResultOfTableColumns._2.map { case (name, typeOfData) =>
-          val infoElem = infoMap.get(name).get
-          (name, typeOfData, infoElem._1, infoElem._2)
+        val nonKeyCols = partitionResultOfTableColumns._2.map {
+          case (name, typeOfData) =>
+            val infoElem = infoMap.get(name).get
+            (name, typeOfData, infoElem._1, infoElem._2)
         }
         CreateTablePlan(tableName, hbaseTableName, keyCols, nonKeyCols)
     }

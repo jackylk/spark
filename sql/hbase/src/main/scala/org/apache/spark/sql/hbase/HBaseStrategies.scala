@@ -158,8 +158,8 @@ private[hbase] trait HBaseStrategies {
 
         val emptyPredicate = ColumnPredicate.EmptyColumnPredicate
         // TODO(sboesch):  create multiple HBaseSQLTableScan's based on the calculated partitions
-        def partitionRowKeyPredicatesByHBasePartition(rowKeyPredicates:
-                                                      Option[Seq[ColumnPredicate]]): Seq[Seq[ColumnPredicate]] = {
+        def partitionRowKeyPredicatesByHBasePartition
+        (rowKeyPredicates: Option[Seq[ColumnPredicate]]): Seq[Seq[ColumnPredicate]] = {
           //TODO(sboesch): map the row key predicates to the
           // respective physical HBase Region server ranges
           //  and return those as a Sequence of ranges
@@ -242,4 +242,5 @@ private[hbase] trait HBaseStrategies {
       case _ => Nil
     }
   }
+
 }

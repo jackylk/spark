@@ -24,7 +24,8 @@ import org.apache.spark.sql.execution.{Command, LeafNode}
 case class CreateTableCommand(tableName: String,
                               hbaseTable: String,
                               keyCols: Seq[(String, String)],
-                              nonKeyCols: Seq[(String, String, String, String)])(@transient context: HBaseSQLContext)
+                              nonKeyCols: Seq[(String, String, String, String)])
+                             (@transient context: HBaseSQLContext)
   extends LeafNode with Command {
 
   override protected[sql] lazy val sideEffectResult = {
