@@ -205,21 +205,6 @@ private[hbase] trait HBaseStrategies {
     }
   }
 
-  case class RandomAccessByRowkey(context: SQLContext) extends Strategy {
-    def apply(plan: LogicalPlan): Seq[SparkPlan] = {
-      // val b = new Batch
-      throw new UnsupportedOperationException("RandomAccessByRowkey not yet implemented")
-    }
-  }
-
-  case class SequentialScan(context: SQLContext) extends Strategy {
-    def apply(plan: LogicalPlan): Seq[SparkPlan] = {
-      val scan = new Scan
-
-      throw new UnsupportedOperationException("RandomAccessByRowkey not yet implemented")
-    }
-  }
-
   def getHTable(conf: Configuration, tname: String) = {
     val htable = new HTable(conf, tname)
     htable
@@ -229,10 +214,6 @@ private[hbase] trait HBaseStrategies {
                                         sProject: Projection, sJoin: Join) = {
     //    if (sFilter.child.
 
-  }
-
-  def sequentialScan(htable: HTable, filter: HFilter) = {
-    //    val htable
   }
 
   object HBaseOperations extends Strategy {
