@@ -21,7 +21,8 @@ import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.{Command, LeafNode}
 
 
-case class CreateTableCommand(tableName: String,
+case class CreateTableCommand(nameSpace: String,
+                              tableName: String,
                               hbaseTable: String,
                               keyCols: Seq[(String, String)],
                               nonKeyCols: Seq[(String, String, String, String)])
@@ -29,7 +30,7 @@ case class CreateTableCommand(tableName: String,
   extends LeafNode with Command {
 
   override protected[sql] lazy val sideEffectResult = {
-    context.createHbaseTable(tableName, hbaseTable, keyCols, nonKeyCols)
+    context.createHbaseTable(nameSpace, tableName, hbaseTable, keyCols, nonKeyCols)
     Seq.empty[Row]
   }
 

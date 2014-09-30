@@ -99,7 +99,8 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
     functionRegistry, true) {
   }
 
-  def createHbaseTable(tableName: String,
+  def createHbaseTable(nameSpace: String,
+                       tableName: String,
                        hbaseTable: String,
                        keyCols: Seq[(String, String)],
                        nonKeyCols: Seq[(String, String, String, String)]): Unit = {
@@ -111,8 +112,7 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
         Column(name, family, qualifier, HBaseDataType.withName(typeOfData))
     })
 
-    // TODO(Bo): replace "DEFAULT" with the correct HBase namespace
-    catalog.createTable("DEFAULT", tableName, hbaseTable, keyColumns, nonKeyColumns)
+    catalog.createTable(nameSpace, tableName, hbaseTable, keyColumns, nonKeyColumns)
   }
 
   def stop() = {

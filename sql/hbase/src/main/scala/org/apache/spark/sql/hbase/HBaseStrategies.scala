@@ -216,8 +216,9 @@ private[hbase] trait HBaseStrategies {
 
   object HBaseOperations extends Strategy {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-      case CreateTablePlan(tableName, hbaseTableName, keyCols, nonKeyCols) =>
-        Seq(CreateTableCommand(tableName, hbaseTableName, keyCols, nonKeyCols)(hbaseContext))
+      case CreateTablePlan(nameSpace, tableName, hbaseTableName, keyCols, nonKeyCols) =>
+        Seq(CreateTableCommand(nameSpace, tableName, hbaseTableName, keyCols, nonKeyCols)
+          (hbaseContext))
       case _ => Nil
     }
   }

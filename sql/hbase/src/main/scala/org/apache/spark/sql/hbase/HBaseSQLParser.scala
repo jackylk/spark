@@ -56,13 +56,13 @@ class HBaseSQLParser extends SqlParser {
     )
 
   protected lazy val create: Parser[LogicalPlan] =
-    CREATE ~> TABLE ~> ident ~
+    CREATE ~> TABLE ~> opt(nameSpace) ~ ident ~
       ("(" ~> tableCols <~ ")") ~
       (MAPPED ~> BY ~> "(" ~> ident <~ ",") ~
       (KEYS ~> "=" ~> "[" ~> keys <~ "]" <~ ",") ~
       (COLS ~> "=" ~> "[" ~> expressions <~ "]" <~ ")") <~ opt(";") ^^ {
 
-      case tableName ~ tableColumns ~ hbaseTableName ~ keySeq ~ mappingInfo =>
+      case tableNameSpace ~ tableName ~ tableColumns ~ hbaseTableName ~ keySeq ~ mappingInfo =>
         //Since the lexical can not recognize the symbol "=" as we expected,
         //we compose it to expression first and then translate it into Map[String, (String, String)]
         //TODO: Now get the info by hacking, need to change it into normal way if possible
@@ -81,6 +81,7 @@ class HBaseSQLParser extends SqlParser {
           throw new Exception("\nSyntx Error of Create Table")
         }
 
+        val customizedNameSpace = tableNameSpace.getOrElse("")
         val partitionResultOfTableColumns = tableColumns.partition {
           case (name, _) =>
             keySeq.contains(name)
@@ -91,7 +92,7 @@ class HBaseSQLParser extends SqlParser {
             val infoElem = infoMap.get(name).get
             (name, typeOfData, infoElem._1, infoElem._2)
         }
-        CreateTablePlan(tableName, hbaseTableName, keyCols, nonKeyCols)
+        CreateTablePlan(customizedNameSpace, tableName, hbaseTableName, keyCols, nonKeyCols)
     }
 
   protected lazy val drop: Parser[LogicalPlan] =
@@ -111,6 +112,8 @@ class HBaseSQLParser extends SqlParser {
       case e1 ~ e2 => (e1, e2)
     }
 
+  protected lazy val nameSpace: Parser[String] = ident <~ "."
+
   protected lazy val tableCols: Parser[Seq[(String, String)]] = repsep(tableCol, ",")
 
   protected lazy val keys: Parser[Seq[String]] = repsep(ident, ",")
@@ -119,7 +122,8 @@ class HBaseSQLParser extends SqlParser {
 
 }
 
-case class CreateTablePlan(tableName: String,
+case class CreateTablePlan(nameSpace: String,
+                           tableName: String,
                            hbaseTable: String,
                            keyCols: Seq[(String, String)],
                            nonKeyCols: Seq[(String, String, String, String)]) extends Command
