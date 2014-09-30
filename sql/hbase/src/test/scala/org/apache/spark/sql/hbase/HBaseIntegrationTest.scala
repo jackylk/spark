@@ -78,7 +78,7 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll {
     } while (row!=null)
     assert(!rows.isEmpty, "Hey where did our metadata row go?")
     val tname = rows(0).getColumnLatestCell(HBaseCatalog.ColumnFamily,
-      HBaseCatalog.QualColumnInfo)
+      HBaseCatalog.QualKeyColumns)
 //    assert(new String(tname.getQualifierArray).contains(HBaseCatalog.QualColumnInfo),
 //      "We were unable to read the columnInfo cell")
     val catTab = catalog.getTable("testdb","testtaba")
