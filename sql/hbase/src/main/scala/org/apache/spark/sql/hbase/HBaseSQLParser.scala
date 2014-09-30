@@ -62,35 +62,44 @@ class HBaseSQLParser extends SqlParser {
       (KEYS ~> "=" ~> "[" ~> keys <~ "]" <~ ",") ~
       (COLS ~> "=" ~> "[" ~> expressions <~ "]" <~ ")") <~ opt(";") ^^ {
 
-      //Since the lexical can not recognize the symbol "=" as we expected,
-      // we compose it to expression first and then translate it into Seq(String, String)
-      case tableName ~ tableCols ~ htn ~ keys ~ mappingCols =>
-        val mappingColsSeq: Seq[(String, String)] =
-          mappingCols.map { case EqualTo(e1, e2) =>
-            val s1 = e1.toString.substring(1)
-            val e2_str = e2.toString
-            val s2 = if (e2_str.contains('.')) e2_str.substring(1, e2_str.length - 2)
-            else e2_str.substring(1)
-            (s1, s2)
-          }
-        CreateTablePlan(tableName, htn, keys, tableCols, mappingColsSeq)
+      case tableName ~ tableColumns ~ hbaseTableName ~ keySeq ~ mappingInfo =>
+        //Since the lexical can not recognize the symbol "=" as we expected,
+        //we compose it to expression first and then translate it into Map[String, (String, String)]
+        //TODO: Now get the info by hacking, need to change it into normal way if possible
+        val infoMap: Map[String, (String, String)] =
+          mappingInfo.map { case EqualTo(e1, e2) =>
+            val info = e2.toString.substring(1).split('.')
+            if (info.length != 2) throw new Exception("\nSyntx Error of Create Table")
+            e1.toString.substring(1) ->(info(0), info(1))
+          }.toMap
+
+        val tableColSet = tableColumns.unzip._1.toSet
+        val keySet = keySeq.toSet
+        if (tableColSet.size != tableColumns.length ||
+          keySet.size != keySeq.length ||
+          !(keySet union infoMap.keySet).equals(tableColSet)) {
+          throw new Exception("\nSyntx Error of Create Table")
+        }
+
+        val partitionResultOfTableColumns = tableColumns.partition { case (name, _) => keySeq.contains(name)}
+        val keyCols = partitionResultOfTableColumns._1
+        val nonKeyCols = partitionResultOfTableColumns._2.map { case (name, typeOfData) =>
+          val infoElem = infoMap.get(name).get
+          (name, typeOfData, infoElem._1, infoElem._2)
+        }
+        CreateTablePlan(tableName, hbaseTableName, keyCols, nonKeyCols)
     }
 
   protected lazy val drop: Parser[LogicalPlan] =
     DROP ~> TABLE ~> ident <~ opt(";") ^^ {
-      case tn =>
-        null
+      case tn => null
     }
 
   protected lazy val alter: Parser[LogicalPlan] =
     ALTER ~> TABLE ~> ident ~ DROP ~ ident <~ opt(";") ^^ {
-      case tn ~ op ~ col => {
-        null
-      }
+      case tn ~ op ~ col => null
     } | ALTER ~> TABLE ~> ident ~ ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> expressions <~ ")") ^^ {
-      case tn ~ op ~ tc ~ cf => {
-        null
-      }
+      case tn ~ op ~ tc ~ cf => null
     }
 
   protected lazy val tableCol: Parser[(String, String)] =
@@ -108,6 +117,5 @@ class HBaseSQLParser extends SqlParser {
 
 case class CreateTablePlan(tableName: String,
                            hbaseTable: String,
-                           keys: Seq[String],
-                           tableCols: Seq[(String, String)],
-                            mappingCols: Seq[(String,String)]) extends Command
+                           keyCols: Seq[(String, String)],
+                           nonKeyCols: Seq[(String, String, String, String)]) extends Command

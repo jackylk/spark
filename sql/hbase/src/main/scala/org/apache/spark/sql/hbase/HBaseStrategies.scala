@@ -58,7 +58,7 @@ private[hbase] trait HBaseStrategies {
         val partitionKeys = relation.catalogTable.rowKey.columns.asAttributes()
 
         val partitionKeyIds = AttributeSet(partitionKeys)
-        var (rowKeyPredicates, _ /*otherPredicates*/) = predicates.partition {
+        var (rowKeyPredicates, _ /*otherPredicates*/ ) = predicates.partition {
           _.references.subsetOf(partitionKeyIds)
         }
 
@@ -79,7 +79,7 @@ private[hbase] trait HBaseStrategies {
                                        }
         } yield attrib
 
-        val otherPredicates = predicates.filterNot (rowPrefixPredicates.toList.contains)
+        val otherPredicates = predicates.filterNot(rowPrefixPredicates.toList.contains)
 
         def rowKeyOrdinal(name: ColumnName) = relation.catalogTable.rowKey.columns(name).ordinal
 
@@ -116,22 +116,22 @@ private[hbase] trait HBaseStrategies {
         var invalidRKPreds = false
         var rowKeyColumnPredicates: Option[Seq[ColumnPredicate]] =
           if (!sortedRowPrefixPredicates.isEmpty) {
-          val bins = rowKeyPredicates.map {
-            case pp: BinaryComparison =>
-              Some(ColumnPredicate.catalystToHBase(pp))
-            case s =>
-              log.info(s"RowKeyPreds: Only BinaryComparison operators supported ${s.toString}")
-              invalidRKPreds = true
+            val bins = rowKeyPredicates.map {
+              case pp: BinaryComparison =>
+                Some(ColumnPredicate.catalystToHBase(pp))
+              case s =>
+                log.info(s"RowKeyPreds: Only BinaryComparison operators supported ${s.toString}")
+                invalidRKPreds = true
+                None
+            }.flatten
+            if (!bins.isEmpty) {
+              Some(bins)
+            } else {
               None
-          }.flatten
-          if (!bins.isEmpty) {
-            Some(bins)
+            }
           } else {
             None
           }
-        } else {
-          None
-        }
         if (invalidRKPreds) {
           rowKeyColumnPredicates = None
         }
@@ -159,7 +159,7 @@ private[hbase] trait HBaseStrategies {
         val emptyPredicate = ColumnPredicate.EmptyColumnPredicate
         // TODO(sboesch):  create multiple HBaseSQLTableScan's based on the calculated partitions
         def partitionRowKeyPredicatesByHBasePartition(rowKeyPredicates:
-                              Option[Seq[ColumnPredicate]]): Seq[Seq[ColumnPredicate]] = {
+                                                      Option[Seq[ColumnPredicate]]): Seq[Seq[ColumnPredicate]] = {
           //TODO(sboesch): map the row key predicates to the
           // respective physical HBase Region server ranges
           //  and return those as a Sequence of ranges
@@ -172,7 +172,7 @@ private[hbase] trait HBaseStrategies {
 
         partitionRowKeyPredicates.flatMap { partitionSpecificRowKeyPredicates =>
           def projectionToHBaseColumn(expr: NamedExpression,
-                                      hbaseRelation: HBaseRelation) : ColumnName = {
+                                      hbaseRelation: HBaseRelation): ColumnName = {
             hbaseRelation.catalogTable.columns.findBySqlName(expr.name).map(_.toColumnName).get
           }
 
@@ -197,7 +197,7 @@ private[hbase] trait HBaseStrategies {
           pruneFilterProject(
             projectList,
             otherPredicates,
-              identity[Seq[Expression]], // removeRowKeyPredicates,
+            identity[Seq[Expression]], // removeRowKeyPredicates,
             scanBuilder) :: Nil
         }
       case _ =>
@@ -237,14 +237,8 @@ private[hbase] trait HBaseStrategies {
 
   object HBaseOperations extends Strategy {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-//      case PhysicalOperation(projectList, filters: Seq[Expression], relation: HBaseRelation) =>
-//          val hBaseColumns = projectList.map{ p =>
-//
-//          new HBaseSQLReaderRDD()
-      case CreateTablePlan(tableName, hbaseTable, keyCols, tableCols, mappingCols) => {
-        Seq(CreateTableCommand(tableName, hbaseTable, keyCols, tableCols,mappingCols)
-          (hbaseContext))
-      };
+      case CreateTablePlan(tableName, hbaseTableName, keyCols, nonKeyCols) =>
+        Seq(CreateTableCommand(tableName, hbaseTableName, keyCols, nonKeyCols)(hbaseContext))
       case _ => Nil
     }
   }

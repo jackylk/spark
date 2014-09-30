@@ -19,28 +19,16 @@ package org.apache.spark.sql.hbase
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.{Command, LeafNode}
-import org.apache.spark.sql.hbase.HBaseCatalog.{HBaseDataType, Column, Columns, KeyColumn}
 
 
 case class CreateTableCommand(tableName: String,
                               hbaseTable: String,
-                              keyCols: Seq[String],
-                              tableCols: Seq[(String, String)],
-                              mappingCols: Seq[(String, String)])
-                             (@transient context: HBaseSQLContext)
+                              keyCols: Seq[(String, String)],
+                              nonKeyCols: Seq[(String, String, String, String)])(@transient context: HBaseSQLContext)
   extends LeafNode with Command {
 
   override protected[sql] lazy val sideEffectResult = {
-    // TODO(Bo): reconcile the invocation of Column including catalystName and hbase family
-    // TODO(Bo): combine the tableCols an mappingCols into the "columns" object
-    val columns = new Columns(tableCols.map{
-      case(name, dataType) => Column(null, null, name, HBaseDataType.withName(dataType))
-    })
-    val keyColumns = keyCols.map{ kc =>
-      // TODO(Bo): remove hard-coded STRING and use correct data type
-      KeyColumn(kc,HBaseDataType.withName("STRING"))
-    }
-    context.createHbaseTable(tableName, hbaseTable, keyColumns, columns)
+    context.createHbaseTable(tableName, hbaseTable, keyCols, nonKeyCols)
     Seq.empty[Row]
   }
 

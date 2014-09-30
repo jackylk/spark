@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.hbase
-
+//package org.apache.spark.sql.hbase
+//
 //import org.apache.spark.sql.QueryTest
 //
 ////Implicits
@@ -27,7 +27,7 @@ package org.apache.spark.sql.hbase
 //
 //  test("create table") {
 //    sql("CREATE TABLE tableName (col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER, col5 LONG, col6 FLOAT, col7 DOUBLE) " +
-//      "MAPPED BY (hbaseTableName, KEYS=[col7, col1, col3], COLS=[col2=cf1, col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])")
+//      "MAPPED BY (hbaseTableName, KEYS=[col7, col1, col3], COLS=[col2=cf1.cq11, col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])")
 //  }
 //
 //  test("SPARK-3176 Added Parser of SQL ABS()") {

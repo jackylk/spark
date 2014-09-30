@@ -101,11 +101,18 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
 
   def createHbaseTable(tableName: String,
                        hbaseTable: String,
-                       keyCols: Seq[KeyColumn],
-                       tableCols: Columns): Unit = {
-    // TODO(Bo): reconcile the invocation of createTable to the Catalog
+                       keyCols: Seq[(String, String)],
+                       nonKeyCols: Seq[(String, String, String, String)]): Unit = {
+    val keyColumns = keyCols.map { case (name, typeOfData) =>
+      KeyColumn(name, HBaseDataType.withName(typeOfData))
+    }
+    val nonKeyColumns = new Columns(nonKeyCols.map {
+      case (name, typeOfData, family, qualifier) =>
+        Column(name, family, qualifier, HBaseDataType.withName(typeOfData))
+    })
+
     // TODO(Bo): replace "DEFAULT" with the correct HBase namespace
-    catalog.createTable("DEFAULT", tableName, hbaseTable, keyCols, tableCols)
+    catalog.createTable("DEFAULT", tableName, hbaseTable, keyColumns, nonKeyColumns)
   }
 
   def stop() = {
