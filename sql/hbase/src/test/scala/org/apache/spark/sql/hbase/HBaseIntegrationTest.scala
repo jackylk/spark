@@ -3,7 +3,7 @@ package org.apache.spark.sql.hbase
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.{Result, Scan, HTable, HBaseAdmin}
 import org.apache.log4j.Logger
-import org.apache.spark.SparkContext
+import org.apache.spark.{Logging, SparkContext}
 import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Columns, HBaseDataType, Column}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfter, FunSuite}
 import org.apache.hadoop.hbase.{HBaseConfiguration, HBaseTestingUtility, MiniHBaseCluster}
@@ -12,7 +12,7 @@ import org.apache.hadoop.hbase.{HBaseConfiguration, HBaseTestingUtility, MiniHBa
  * HBaseIntegrationTest
  * Created by sboesch on 9/27/14.
  */
-class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll {
+class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging {
   val logger = Logger.getLogger(getClass.getName)
 
   val NMasters = 1
@@ -36,6 +36,7 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll {
 //    config = HBaseConfiguration.create
     config = testUtil.getConfiguration
     config.set("hbase.regionserver.info.port","-1")
+    config.set("hbase.master.info.port","-1")
     cluster = testUtil.startMiniCluster(NMasters, NRegionServers)
     println(s"# of region servers = ${cluster.countServedRegions}")
     val sc = new SparkContext(s"local[$NWorkers]", "HBaseTestsSparkContext")
@@ -49,6 +50,10 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll {
     println(s"# of region servers = ${cluster.countServedRegions}")
   }
 
+  val DbName = "testdb"
+  val TabName = "testtaba"
+  val HbaseTabName = "hbasetaba"
+
   test("Create a test table on the server") {
 
     val columns = new Columns(Array.tabulate[Column](10){ ax =>
@@ -60,9 +65,6 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll {
         if (ax % 2 == 0) HBaseDataType.LONG else HBaseDataType.STRING)
     }.toSeq
 
-    val DbName = "testdb"
-    val TabName = "testtaba"
-    val HbaseTabName = "hbasetaba"
     catalog.createTable(DbName, TabName, HbaseTabName, keys, columns)
 
     val metaTable = new HTable(config, HBaseCatalog.MetaData)
@@ -81,12 +83,22 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll {
       HBaseCatalog.QualKeyColumns)
 //    assert(new String(tname.getQualifierArray).contains(HBaseCatalog.QualColumnInfo),
 //      "We were unable to read the columnInfo cell")
-    val catTab = catalog.getTable("testdb","testtaba")
-    assert(catTab.catalystTablename == TabName)
-    assert(catTab.tableName.toString == s"$DbName:$HbaseTabName")
+    val catTab = catalog.getTable(DbName, TabName)
+    assert(catTab.tablename == TabName)
+    // TODO(Bo, XinYu): fix parser/Catalog to support Namespace=Dbname
+    assert(catTab.hbaseTableName.toString == s"$DbName:$HbaseTabName")
   }
 
-  override def afterAll() = {
+  test("Run a simple query") {
+    // ensure the catalog exists (created in the "Create a test table" test)
+    val catTab = catalog.getTable(DbName, TabName)
+    assert(catTab.tablename == TabName)
+    val rdd = hbContext.sql(s"select * from $TabName")
+    rdd.take(1)
+
+  }
+
+    override def afterAll() = {
     cluster.shutdown
     hbContext.stop
   }

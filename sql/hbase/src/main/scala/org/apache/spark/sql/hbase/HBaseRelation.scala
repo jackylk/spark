@@ -44,7 +44,7 @@ private[hbase] case class HBaseRelation (
 
   //  val namespace = catalogTable.tableName.getNamespace
 
-  val tableName = catalogTable.tableName
+  val tableName = catalogTable.hbaseTableName
 
   val partitions : Seq[HBasePartition] = catalogTable.partitions
   val logger = Logger.getLogger(getClass.getName)

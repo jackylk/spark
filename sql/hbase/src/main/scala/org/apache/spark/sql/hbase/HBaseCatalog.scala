@@ -147,11 +147,12 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
     }
     val rowKey = TypedRowKey(new Columns(keysList))
 
-    val tName = TableName.valueOf(tableName)
-    HBaseCatalogTable(hbaseName, tName, rowKey,
+    // TODO: suport the full (namespace,tableName)
+    val fullHBaseName = TableName.valueOf(hbaseName)
+    HBaseCatalogTable(tableName, fullHBaseName, rowKey,
       columnFamilies,
       new Columns(columnList),
-      HBaseUtils.getPartitions(tName, configuration))
+      HBaseUtils.getPartitions(fullHBaseName, configuration))
   }
 
   def createMetadataTable(admin: HBaseAdmin) = {
@@ -318,8 +319,8 @@ object HBaseCatalog {
     }
   }
 
-  case class HBaseCatalogTable(catalystTablename: String,
-                               tableName: TableName,
+  case class HBaseCatalogTable(tablename: String,
+                               hbaseTableName: TableName,
                                rowKey: TypedRowKey,
                                colFamilies: Set[String],
                                columns: Columns,

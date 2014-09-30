@@ -47,9 +47,7 @@ private[hbase] trait HBaseStrategies {
    */
   object HBaseTableScans extends Strategy {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-      case PhysicalOperation(projectList,
-      inPredicates,
-      relation: HBaseRelation) =>
+      case PhysicalOperation(projectList, inPredicates, relation: HBaseRelation) =>
 
         val predicates = inPredicates.asInstanceOf[Seq[BinaryExpression]]
         // Filter out all predicates that only deal with partition keys, these are given to the
@@ -158,8 +156,8 @@ private[hbase] trait HBaseStrategies {
 
         val emptyPredicate = ColumnPredicate.EmptyColumnPredicate
         // TODO(sboesch):  create multiple HBaseSQLTableScan's based on the calculated partitions
-        def partitionRowKeyPredicatesByHBasePartition
-        (rowKeyPredicates: Option[Seq[ColumnPredicate]]): Seq[Seq[ColumnPredicate]] = {
+        def partitionRowKeyPredicatesByHBasePartition(rowKeyPredicates:
+                              Option[Seq[ColumnPredicate]]): Seq[Seq[ColumnPredicate]] = {
           //TODO(sboesch): map the row key predicates to the
           // respective physical HBase Region server ranges
           //  and return those as a Sequence of ranges
