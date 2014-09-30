@@ -19,14 +19,14 @@ package org.apache.spark.sql.hbase
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.{Get, HBaseAdmin, HTable, HTableInterface, Put}
 import org.apache.hadoop.hbase.util.Bytes
-import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
+import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.log4j.Logger
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.analysis.Catalog
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical._
 
-import scala.collection.mutable.{HashMap, ListBuffer}
+import scala.collection.mutable.HashMap
 
 /**
  * HBaseCatalog
@@ -104,82 +104,53 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
   }
 
   def getTable(dbName: String, tableName: String): HBaseCatalogTable = {
-
     val table = new HTable(configuration, MetaData)
 
     val get = new Get(Bytes.toBytes(dbName + "." + tableName))
     val rest1 = table.get(get)
 
-    var columnInfo = Bytes.toString(rest1.getValue(ColumnFamily, QualColumnInfo))
-    if (columnInfo.length > 0) {
-      columnInfo = columnInfo.substring(0, columnInfo.length - 1)
-    }
-    val columnInfoArray = columnInfo.split(",")
-    var infoColumns = List[Column]()
-    for (column <- columnInfoArray) {
-      val index = column.indexOf("=")
-      val sqlName = column.substring(0, index)
-      val value = column.substring(index + 1).toUpperCase()
-      val dataType = HBaseDataType.withName(value)
+    var columnList = List[Column]()
+    var columnFamilies = Set[(String)]()
 
-      // TODO(Bo): add the catalyst column name and the family to the Column object
-      val col = Column(sqlName, null, null, dataType)
-      infoColumns = infoColumns :+ col
+    var nonKeyColumns = Bytes.toString(rest1.getValue(ColumnFamily, QualNonKeyColumns))
+    if (nonKeyColumns.length > 0) {
+      nonKeyColumns = nonKeyColumns.substring(0, nonKeyColumns.length - 1)
+    }
+
+    val nonKeyColumnArray = nonKeyColumns.split(";")
+    for (nonKeyColumn <- nonKeyColumnArray) {
+      val nonKeyColumnInfo = nonKeyColumn.split(",")
+      val sqlName = nonKeyColumnInfo(0)
+      val family = nonKeyColumnInfo(1)
+      val qualifier = nonKeyColumnInfo(2)
+      val dataType = HBaseDataType.withName(nonKeyColumnInfo(3))
+
+      val column = Column(sqlName, family, qualifier, dataType)
+      columnList = columnList :+ column
+      columnFamilies = columnFamilies + family
     }
 
     val hbaseName = Bytes.toString(rest1.getValue(ColumnFamily, QualHbaseName))
 
-    var mappingInfo = Bytes.toString(rest1.getValue(ColumnFamily, QualMappingInfo))
-    if (mappingInfo.length > 0) {
-      mappingInfo = mappingInfo.substring(0, mappingInfo.length - 1)
+    var keyColumns = Bytes.toString(rest1.getValue(ColumnFamily, QualKeyColumns))
+    if (keyColumns.length > 0) {
+      keyColumns = keyColumns.substring(0, keyColumns.length - 1)
     }
-    val mappingInfoArray = mappingInfo.split(",")
-    var mappingColumns = List[Column]()
-    var colFamilies = Set[String]()
-    for (mapping <- mappingInfoArray) {
-      val index = mapping.indexOf("=")
-      val sqlName = mapping.substring(0, index)
-      val value = mapping.substring(index + 1)
-      val split = value.indexOf(".")
-      val family = value.substring(0, split)
-      val qualifier = value.substring(split + 1)
-
-      colFamilies = colFamilies + family
-      val col = Column(sqlName, family, qualifier, null)
-      mappingColumns = mappingColumns :+ col
-    }
-
-    var columnList = List[Column]()
-    for (column <- infoColumns) {
-      val result = mappingColumns.find(e => e.sqlName.equals(column.sqlName))
-      if (result.isEmpty) {
-        val col = Column(column.sqlName, column.family, column.qualifier, column.dataType)
-        columnList = columnList :+ col
-      }
-      else {
-        val head = result.head
-        val col = Column(head.sqlName, head.family, head.qualifier, column.dataType)
-        columnList = columnList :+ col
-      }
-    }
-    val columns = new Columns(columnList)
-
-    var keys = Bytes.toString(rest1.getValue(ColumnFamily, QualKeys))
-    if (keys.length > 0) {
-      keys = keys.substring(0, keys.length - 1)
-    }
-    val keysArray = keys.split(",")
+    val keyColumnArray = keyColumns.split(";")
     var keysList = List[Column]()
-    for (key <- keysArray) {
-      val col = Column(key, null, null, null)
+    for (keyColumn <- keyColumnArray) {
+      val index = keyColumn.indexOf(",")
+      val sqlName = keyColumn.substring(0, index)
+      val dataType = HBaseDataType.withName(keyColumn.substring(index + 1))
+      val col = Column(sqlName, null, null, dataType)
       keysList = keysList :+ col
     }
     val rowKey = TypedRowKey(new Columns(keysList))
 
     val tName = TableName.valueOf(tableName)
     HBaseCatalogTable(hbaseName, tName, rowKey,
-      colFamilies,
-      columns,
+      columnFamilies,
+      new Columns(columnList),
       HBaseUtils.getPartitions(tName, configuration))
   }
 
@@ -219,35 +190,35 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
 
       val result1 = new StringBuilder
       for (column <- nonKeyColumns.columns) {
-        val key = column.qualifier
-        val value = column.dataType
-        result1.append(key)
-        result1.append("=")
-        result1.append(value.toString)
+        val sqlName = column.sqlName
+        val family = column.family
+        val qualifier = column.qualifier
+        val dataType = column.dataType
+        result1.append(sqlName)
         result1.append(",")
+        result1.append(family)
+        result1.append(",")
+        result1.append(qualifier)
+        result1.append(",")
+        result1.append(dataType)
+        result1.append(";")
       }
-      put.add(ColumnFamily, QualColumnInfo, Bytes.toBytes(result1.toString))
+      put.add(ColumnFamily, QualNonKeyColumns, Bytes.toBytes(result1.toString))
 
       val result2 = new StringBuilder
       result2.append(hbaseTableName)
       put.add(ColumnFamily, QualHbaseName, Bytes.toBytes(result2.toString))
 
       val result3 = new StringBuilder
-      // TODO(Bo): fix
-//      for ((key, value) <- mappingInfo) {
-//        result3.append(key)
-//        result3.append("=")
-//        result3.append(value)
-//        result3.append(",")
-//      }
-      put.add(ColumnFamily, QualMappingInfo, Bytes.toBytes(result3.toString))
-
-      val result4 = new StringBuilder
-      for (key <- keyColumns) {
-        result4.append(key.sqlName)
-        result4.append(",")
+      for (column <- keyColumns) {
+        val sqlName = column.sqlName
+        val dataType = column.dataType
+        result3.append(sqlName)
+        result3.append(",")
+        result3.append(dataType)
+        result3.append(";")
       }
-      put.add(ColumnFamily, QualKeys, Bytes.toBytes(result4.toString))
+      put.add(ColumnFamily, QualKeyColumns, Bytes.toBytes(result3.toString))
 
       table.put(put)
 
@@ -264,10 +235,9 @@ object HBaseCatalog {
 
   val MetaData = "metadata"
   val ColumnFamily = Bytes.toBytes("colfam")
-  val QualKeys = Bytes.toBytes("keys")
-  val QualColumnInfo = Bytes.toBytes("columnInfo")
+  val QualKeyColumns = Bytes.toBytes("keyColumns")
+  val QualNonKeyColumns = Bytes.toBytes("nonKeyColumns")
   val QualHbaseName = Bytes.toBytes("hbaseName")
-  val QualMappingInfo = Bytes.toBytes("mappingInfo")
 
   object HBaseDataType extends Enumeration {
     val STRING, BYTE, SHORT, INTEGER, LONG, FLOAT, DOUBLE, BOOLEAN = Value
@@ -360,3 +330,4 @@ object HBaseCatalog {
   case object RawBytesRowKey extends RowKey
 
 }
+
