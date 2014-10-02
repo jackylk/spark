@@ -38,11 +38,7 @@ import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Column, HBaseDataType
  */
 class HBaseSQLContext(val sc: SparkContext, val hbaseConf: Configuration
 = HBaseConfiguration.create())
-  extends SQLContext(sc)
-  with SQLConf
-  with ExpressionConversions
-  with UDFRegistration
-  with Serializable {
+  extends SQLContext(sc) {
   self =>
   @transient val configuration = hbaseConf
 

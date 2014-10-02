@@ -154,57 +154,6 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
 
   }
 
-
-  test("Insert data into the test table") {
-
-    @transient val hbContext2 = hbContext
-//    import hbContext2.createSchemaRDD
-
-//    import hbContext2._
-
-    val DbName = "mynamespace"
-    val TabName = "myTable"
-    hbContext.sql(s"""CREATE TABLE $DbName.$TabName(col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
-      col5 LONG, col6 FLOAT, col7 DOUBLE)
-      MAPPED BY (hbaseTableName, KEYS=[col7, col1, col3], COLS=[col2=cf1.cq11,
-      col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])"""
-      .stripMargin)
-
-    val catTab = catalog.getTable(DbName, TabName)
-    assert(catTab.tablename == TabName)
-
-//    hbContext2.stop
-//    case class MyTable(col1: String, col2: Byte, col3: Short, col4: Int, col5: Long,
-//                       col6: Float, col7: Double)
-//    val myRows = ctx.sparkContext.parallelize((Range(1,21).map{ix =>
-//      MyTable(s"col1$ix", ix.toByte, (ix.toByte*256).asInstanceOf[Short],ix.toByte*65536, ix.toByte*65563L*65536L,
-//        (ix.toByte*65536.0).asInstanceOf[Float], ix.toByte*65536.0D*65563.0D)
-//    }))
-//    val hbContext2 = ssc
-//    import hbContext2._
-//    import hbContext2.createSchemaRDD
-
-    val sc = new SparkContext(s"local[$NWorkers]", "HBaseTestsSparkContext")
-    val ctx = new SQLContext(sc)
-    import ctx._
-    case class MyTable(col1: String, col2: Byte)
-    val myRows = ctx.sparkContext.parallelize((Range(1,21).map{ix =>
-        MyTable(s"col1$ix", ix.toByte)
-    }))
-//    val myRowsSchema = myRows.where("1=1")
-//    val TempTabName = "MyTempTab"
-//    myRowsSchema.registerTempTable(TempTabName)
-
-//    ctx.sql(
-//      s"""insert into $TabName select * from $TempTabName""".stripMargin)
-
-    ctx.sql(s"""select * from $TabName
-    where col1 >=3 and col1 <= 10
-    order by col1 desc"""
-    .stripMargin)
-
-  }
-
   test("Run a simple query") {
     // ensure the catalog exists (created in the "Create a test table" test)
     val catTab = catalog.getTable(DbName, TabName)
