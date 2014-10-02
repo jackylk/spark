@@ -168,15 +168,23 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
     admin.createTable(desc)
   }
 
+  def checkTableExists(hbaseTableName: String): Boolean = {
+    val admin = new HBaseAdmin(configuration)
+    admin.tableExists(hbaseTableName)
+  }
+
+  def checkFamilyExists(hbaseTableName: String, family: String): Boolean = {
+    val admin = new HBaseAdmin(configuration)
+    val tableDescriptor = admin.getTableDescriptor(TableName.valueOf(hbaseTableName))
+    tableDescriptor.hasFamily(Bytes.toBytes(family))
+  }
+
   def createTable(namespace: String, tableName: String,
                   hbaseTableName: String,
                   keyColumns: Seq[KeyColumn],
                   nonKeyColumns: Columns
                   ): Unit = {
-    //println(System.getProperty("java.class.path"))
-
     val admin = new HBaseAdmin(configuration)
-
     val avail = admin.isTableAvailable(MetaData)
 
     if (!avail) {
