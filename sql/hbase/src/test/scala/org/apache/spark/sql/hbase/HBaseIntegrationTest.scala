@@ -6,6 +6,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.{Result, Scan, HTable, HBaseAdmin}
 import org.apache.log4j.Logger
 import org.apache.spark.sql.catalyst.ScalaReflection
+import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.test.TestSQLContext._
 import org.apache.spark.sql.{ReflectData, SQLContext, SchemaRDD}
 //import org.apache.spark.sql.hbase.TestHbase._
@@ -94,9 +95,9 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
 //    assert(new String(tname.getQualifierArray).contains(HBaseCatalog.QualColumnInfo),
 //      "We were unable to read the columnInfo cell")
     val catTab = catalog.getTable(DbName, TabName)
-    assert(catTab.tablename == TabName)
+    assert(catTab.get.tablename == TabName)
     // TODO(Bo, XinYu): fix parser/Catalog to support Namespace=Dbname
-    assert(catTab.hbaseTableName.toString == s"$DbName:$HbaseTabName")
+    assert(catTab.get.hbaseTableName.toString == s"$DbName:$HbaseTabName")
   }
 
   test("ReflectData from spark tests suite") {
@@ -130,24 +131,36 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
       .stripMargin)
 
     val catTab = catalog.getTable(DbName, TabName)
-    assert(catTab.tablename == TabName)
+    assert(catTab.get.tablename == TabName)
 
     val ctx = hbContext
-    import ctx._
+    import ctx.createSchemaRDD
     val myRows = ctx.sparkContext.parallelize(Range(1,21).map{ix =>
       MyTable(s"col1$ix", ix.toByte, (ix.toByte*256).asInstanceOf[Short],ix.toByte*65536, ix.toByte*65563L*65536L,
         (ix.toByte*65536.0).asInstanceOf[Float], ix.toByte*65536.0D*65563.0D)
     })
+
 //    import org.apache.spark.sql.execution.ExistingRdd
 //    val myRowsSchema = ExistingRdd.productToRowRdd(myRows)
 //    ctx.applySchema(myRowsSchema, schema)
     val TempTabName = "MyTempTab"
     myRows.registerTempTable(TempTabName)
 
-    ctx.sql(
-      s"""insert into $TabName select * from $TempTabName""".stripMargin)
+    //    ctx.sql(
+    //      s"""insert into $TabName select * from $TempTabName""".stripMargin)
 
-    ctx.sql(s"""select * from $TabName
+    val hbRelation = catalog.lookupRelation(Some(DbName), TabName).asInstanceOf[HBaseRelation]
+
+    val hbasePlanner = new SparkPlanner with HBaseStrategies {
+      override val hbaseContext: HBaseSQLContext = hbContext
+    }
+
+    val insertPlan = hbasePlanner.InsertIntoHBaseTableFromRdd(hbRelation,
+      hbContext.createSchemaRDD(myRows))(hbContext)
+
+    val insertRdd = insertPlan.execute.collect
+
+    ctx.sql( s"""select * from $TabName
     where col1 >=3 and col1 <= 10
     order by col1 desc"""
       .stripMargin)
@@ -156,7 +169,7 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
 
   test("Run a simple query") {
     // ensure the catalog exists (created in the "Create a test table" test)
-    val catTab = catalog.getTable(DbName, TabName)
+    val catTab = catalog.getTable(DbName, TabName).get
     assert(catTab.tablename == TabName)
     val rdd = hbContext.sql(s"select * from $TabName")
     rdd.take(1)

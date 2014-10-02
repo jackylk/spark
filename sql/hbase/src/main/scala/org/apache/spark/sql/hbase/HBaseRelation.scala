@@ -36,12 +36,24 @@ private[hbase] case class HBaseRelation (
 //                                         @transient hbaseContext: HBaseSQLContext,
 //                                         htable: HTableInterface,
                                          catalogTable: HBaseCatalogTable,
-                                         externalResource : ExternalResource)
+                                         externalResource : Option[HBaseExternalResource])
   extends LeafNode {
 
   self: Product =>
 
-  val rowKeyParser = catalogTable.rowKeyParser
+  @transient val logger = Logger.getLogger(getClass.getName)
+
+  @transient lazy val tableName = catalogTable.hbaseTableName.tableName
+
+  val partitions : Seq[HBasePartition] = catalogTable.partitions
+
+  lazy val partitionKeys: Seq[Attribute] = catalogTable.rowKey.columns.asAttributes
+
+  lazy val attributes = catalogTable.columns.asAttributes
+
+  lazy val colFamilies = catalogTable.colFamilies.seq
+
+  @transient lazy val rowKeyParser = catalogTable.rowKeyParser
 
   def rowToHBasePut(schema: StructType, row: Row): Put = {
     val ctab = catalogTable
@@ -53,21 +65,8 @@ private[hbase] case class HBaseRelation (
     p
   }
 
-  // TODO: Set up the external Resource
-  def getExternalResource : HBaseExternalResource = ???
-
-  //  val namespace = catalogTable.tableName.getNamespace
-
-  val tableName = catalogTable.hbaseTableName
-
-  val partitions : Seq[HBasePartition] = catalogTable.partitions
-  val logger = Logger.getLogger(getClass.getName)
-
-  val partitionKeys: Seq[Attribute] = catalogTable.rowKey.columns.asAttributes
-
-  val attributes = catalogTable.columns.asAttributes
-
-  val colFamilies = catalogTable.colFamilies.seq
+//  // TODO: Set up the external Resource
+  def getExternalResource : Option[HBaseExternalResource] = externalResource
 
   override def output: Seq[Attribute] = attributes ++ partitionKeys
 

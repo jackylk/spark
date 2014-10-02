@@ -18,6 +18,8 @@ package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.hbase.TableName
 import org.apache.log4j.Logger
+import org.apache.spark.sql.Row
+import org.apache.spark.{TaskContext, Partition}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 
 /**
@@ -25,11 +27,16 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
  * Created by sboesch on 9/16/14.
  */
 class HBaseSQLWriterRDD(tableName : TableName,
-    externalResource: HBaseExternalResource,
-    @transient hbaseContext: HBaseSQLContext,
-    @transient plan: LogicalPlan)
-  extends HBaseSQLRDD(tableName, externalResource, hbaseContext, plan) {
+    externalResource: Option[HBaseExternalResource],
+    partitions: Seq[HBasePartition],
+    @transient hbaseContext: HBaseSQLContext)
+  extends HBaseSQLRDD(tableName, externalResource, partitions, hbaseContext) {
 
   override val logger = Logger.getLogger(getClass.getName)
 
+  /**
+   * :: DeveloperApi ::
+   * Implemented by subclasses to compute a given partition.
+   */
+  override def compute(split: Partition, context: TaskContext): Iterator[Row] = ???
 }

@@ -16,6 +16,7 @@
  */
 package org.apache.spark.sql
 
+import org.apache.hadoop.hbase.TableName
 import org.apache.spark.sql.catalyst.expressions.{GenericRow, GenericMutableRow}
 
 import scala.language.implicitConversions
@@ -35,9 +36,15 @@ package object hbase {
   def s2b(str: String) = str.getBytes(HBaseByteEncoding)
 
   class Optionable[T <: AnyRef](value: T) {
-    def toOption: Option[T] = if ( value == null ) None else Some(value)
+    def opt: Option[T] = if ( value == null ) None else Some(value)
   }
 
   implicit def anyRefToOptionable[T <: AnyRef](value: T) = new Optionable(value)
+
+  case class SerializableTableName(@transient inTableName : TableName) {
+    val namespace = inTableName.getNamespace
+    val name = inTableName.getName
+    @transient lazy val tableName : TableName = TableName.valueOf(namespace, name)
+  }
 
 }

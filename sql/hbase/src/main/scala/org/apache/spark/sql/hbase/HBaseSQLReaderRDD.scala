@@ -20,15 +20,14 @@ import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.client.{Result, Scan}
 import org.apache.hadoop.hbase.filter.FilterList
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.{Partitioner, Partition, TaskContext}
+import org.apache.spark.{Partition, TaskContext}
 
 /**
  * HBaseSQLReaderRDD
  * Created by sboesch on 9/16/14.
  */
 class HBaseSQLReaderRDD(tableName: TableName,
-                        externalResource: HBaseExternalResource,
+                        externalResource: Option[HBaseExternalResource],
                         hbaseRelation: HBaseRelation,
                         projList: Seq[ColumnName],
                         //      rowKeyPredicates : Option[Seq[ColumnPredicate]],
@@ -36,13 +35,17 @@ class HBaseSQLReaderRDD(tableName: TableName,
                         partitions: Seq[HBasePartition],
                         colFamilies: Set[String],
                         colFilters: Option[FilterList],
-                          @transient hbaseContext: HBaseSQLContext,
-                        @transient plan: LogicalPlan)
-  extends HBaseSQLRDD(tableName, externalResource, hbaseContext, plan) {
+                          @transient hbaseContext: HBaseSQLContext)
+  extends HBaseSQLRDD(tableName, externalResource, partitions, hbaseContext) {
 
   override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
-    val conn = Some(externalResource.getConnection(HBaseUtils.configuration(),
-      hbaseRelation.tableName))
+    val hbConn = if (externalResource.isDefined) {
+      externalResource.get.getConnection(HBaseUtils.configuration(),
+        hbaseRelation.tableName)
+    } else {
+      HBaseUtils.getHBaseConnection(HBaseUtils.configuration)
+    }
+    val conn = Some(hbConn)
     try {
       val hbPartition = split.asInstanceOf[HBasePartition]
       val scan = new Scan(hbPartition.bounds.start.asInstanceOf[Array[Byte]],
@@ -56,7 +59,7 @@ class HBaseSQLReaderRDD(tableName: TableName,
       val scanner = htable.getScanner(scan)
       new Iterator[Row] {
 
-        import collection.mutable
+        import scala.collection.mutable
 
         val map = new mutable.HashMap[String, HBaseRawType]()
 
@@ -99,16 +102,14 @@ class HBaseSQLReaderRDD(tableName: TableName,
     } finally {
       // TODO: set up connection caching possibly by HConnectionPool
       if (!conn.isEmpty) {
-        externalResource.releaseConnection(conn.get)
+        if (externalResource.isDefined) {
+          externalResource.get.releaseConnection(conn.get)
+        } else {
+          conn.get.close
+        }
       }
     }
   }
-
-  /**
-   * Optionally overridden by subclasses to specify placement preferences.
-   */
-  override protected def getPreferredLocations(split: Partition) : Seq[String]
-    = super.getPreferredLocations(split)
 
 
 }

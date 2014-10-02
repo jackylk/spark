@@ -19,9 +19,9 @@ package org.apache.spark.sql.hbase
 import org.apache.hadoop.hbase.TableName
 import org.apache.log4j.Logger
 import org.apache.spark.annotation.AlphaComponent
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.{Partitioner, Dependency, Partition}
+import org.apache.spark.{Dependency, Partition}
 
 /**
  * HBaseSQLRDD
@@ -30,10 +30,10 @@ import org.apache.spark.{Partitioner, Dependency, Partition}
 @AlphaComponent
 abstract class HBaseSQLRDD(
                             tableName: TableName,
-                            externalResource: ExternalResource,
-                            @transient hbaseContext: HBaseSQLContext,
-                            @transient plan: LogicalPlan)
-  extends SchemaRDD(hbaseContext, plan) {
+                            externalResource: Option[HBaseExternalResource],
+                            partitions: Seq[HBasePartition],
+                            @transient hbaseContext: HBaseSQLContext)
+  extends RDD[Row](hbaseContext.sparkContext, Nil) {
 
   val logger = Logger.getLogger(getClass.getName)
 
@@ -43,13 +43,11 @@ abstract class HBaseSQLRDD(
   @transient lazy val configuration = HBaseUtils.configuration
   @transient lazy val connection = HBaseUtils.getHBaseConnection(configuration)
 
-  override def baseSchemaRDD = this
-
   lazy val hbPartitions = HBaseUtils.
     getPartitions(tableName,
       hbaseContext.configuration). /* unzip._1 . */ toArray[Partition]
 
-  override def getPartitions: Array[Partition] = partitions
+  override def getPartitions: Array[Partition] = hbPartitions
 
   // TODO(sboesch): getting error: method partitioner needs to be stable, immutable value
 //  override def partitioner = Some(new Partitioner() {
@@ -65,6 +63,10 @@ abstract class HBaseSQLRDD(
 //      key.hashCode % numPartitions
 //    }
 //  })
-
-  override protected def getDependencies: Seq[Dependency[_]] = super.getDependencies
+  /**
+   * Optionally overridden by subclasses to specify placement preferences.
+   */
+  override protected def getPreferredLocations(split: Partition): Seq[String] = {
+    split.asInstanceOf[HBasePartition].server.map{identity}.toSeq
+  }
 }

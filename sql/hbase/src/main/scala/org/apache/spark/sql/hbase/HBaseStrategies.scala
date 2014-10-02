@@ -27,7 +27,7 @@ import org.apache.spark.sql.{StructType, SchemaRDD, SQLContext}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, Join, LogicalPlan}
-import org.apache.spark.sql.execution.{SparkPlan, SparkStrategies, UnaryNode}
+import org.apache.spark.sql.execution._
 import org.apache.spark.sql.hbase.HBaseCatalog.Columns
 
 
@@ -36,7 +36,6 @@ import org.apache.spark.sql.hbase.HBaseCatalog.Columns
  * Created by sboesch on 8/22/14.
  */
 private[hbase] trait HBaseStrategies extends SparkStrategies {
-  // Possibly being too clever with types here... or not clever enough.
   self: SQLContext#SparkPlanner =>
 
   val hbaseContext: HBaseSQLContext
@@ -234,19 +233,40 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
     override def execute() = {
       val childRdd = child.execute().asInstanceOf[SchemaRDD]
       assert(childRdd != null, "InsertIntoHBaseTable: the source RDD failed")
-      // TODO: should we use compute with partitions instead here??
-//      val rows = childRdd.collect
 
       val rowKeysWithRows = childRdd.zip(rowKeysFromRows(childRdd,relation))
 
       putToHBase(schema, relation, hbContext, rowKeysWithRows)
-
-      // We return the child RDD to allow chaining (alternatively, one could return nothing).
       childRdd
     }
 
     override def output = child.output
   }
+
+  case class InsertIntoHBaseTableFromRdd(
+                                   relation: HBaseRelation,
+                                   childRdd: SchemaRDD,
+                                   bulk: Boolean = false,
+                                   overwrite: Boolean = false)
+                                 (hbContext: HBaseSQLContext)
+    extends UnaryNode {
+    import InsertIntoHBaseTable._
+    override def execute() = {
+      assert(childRdd != null, "InsertIntoHBaseTable: the child RDD is empty")
+
+      val rowKeysWithRows = childRdd.zip(rowKeysFromRows(childRdd,relation))
+
+      putToHBase(schema, relation, hbContext, rowKeysWithRows)
+      childRdd
+    }
+
+    override def child: SparkPlan = SparkLogicalPlan(
+      ExistingRdd(childRdd.queryExecution.executedPlan.output, childRdd))(hbContext)
+        .alreadyPlanned
+
+    override def output = child.output
+  }
+
 
   object HBaseOperations extends Strategy {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
@@ -266,7 +286,7 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
 
       // Where do we put the tableIf? If we put inside the childRdd.map will a new tableIF
       // be instantiated for every row ??
-      val tableIf = hbContext.hconnection.getTable(relation.catalogTable.hbaseTableName)
+      val tableIf = hbContext.hconnection.getTable(relation.catalogTable.hbaseTableName.tableName)
       val put = relation.rowToHBasePut(rddSchema, row)
       tableIf.put(put)
       tableIf.close

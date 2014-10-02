@@ -50,7 +50,7 @@ case class HBasePartitionBounds(start : Option[HBaseRawType], end: Option[HBaseR
         )
       }
     }
-    !rowKey.toOption.isEmpty && cmp(rowKey.toOption, start) >= 0 && cmp(rowKey.toOption, end) <= 0
+    !rowKey.opt.isEmpty && cmp(rowKey.opt, start) >= 0 && cmp(rowKey.opt, end) <= 0
   }
 }
 

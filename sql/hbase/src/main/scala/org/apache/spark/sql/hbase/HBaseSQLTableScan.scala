@@ -34,7 +34,7 @@ case class HBaseSQLTableScan(
                               predicates: Option[Expression],
                               partitionPruningPred: Option[Expression],
                               rowKeyPredicates: Option[Seq[ColumnPredicate]],
-                              externalResource: HBaseExternalResource,
+                              externalResource: Option[HBaseExternalResource],
                               plan: LogicalPlan)
                             (@transient context: HBaseSQLContext)
   extends LeafNode {
@@ -83,9 +83,9 @@ case class HBaseSQLTableScan(
       relation.colFamilies,
       colFilters,
       /* rowKeyPredicates, colPredicates */
-      context,
+      context
       /*attributes,*/
-      plan)
+    )
   }
 
   override def output = attributes

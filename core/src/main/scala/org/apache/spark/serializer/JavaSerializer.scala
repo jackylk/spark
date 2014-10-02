@@ -42,7 +42,7 @@ private[spark] class JavaSerializationStream(out: OutputStream, counterReset: In
     try {
       objOut.writeObject(t)
     } catch {
-      case e =>
+      case e : Exception =>
         System.err.println(s"serializable err on $t of type ${t.getClass.getName}")
         e.printStackTrace
     }

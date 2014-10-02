@@ -36,9 +36,9 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
 
   import HBaseCatalog._
 
-  lazy val hconnection = HBaseUtils.getHBaseConnection(configuration)
+  @transient lazy val hconnection = HBaseUtils.getHBaseConnection(configuration)
 
-  val logger = Logger.getLogger(getClass.getName)
+  @transient val logger = Logger.getLogger(getClass.getName)
 
   // TODO(Bo): read the entire HBASE_META_TABLE and process it once, then cache it
   // in this class
@@ -49,43 +49,20 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
   override def unregisterTable(databaseName: Option[String], tableName: String): Unit =
     tables -= tableName
 
-  /**
-   * Retrieve table from catalog given the SQL name
-   * @param sqlTableName
-   * @return
-   */
-  def getTable(sqlTableName: String) = {
-    val tableName: TableName = null
-    val rowKey: TypedRowKey = null
-    val colFamilies: Set[String] = null
-    val columns: Columns = null
-    HBaseCatalogTable(sqlTableName, tableName, rowKey, colFamilies, columns,
-      HBaseUtils.getPartitions(tableName, configuration))
-  }
-
-  /**
-   * Retrieve table from catalog given the HBase (namespace,tablename)
-   */
-  def getTable(tableName: TableName) = {
-    val sqlTableName = null
-    val rowKey: TypedRowKey = null
-    val colFamilies: Set[String] = null
-    val columns: Columns = null
-    HBaseCatalogTable(sqlTableName, tableName, rowKey, colFamilies, columns,
-      HBaseUtils.getPartitions(tableName, configuration))
-  }
-
   // TODO: determine how to look it up
-  def getExternalResource(tableName: TableName) = ???
+  def getExternalResource(tableName: TableName) = None
 
-  override def lookupRelation(nameSpace: Option[String], unqualTableName: String,
+  override def lookupRelation(nameSpace: Option[String], sqlTableName: String,
                               alias: Option[String]): LogicalPlan = {
-    val itableName = processTableName(unqualTableName)
-    val catalogTable = getTable("DEFAULT",
-      TableName.valueOf(nameSpace.orNull, unqualTableName).getNameAsString)
+    val itableName = processTableName(sqlTableName)
+    val catalogTable = getTable(nameSpace.get, sqlTableName)
+    if (catalogTable.isEmpty) {
+      throw new IllegalArgumentException
+      (s"Table $nameSpace.$sqlTableName does not exist in the catalog")
+    }
     val tableName = TableName.valueOf(nameSpace.orNull, itableName)
     val externalResource = getExternalResource(tableName)
-    new HBaseRelation(/* configuration, hbaseContext, htable, */ catalogTable, externalResource)
+    new HBaseRelation(catalogTable.get, externalResource)
   }
 
   def getHBaseTable(tableName: TableName): HTableInterface = {
@@ -100,62 +77,66 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
     }
   }
 
-  def getTable(namespace: String, tableName: String): HBaseCatalogTable = {
+  def getTable(namespace: String, tableName: String): Option[HBaseCatalogTable] = {
     val table = new HTable(configuration, MetaData)
 
     val get = new Get(Bytes.toBytes(namespace + "." + tableName))
     val rest1 = table.get(get)
+    if (rest1 == null) {
+      None
+    } else {
 
-    var columnList = List[Column]()
-    var columnFamilies = Set[(String)]()
+      var columnList = List[Column]()
+      var columnFamilies = Set[(String)]()
 
-    var nonKeyColumns = Bytes.toString(rest1.getValue(ColumnFamily, QualNonKeyColumns))
-    if (nonKeyColumns.length > 0) {
-      nonKeyColumns = nonKeyColumns.substring(0, nonKeyColumns.length - 1)
-    }
-
-    val nonKeyColumnArray = nonKeyColumns.split(";")
-    for (nonKeyColumn <- nonKeyColumnArray) {
-      val nonKeyColumnInfo = nonKeyColumn.split(",")
-      val sqlName = nonKeyColumnInfo(0)
-      val family = nonKeyColumnInfo(1)
-      val qualifier = nonKeyColumnInfo(2)
-      val dataType = HBaseDataType.withName(nonKeyColumnInfo(3))
-
-      val column = Column(sqlName, family, qualifier, dataType)
-      columnList = columnList :+ column
-      columnFamilies = columnFamilies + family
-    }
-
-    val hbaseName = Bytes.toString(rest1.getValue(ColumnFamily, QualHbaseName))
-
-    var keyColumns = Bytes.toString(rest1.getValue(ColumnFamily, QualKeyColumns))
-    if (keyColumns.length > 0) {
-      keyColumns = keyColumns.substring(0, keyColumns.length - 1)
-    }
-    val keyColumnArray = keyColumns.split(";")
-    var keysList = List[Column]()
-    for (keyColumn <- keyColumnArray) {
-      val index = keyColumn.indexOf(",")
-      val sqlName = keyColumn.substring(0, index)
-      val dataType = HBaseDataType.withName(keyColumn.substring(index + 1))
-      val col = Column(sqlName, null, null, dataType)
-      keysList = keysList :+ col
-    }
-    val rowKey = TypedRowKey(new Columns(keysList))
-
-    val fullHBaseName =
-      if (namespace.length == 0) {
-        TableName.valueOf(hbaseName)
-      }
-      else {
-        TableName.valueOf(namespace, hbaseName)
+      var nonKeyColumns = Bytes.toString(rest1.getValue(ColumnFamily, QualNonKeyColumns))
+      if (nonKeyColumns.length > 0) {
+        nonKeyColumns = nonKeyColumns.substring(0, nonKeyColumns.length - 1)
       }
 
-    HBaseCatalogTable(tableName, fullHBaseName, rowKey,
-      columnFamilies,
-      new Columns(columnList),
-      HBaseUtils.getPartitions(fullHBaseName, configuration))
+      val nonKeyColumnArray = nonKeyColumns.split(";")
+      for (nonKeyColumn <- nonKeyColumnArray) {
+        val nonKeyColumnInfo = nonKeyColumn.split(",")
+        val sqlName = nonKeyColumnInfo(0)
+        val family = nonKeyColumnInfo(1)
+        val qualifier = nonKeyColumnInfo(2)
+        val dataType = HBaseDataType.withName(nonKeyColumnInfo(3))
+
+        val column = Column(sqlName, family, qualifier, dataType)
+        columnList = columnList :+ column
+        columnFamilies = columnFamilies + family
+      }
+
+      val hbaseName = Bytes.toString(rest1.getValue(ColumnFamily, QualHbaseName))
+
+      var keyColumns = Bytes.toString(rest1.getValue(ColumnFamily, QualKeyColumns))
+      if (keyColumns.length > 0) {
+        keyColumns = keyColumns.substring(0, keyColumns.length - 1)
+      }
+      val keyColumnArray = keyColumns.split(";")
+      var keysList = List[Column]()
+      for (keyColumn <- keyColumnArray) {
+        val index = keyColumn.indexOf(",")
+        val sqlName = keyColumn.substring(0, index)
+        val dataType = HBaseDataType.withName(keyColumn.substring(index + 1))
+        val col = Column(sqlName, null, null, dataType)
+        keysList = keysList :+ col
+      }
+      val rowKey = TypedRowKey(new Columns(keysList))
+
+      val fullHBaseName =
+        if (namespace.length == 0) {
+          TableName.valueOf(hbaseName)
+        }
+        else {
+          TableName.valueOf(namespace, hbaseName)
+        }
+
+      Some(HBaseCatalogTable(tableName, SerializableTableName(fullHBaseName), rowKey,
+        columnFamilies,
+        new Columns(columnList),
+        HBaseUtils.getPartitions(fullHBaseName, configuration)))
+    }
   }
 
   def createMetadataTable(admin: HBaseAdmin) = {
@@ -266,7 +247,7 @@ object HBaseCatalog {
 
   case class KeyColumn(sqlName: String, dataType: HBaseDataType.Value)
 
-  object Column {
+  object Column extends Serializable {
     private val colx = new java.util.concurrent.atomic.AtomicInteger
 
     def nextOrdinal = colx.getAndIncrement
@@ -290,7 +271,6 @@ object HBaseCatalog {
       case _ => throw new Exception("not supported")
     }
   }
-
   def convertType(dataType: HBaseDataType.Value) : DataType = {
     import HBaseDataType._
     dataType match {
@@ -305,7 +285,8 @@ object HBaseCatalog {
     }
   }
 
-  class Columns(val columns: Seq[Column]) {
+  class Columns(val columns: Seq[Column]) extends Serializable {
+
     val colx = new java.util.concurrent.atomic.AtomicInteger
 
     def apply(colName: ColumnName) = {
@@ -352,7 +333,7 @@ object HBaseCatalog {
   }
 
   case class HBaseCatalogTable(tablename: String,
-                               hbaseTableName: TableName,
+                               hbaseTableName: SerializableTableName,
                                rowKey: TypedRowKey,
                                colFamilies: Set[String],
                                columns: Columns,
