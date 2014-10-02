@@ -22,11 +22,10 @@ import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.log4j.Logger
 import org.apache.spark.Logging
-import org.apache.spark.sql.catalyst.analysis.{SimpleCatalog, Catalog}
+import org.apache.spark.sql.catalyst.analysis.{SimpleCatalog}
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical._
-
-import scala.collection.mutable.HashMap
+import java.math.BigDecimal
 
 /**
  * HBaseCatalog
@@ -177,6 +176,7 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
     tableDescriptor.hasFamily(Bytes.toBytes(family))
   }
 
+
   def createTable(namespace: String, tableName: String,
                   hbaseTableName: String,
                   keyColumns: Seq[KeyColumn],
@@ -242,6 +242,7 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
 }
 
 object HBaseCatalog {
+  import org.apache.spark.sql.catalyst.types._
 
   val MetaData = "metadata"
   val ColumnFamily = Bytes.toBytes("colfam")
@@ -271,18 +272,40 @@ object HBaseCatalog {
     def nextOrdinal = colx.getAndIncrement
 
     def toAttribute(col: Column): Attribute = null
+  }
 
-    //      AttributeReference(
-    //      col.family,
-    //      col.dataType,
-    //      nullable=true
-    //    )()
+  def convertToBytes(dataType: DataType, data: Any): Array[Byte] = {
+    dataType match {
+      case StringType => Bytes.toBytes(data.asInstanceOf[String])
+      case FloatType => Bytes.toBytes(data.asInstanceOf[Float])
+      case IntegerType => Bytes.toBytes(data.asInstanceOf[Int])
+      case ByteType => Array(data.asInstanceOf[Byte])
+      case ShortType => Bytes.toBytes(data.asInstanceOf[Short])
+      case DoubleType => Bytes.toBytes(data.asInstanceOf[Double])
+      case LongType => Bytes.toBytes(data.asInstanceOf[Long])
+      case BinaryType => Bytes.toBytesBinary(data.asInstanceOf[String])
+      case BooleanType => Bytes.toBytes(data.asInstanceOf[Boolean])
+      case DecimalType => Bytes.toBytes(data.asInstanceOf[BigDecimal])
+      case TimestampType => throw new Exception("not supported")
+      case _ => throw new Exception("not supported")
+    }
+  }
+
+  def convertType(dataType: HBaseDataType.Value) : DataType = {
+    import HBaseDataType._
+    dataType match {
+      case STRING => StringType
+      case BYTE => ByteType
+      case SHORT => ShortType
+      case INTEGER => IntegerType
+      case LONG => LongType
+      case FLOAT => FloatType
+      case DOUBLE => DoubleType
+      case BOOLEAN => BooleanType
+    }
   }
 
   class Columns(val columns: Seq[Column]) {
-
-    import scala.collection.mutable
-
     val colx = new java.util.concurrent.atomic.AtomicInteger
 
     def apply(colName: ColumnName) = {
@@ -342,6 +365,5 @@ object HBaseCatalog {
   case class TypedRowKey(columns: Columns) extends RowKey
 
   case object RawBytesRowKey extends RowKey
-
 }
 
