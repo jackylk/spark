@@ -17,8 +17,10 @@
 
 package org.apache.spark.sql.hbase
 
+import org.apache.hadoop.hbase.client.Put
 import org.apache.log4j.Logger
-import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.StructType
+import org.apache.spark.sql.catalyst.expressions.{Row, Attribute}
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
 import org.apache.spark.sql.hbase.HBaseCatalog._
 
@@ -38,6 +40,18 @@ private[hbase] case class HBaseRelation (
   extends LeafNode {
 
   self: Product =>
+
+  val rowKeyParser = catalogTable.rowKeyParser
+
+  def rowToHBasePut(schema: StructType, row: Row): Put = {
+    val ctab = catalogTable
+    val rkey = rowKeyParser.createKeyFromCatalystRow(schema, ctab.rowKey.columns, row)
+    val p = new Put(rkey)
+    CatalystToHBase.catalystRowToHBaseRawVals(schema, row, ctab.columns).zip(ctab.columns.columns)
+      .map{ case (raw, col) => p.add(s2b(col.family), s2b(col.qualifier), raw)
+    }
+    p
+  }
 
   // TODO: Set up the external Resource
   def getExternalResource : HBaseExternalResource = ???

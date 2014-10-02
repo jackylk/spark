@@ -53,11 +53,9 @@ object HBaseUtils extends Serializable {
         Seq(hregionLocation.getServerName.getHostname))
     }
     regionBoundsAndServers.zipWithIndex.map{ case (rb,ix) =>
-      new HBasePartition(ix, (rb.startKey, rb.endKey), Some(rb.servers(0)))
+      new HBasePartition(ix, HBasePartitionBounds(Some(rb.startKey), Some(rb.endKey)),
+        Some(rb.servers(0)))
     }
   }
-
-  val ByteEncoding = "ISO-8859-1"
-  def s2b(str: String) = str.getBytes(ByteEncoding)
 
 }

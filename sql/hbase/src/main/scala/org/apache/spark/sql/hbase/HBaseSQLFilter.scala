@@ -110,7 +110,7 @@ class HBaseRowFilter(colFamilies: Set[String], rkCols : Seq[ColumnName],
   }
 
   override def isFamilyEssential(name: Array[Byte]): Boolean = {
-    colFamilies.contains(new String(name, ByteEncoding).toLowerCase())
+    colFamilies.contains(new String(name, HBaseByteEncoding).toLowerCase())
   }
 
   override def filterRowCells(ignored: util.List[Cell]): Unit = super.filterRowCells(ignored)

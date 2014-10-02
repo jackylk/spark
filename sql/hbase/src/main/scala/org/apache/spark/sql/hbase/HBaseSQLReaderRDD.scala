@@ -22,7 +22,6 @@ import org.apache.hadoop.hbase.filter.FilterList
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.{Partitioner, Partition, TaskContext}
-import HBaseUtils.s2b
 
 /**
  * HBaseSQLReaderRDD
@@ -46,7 +45,8 @@ class HBaseSQLReaderRDD(tableName: TableName,
       hbaseRelation.tableName))
     try {
       val hbPartition = split.asInstanceOf[HBasePartition]
-      val scan = new Scan(hbPartition.bounds._1, hbPartition.bounds._2)
+      val scan = new Scan(hbPartition.bounds.start.asInstanceOf[Array[Byte]],
+        hbPartition.bounds.end.asInstanceOf[Array[Byte]])
       colFamilies.foreach { cf =>
         scan.addFamily(s2b(cf))
       }

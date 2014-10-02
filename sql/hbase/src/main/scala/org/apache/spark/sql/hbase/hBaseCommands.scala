@@ -20,8 +20,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.{Command, LeafNode}
 
-
-case class CreateTableCommand(nameSpace: String,
+case class CreateHBaseTableCommand(nameSpace: String,
                               tableName: String,
                               hbaseTable: String,
                               keyCols: Seq[(String, String)],
@@ -36,3 +35,4 @@ case class CreateTableCommand(nameSpace: String,
 
   override def output: Seq[Attribute] = Seq.empty
 }
+

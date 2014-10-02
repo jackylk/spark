@@ -46,6 +46,7 @@ class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
 
   @transient val hbasePlanner = new SparkPlanner with HBaseStrategies {
     val hbaseContext = self
+    SparkPlan.currentContext.set(self)  // Replicate logic from SQLContext
 
     override val strategies: Seq[Strategy] = Seq(
       CommandStrategy(self),

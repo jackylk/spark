@@ -16,13 +16,20 @@
  */
 package org.apache.spark.sql.hbase
 
+import org.apache.hadoop.hbase.TableName
 import org.apache.log4j.Logger
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 
 /**
  * HBaseSQLReaderRDD
  * Created by sboesch on 9/16/14.
  */
-class HBaseSQLWriterRDD(tableName : String) {
-  val logger = Logger.getLogger(getClass.getName)
+class HBaseSQLWriterRDD(tableName : TableName,
+    externalResource: HBaseExternalResource,
+    @transient hbaseContext: HBaseSQLContext,
+    @transient plan: LogicalPlan)
+  extends HBaseSQLRDD(tableName, externalResource, hbaseContext, plan) {
+
+  override val logger = Logger.getLogger(getClass.getName)
 
 }

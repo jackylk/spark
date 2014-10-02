@@ -21,33 +21,50 @@ import org.apache.log4j.Logger
 import org.apache.spark.annotation.AlphaComponent
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.{Dependency, Partition}
+import org.apache.spark.{Partitioner, Dependency, Partition}
 
 /**
  * HBaseSQLRDD
  * Created by sboesch on 9/15/14.
  */
 @AlphaComponent
-abstract class HBaseSQLRDD ( 
-                tableName : TableName,
-                externalResource : ExternalResource,
-                 @transient hbaseContext: HBaseSQLContext,
-                 @transient plan: LogicalPlan)
+abstract class HBaseSQLRDD(
+                            tableName: TableName,
+                            externalResource: ExternalResource,
+                            @transient hbaseContext: HBaseSQLContext,
+                            @transient plan: LogicalPlan)
   extends SchemaRDD(hbaseContext, plan) {
 
   val logger = Logger.getLogger(getClass.getName)
 
   // The SerializedContext will contain the necessary instructions
   // for all Workers to know how to connect to HBase
-    // For now just hardcode the Config/connection logic
+  // For now just hardcode the Config/connection logic
   @transient lazy val configuration = HBaseUtils.configuration
   @transient lazy val connection = HBaseUtils.getHBaseConnection(configuration)
 
   override def baseSchemaRDD = this
 
-  override def getPartitions: Array[Partition] = HBaseUtils.
+  lazy val hbPartitions = HBaseUtils.
     getPartitions(tableName,
-      hbaseContext.configuration)./* unzip._1 . */toArray[Partition]
+      hbaseContext.configuration). /* unzip._1 . */ toArray[Partition]
+
+  override def getPartitions: Array[Partition] = partitions
+
+  // TODO(sboesch): getting error: method partitioner needs to be stable, immutable value
+//  override def partitioner = Some(new Partitioner() {
+//    override def numPartitions: Int = hbPartitions.size
+//
+//    override def getPartition(key: Any): Int = {
+//      // TODO(sboesch):  How is the "key" determined for a SchemaRDD Row object??
+//      // the documentation for the more general RDD (not SchemaRDD..) says it is
+//      // based on the grouping/aggregation "key" for groupBy/cogroup/aggregate.
+//      // But that key is not useful for us!  Need to look more into this..
+//      val hbaseRowKey = key.asInstanceOf[HBaseRawType]
+//      //      partitions.find{
+//      key.hashCode % numPartitions
+//    }
+//  })
 
   override protected def getDependencies: Seq[Dependency[_]] = super.getDependencies
 }

@@ -18,12 +18,43 @@ package org.apache.spark.sql.hbase
 
 import org.apache.log4j.Logger
 import org.apache.spark.Partition
+import org.apache.spark.sql.hbase._
 
 /**
  * HBasePartition
  * Created by sboesch on 9/9/14.
  */
-case class HBasePartition(idx : Int, bounds : (HBaseRawType,HBaseRawType),
+case class HBasePartitionBounds(start : Option[HBaseRawType], end: Option[HBaseRawType]) {
+
+  def contains(rowKey: Optionable[HBaseRawType]) = {
+    def cmp(str1: Option[HBaseRawType], str2: Option[HBaseRawType]) = {
+      if (str1.isEmpty && str2.isEmpty) 0
+      else if (str1.isEmpty) -2
+      else if (str2.isEmpty) 2
+      else {
+        var ix = 0
+        val s1arr = str1.get
+        val s2arr = str2.get
+        var retval : Option[Int] = None
+        while (ix >= str1.size && ix >= str2.size && retval.isEmpty) {
+          if (s1arr(ix) != s2arr(ix)) {
+            retval = Some(Math.signum(s1arr(ix) - s2arr(ix)).toInt)
+          }
+        }
+        retval.getOrElse(
+            if (s1arr.length == s2arr.length) {
+              0
+            } else {
+              Math.signum(s1arr.length - s2arr.length).toInt
+            }
+        )
+      }
+    }
+    !rowKey.toOption.isEmpty && cmp(rowKey.toOption, start) >= 0 && cmp(rowKey.toOption, end) <= 0
+  }
+}
+
+case class HBasePartition(idx : Int, bounds : HBasePartitionBounds,
                           server: Option[String])  extends Partition {
 
   /**
@@ -33,6 +64,5 @@ case class HBasePartition(idx : Int, bounds : (HBaseRawType,HBaseRawType),
 
 }
 object HBasePartition {
-  import HBaseUtils.s2b
-  val SinglePartition = new HBasePartition(1, (s2b("\u0000"),s2b("\u00ff")),None)
+  val SinglePartition = new HBasePartition(1, HBasePartitionBounds(None, None), None)
 }

@@ -21,6 +21,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 
 class HBaseSQLParser extends SqlParser {
+  protected val BULK = Keyword("BULK")
   protected val CREATE = Keyword("CREATE")
   protected val DROP = Keyword("DROP")
   protected val ALTER = Keyword("ALTER")
@@ -92,7 +93,7 @@ class HBaseSQLParser extends SqlParser {
             val infoElem = infoMap.get(name).get
             (name, typeOfData, infoElem._1, infoElem._2)
         }
-        CreateTablePlan(customizedNameSpace, tableName, hbaseTableName, keyCols, nonKeyCols)
+        CreateHBaseTablePlan(customizedNameSpace, tableName, hbaseTableName, keyCols, nonKeyCols)
     }
 
   protected lazy val drop: Parser[LogicalPlan] =
@@ -105,6 +106,14 @@ class HBaseSQLParser extends SqlParser {
       case tn ~ op ~ col => null
     } | ALTER ~> TABLE ~> ident ~ ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> expressions <~ ")") ^^ {
       case tn ~ op ~ tc ~ cf => null
+    }
+
+  override protected lazy val insert: Parser[LogicalPlan] =
+    INSERT ~> opt(BULK) ~ opt(OVERWRITE) ~ inTo ~ select <~ opt(";") ^^ {
+      case b ~ o ~ r ~ s =>
+        val bulk: Boolean = b.getOrElse("") == "BULK"
+        val overwrite: Boolean = o.getOrElse("") == "OVERWRITE"
+        InsertIntoHBaseTablePlan(r, Map[String, Option[String]](), s, bulk, overwrite)
     }
 
   protected lazy val tableCol: Parser[(String, String)] =
@@ -122,8 +131,27 @@ class HBaseSQLParser extends SqlParser {
 
 }
 
-case class CreateTablePlan(nameSpace: String,
+case class CreateHBaseTablePlan(nameSpace: String,
                            tableName: String,
                            hbaseTable: String,
                            keyCols: Seq[(String, String)],
                            nonKeyCols: Seq[(String, String, String, String)]) extends Command
+
+case class InsertIntoHBaseTablePlan(
+                            table: LogicalPlan,
+                            partition: Map[String, Option[String]],
+                            child: LogicalPlan,
+                            bulk: Boolean,
+                            overwrite: Boolean)
+  extends LogicalPlan {
+  // The table being inserted into is a child for the purposes of transformations.
+  override def children = table :: child :: Nil
+  override def output = child.output
+
+  override lazy val resolved = childrenResolved && child.output.zip(table.output).forall {
+    case (childAttr, tableAttr) => childAttr.dataType == tableAttr.dataType
+  }
+}
+
+
+

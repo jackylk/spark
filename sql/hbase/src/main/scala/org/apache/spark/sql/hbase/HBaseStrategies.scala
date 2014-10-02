@@ -20,22 +20,21 @@ package org.apache.spark.sql.hbase
 import java.util.concurrent.atomic.AtomicLong
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client.{HTable, Scan}
+import org.apache.hadoop.hbase.client.HTable
 import org.apache.hadoop.hbase.filter.{Filter => HFilter}
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.catalyst.expressions.{AttributeSet, _}
+import org.apache.spark.sql.{SchemaRDD, SQLContext}
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, Join, LogicalPlan}
-import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.{SparkPlan, SparkStrategies, UnaryNode}
 import org.apache.spark.sql.hbase.HBaseCatalog.Columns
-import org.apache.spark.sql.parquet.{ParquetTableScan, ParquetFilters, ParquetRelation}
 
 
 /**
  * HBaseStrategies
  * Created by sboesch on 8/22/14.
  */
-private[hbase] trait HBaseStrategies {
+private[hbase] trait HBaseStrategies extends SparkStrategies {
   // Possibly being too clever with types here... or not clever enough.
   self: SQLContext#SparkPlanner =>
 
@@ -157,7 +156,8 @@ private[hbase] trait HBaseStrategies {
         val emptyPredicate = ColumnPredicate.EmptyColumnPredicate
         // TODO(sboesch):  create multiple HBaseSQLTableScan's based on the calculated partitions
         def partitionRowKeyPredicatesByHBasePartition(rowKeyPredicates:
-                              Option[Seq[ColumnPredicate]]): Seq[Seq[ColumnPredicate]] = {
+                                                      Option[Seq[ColumnPredicate]]):
+                Seq[Seq[ColumnPredicate]] = {
           //TODO(sboesch): map the row key predicates to the
           // respective physical HBase Region server ranges
           //  and return those as a Sequence of ranges
@@ -214,13 +214,83 @@ private[hbase] trait HBaseStrategies {
 
   }
 
+  case class InsertIntoHBaseTable(
+                                   relation: HBaseRelation,
+                                   child: SparkPlan,
+                                   bulk: Boolean = false,
+                                   overwrite: Boolean = false)
+                                 (hbContext: HBaseSQLContext)
+    extends UnaryNode {
+
+    override def execute() = {
+      val childRdd = child.execute().asInstanceOf[SchemaRDD]
+      assert(childRdd != null, "InsertIntoHBaseTable: the source RDD failed")
+      // TODO: should we use compute with partitions instead here??
+//      val rows = childRdd.collect
+      val rowKeysWithRows = childRdd.zip(childRdd.map { r : Row =>
+        val rkey = relation.rowKeyParser.createKeyFromCatalystRow(childRdd.schema,
+              relation.catalogTable.rowKeyColumns,r)
+//        (rkey, r)
+        rkey
+      })
+
+      // TODO(sboesch): fix partitioning
+//      val rowsPerPartition: (HBasePartition, (Row, RowKey))
+//        = rowKeysWithRows.map{ case (row, rowKey) =>
+//        val part = for (part <- relation.partitions;
+//          if part.bounds.contains(rowKey)
+//        ) yield part
+//        if (part.isEmpty) {
+//          throw new IllegalArgumentException(
+//            s"HBase partition not found for rowkey ${rowKey.toString}")
+//        } else {
+//          (part, rr)
+//        }
+//      }
+//      val partitionedRows = rowsPerPartition.map
+//        .groupBy(_._1.idx)   // why is this not working for idx?? Not understanding the
+//      // first part is a HBasePartition, even though explicit in method signature
+//
+//      partitionedRows.mapPartitions{
+//        childRdd.map{ r : Row =>
+//        relation.rowToHBasePut(r)
+//      }(preservesPartitioning = true)
+
+      // TODO: Bulk load .. for now use batches
+
+      // TODO: use MultiAction that batches by RegionServer
+
+      // BatchSize is a hack until partitioning is fixed
+//      val BatchSize = 500
+      childRdd.map{ r : Row =>
+        // TODO(sboesch): below is horribly bad performance wise. As stated above
+        // need to fix partitioning
+
+        // Where do we put the tableIf? If we put inside the childRdd.map will a new tableIF
+        // be instantiated for every row ??
+        val tableIf = hbContext.hconnection.getTable(relation.catalogTable.hbaseTableName)
+        val put = relation.rowToHBasePut(schema, r)
+        tableIf.put(put)
+        tableIf.close
+      }
+
+      // We return the child RDD to allow chaining (alternatively, one could return nothing).
+      childRdd
+    }
+
+    override def output = child.output
+  }
+
   object HBaseOperations extends Strategy {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-      case CreateTablePlan(nameSpace, tableName, hbaseTableName, keyCols, nonKeyCols) =>
-        Seq(CreateTableCommand(nameSpace, tableName, hbaseTableName, keyCols, nonKeyCols)
+      case CreateHBaseTablePlan(nameSpace, tableName, hbaseTableName, keyCols, nonKeyCols) =>
+        Seq(CreateHBaseTableCommand(nameSpace, tableName, hbaseTableName, keyCols, nonKeyCols)
           (hbaseContext))
+      case InsertIntoHBaseTablePlan(table: HBaseRelation, partition, child, bulk, overwrite) =>
+        new InsertIntoHBaseTable(table, planLater(child), bulk, overwrite)(hbaseContext) :: Nil
       case _ => Nil
     }
   }
 
 }
+

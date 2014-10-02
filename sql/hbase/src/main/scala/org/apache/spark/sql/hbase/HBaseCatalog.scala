@@ -330,7 +330,11 @@ object HBaseCatalog {
                                rowKey: TypedRowKey,
                                colFamilies: Set[String],
                                columns: Columns,
-                               partitions: Seq[HBasePartition])
+                               partitions: Seq[HBasePartition]) {
+    val rowKeyParser = RowKeyParser
+
+    val rowKeyColumns = rowKey.columns
+  }
 
   case class TypedRowKey(columns: Columns) extends RowKey
 

@@ -18,6 +18,7 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.expressions.{GenericRow, GenericMutableRow}
 
+import scala.language.implicitConversions
 /**
  * package
  * Created by sboesch on 9/22/14.
@@ -29,5 +30,14 @@ package object hbase {
   type HBaseRawRowSeq = Seq[HBaseRawType]
 
   class HBaseRow(vals : HBaseRawRow) extends GenericRow(vals.asInstanceOf[Array[Any]])
+
+  val HBaseByteEncoding = "ISO-8859-1"
+  def s2b(str: String) = str.getBytes(HBaseByteEncoding)
+
+  class Optionable[T <: AnyRef](value: T) {
+    def toOption: Option[T] = if ( value == null ) None else Some(value)
+  }
+
+  implicit def anyRefToOptionable[T <: AnyRef](value: T) = new Optionable(value)
 
 }
