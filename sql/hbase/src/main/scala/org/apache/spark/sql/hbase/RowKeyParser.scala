@@ -48,14 +48,14 @@ import org.apache.spark.sql.hbase.HBaseCatalog.Columns
  *
  * example: 1HelloThere9999abcde<1><12><16>3
  * where
- *   1 = VersionByte
- *   HelloThere = Dimension1
- *   9999 = Dimension2
- *   abcde = Dimension3
- *   <1> = offset of Dimension1   <in 16-bits integer binary>
- *   <12> = offset of Dimension2   <in 16-bits integer binary>
- *   <16> = offset of Dimension3  <in 16-bits integer binary>
- *   3 = DimensionCountByte
+ * 1 = VersionByte
+ * HelloThere = Dimension1
+ * 9999 = Dimension2
+ * abcde = Dimension3
+ * <1> = offset of Dimension1   <in 16-bits integer binary>
+ * <12> = offset of Dimension2   <in 16-bits integer binary>
+ * <16> = offset of Dimension3  <in 16-bits integer binary>
+ * 3 = DimensionCountByte
  *
  * The rationale for putting the dimension values BEFORE the offsets and DimensionCountByte is to
  * facilitate RangeScan's for sequential dimension values.  We need the PREFIX of the key to be
@@ -64,8 +64,8 @@ import org.apache.spark.sql.hbase.HBaseCatalog.Columns
  * placed at the end of the RowKey.
  *
  * We are assuming that a byte array representing the RowKey is completely filled by the key.
- * That is required for us to determine the length of the key
- * and retrieve the important DimensionCountByte.
+ * That is required for us to determine the length of the key and retrieve the important
+ * DimensionCountByte.
  *
  * With the DimnensionCountByte the offsets can then be located and the values
  * of the Dimensions computed.
