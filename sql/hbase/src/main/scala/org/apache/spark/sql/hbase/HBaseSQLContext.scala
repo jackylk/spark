@@ -20,7 +20,8 @@ package org.apache.spark.sql.hbase
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase._
 import org.apache.hadoop.hbase.client.HConnectionManager
-import org.apache.spark.SparkContext
+import org.apache.spark.sql.catalyst.dsl.ExpressionConversions
+import org.apache.spark.{sql, SparkContext}
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.analysis.Analyzer
 import org.apache.spark.sql.catalyst.expressions.{EqualTo, Attribute, Expression}
@@ -35,9 +36,13 @@ import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Column, HBaseDataType
  * An instance of the Spark SQL execution engine that integrates with data stored in Hive.
  * Configuration for Hive is read from hive-site.xml on the classpath.
  */
-class HBaseSQLContext(sc: SparkContext, hbaseConf: Configuration
+class HBaseSQLContext(val sc: SparkContext, val hbaseConf: Configuration
 = HBaseConfiguration.create())
-  extends SQLContext(sc) {
+  extends SQLContext(sc)
+  with SQLConf
+  with ExpressionConversions
+  with UDFRegistration
+  with Serializable {
   self =>
   @transient val configuration = hbaseConf
 

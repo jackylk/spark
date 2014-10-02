@@ -1,7 +1,6 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.log4j.Logger
-import org.apache.spark.sql.hbase.{HBaseUtils, ColumnName, RowKeyParser}
 import org.scalatest.{ShouldMatchers, FunSuite}
 import HBaseUtils._
 

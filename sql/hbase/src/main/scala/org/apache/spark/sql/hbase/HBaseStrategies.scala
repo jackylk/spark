@@ -22,7 +22,8 @@ import java.util.concurrent.atomic.AtomicLong
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.HTable
 import org.apache.hadoop.hbase.filter.{Filter => HFilter}
-import org.apache.spark.sql.{SchemaRDD, SQLContext}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{StructType, SchemaRDD, SQLContext}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, Join, LogicalPlan}
@@ -214,6 +215,14 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
 
   }
 
+  object InsertIntoHBaseTable {
+    def rowKeysFromRows(schemaRdd: SchemaRDD, relation: HBaseRelation) = schemaRdd.map { r : Row =>
+      val rkey = relation.rowKeyParser.createKeyFromCatalystRow(schemaRdd.schema,
+        relation.catalogTable.rowKeyColumns,r)
+      rkey
+    }
+  }
+
   case class InsertIntoHBaseTable(
                                    relation: HBaseRelation,
                                    child: SparkPlan,
@@ -221,58 +230,16 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
                                    overwrite: Boolean = false)
                                  (hbContext: HBaseSQLContext)
     extends UnaryNode {
-
+    import InsertIntoHBaseTable._
     override def execute() = {
       val childRdd = child.execute().asInstanceOf[SchemaRDD]
       assert(childRdd != null, "InsertIntoHBaseTable: the source RDD failed")
       // TODO: should we use compute with partitions instead here??
 //      val rows = childRdd.collect
-      val rowKeysWithRows = childRdd.zip(childRdd.map { r : Row =>
-        val rkey = relation.rowKeyParser.createKeyFromCatalystRow(childRdd.schema,
-              relation.catalogTable.rowKeyColumns,r)
-//        (rkey, r)
-        rkey
-      })
 
-      // TODO(sboesch): fix partitioning
-//      val rowsPerPartition: (HBasePartition, (Row, RowKey))
-//        = rowKeysWithRows.map{ case (row, rowKey) =>
-//        val part = for (part <- relation.partitions;
-//          if part.bounds.contains(rowKey)
-//        ) yield part
-//        if (part.isEmpty) {
-//          throw new IllegalArgumentException(
-//            s"HBase partition not found for rowkey ${rowKey.toString}")
-//        } else {
-//          (part, rr)
-//        }
-//      }
-//      val partitionedRows = rowsPerPartition.map
-//        .groupBy(_._1.idx)   // why is this not working for idx?? Not understanding the
-//      // first part is a HBasePartition, even though explicit in method signature
-//
-//      partitionedRows.mapPartitions{
-//        childRdd.map{ r : Row =>
-//        relation.rowToHBasePut(r)
-//      }(preservesPartitioning = true)
+      val rowKeysWithRows = childRdd.zip(rowKeysFromRows(childRdd,relation))
 
-      // TODO: Bulk load .. for now use batches
-
-      // TODO: use MultiAction that batches by RegionServer
-
-      // BatchSize is a hack until partitioning is fixed
-//      val BatchSize = 500
-      childRdd.map{ r : Row =>
-        // TODO(sboesch): below is horribly bad performance wise. As stated above
-        // need to fix partitioning
-
-        // Where do we put the tableIf? If we put inside the childRdd.map will a new tableIF
-        // be instantiated for every row ??
-        val tableIf = hbContext.hconnection.getTable(relation.catalogTable.hbaseTableName)
-        val put = relation.rowToHBasePut(schema, r)
-        tableIf.put(put)
-        tableIf.close
-      }
+      putToHBase(schema, relation, hbContext, rowKeysWithRows)
 
       // We return the child RDD to allow chaining (alternatively, one could return nothing).
       childRdd
@@ -292,5 +259,18 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
     }
   }
 
-}
+  def putToHBase(rddSchema: StructType, relation: HBaseRelation,
+                 hbContext: HBaseSQLContext, rowKeysWithRows: RDD[(Row, HBaseRawType)]) = {
+    rowKeysWithRows.map{ case (row, rkey) =>
+      // TODO(sboesch): below is v poor performance wise. Need to fix partitioning
 
+      // Where do we put the tableIf? If we put inside the childRdd.map will a new tableIF
+      // be instantiated for every row ??
+      val tableIf = hbContext.hconnection.getTable(relation.catalogTable.hbaseTableName)
+      val put = relation.rowToHBasePut(rddSchema, row)
+      tableIf.put(put)
+      tableIf.close
+    }
+  }
+
+}

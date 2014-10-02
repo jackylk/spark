@@ -22,7 +22,7 @@ import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.log4j.Logger
 import org.apache.spark.Logging
-import org.apache.spark.sql.catalyst.analysis.Catalog
+import org.apache.spark.sql.catalyst.analysis.{SimpleCatalog, Catalog}
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical._
 
@@ -33,15 +33,13 @@ import scala.collection.mutable.HashMap
  */
 private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
                                    configuration : Configuration)
-      extends Catalog with Logging {
+      extends SimpleCatalog(false) with Logging {
 
   import HBaseCatalog._
 
   lazy val hconnection = HBaseUtils.getHBaseConnection(configuration)
 
-  val tables = new HashMap[String, LogicalPlan]()
   val logger = Logger.getLogger(getClass.getName)
-  val caseSensitive: Boolean = false
 
   // TODO(Bo): read the entire HBASE_META_TABLE and process it once, then cache it
   // in this class
@@ -240,9 +238,6 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
       table.flushCommits()
     }
   }
-
-  override def registerTable(databaseName: Option[String], tableName: String,
-                             plan: LogicalPlan): Unit = ???
 
 }
 
