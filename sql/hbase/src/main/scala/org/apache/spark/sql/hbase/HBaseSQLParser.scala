@@ -108,14 +108,6 @@ class HBaseSQLParser extends SqlParser {
       case tn ~ op ~ tc ~ cf => null
     }
 
-  override protected lazy val insert: Parser[LogicalPlan] =
-    INSERT ~> opt(BULK) ~ opt(OVERWRITE) ~ inTo ~ select <~ opt(";") ^^ {
-      case b ~ o ~ r ~ s =>
-        val bulk: Boolean = b.getOrElse("") == "BULK"
-        val overwrite: Boolean = o.getOrElse("") == "OVERWRITE"
-        InsertIntoHBaseTablePlan(r, Map[String, Option[String]](), s, bulk, overwrite)
-    }
-
   protected lazy val tableCol: Parser[(String, String)] =
     ident ~ (STRING | BYTE | SHORT | INTEGER | LONG | FLOAT | DOUBLE | BOOLEAN) ^^ {
       case e1 ~ e2 => (e1, e2)
@@ -132,26 +124,8 @@ class HBaseSQLParser extends SqlParser {
 }
 
 case class CreateHBaseTablePlan(nameSpace: String,
-                           tableName: String,
-                           hbaseTable: String,
-                           keyCols: Seq[(String, String)],
-                           nonKeyCols: Seq[(String, String, String, String)]) extends Command
-
-case class InsertIntoHBaseTablePlan(
-                            table: LogicalPlan,
-                            partition: Map[String, Option[String]],
-                            child: LogicalPlan,
-                            bulk: Boolean,
-                            overwrite: Boolean)
-  extends LogicalPlan {
-  // The table being inserted into is a child for the purposes of transformations.
-  override def children = table :: child :: Nil
-  override def output = child.output
-
-  override lazy val resolved = childrenResolved && child.output.zip(table.output).forall {
-    case (childAttr, tableAttr) => childAttr.dataType == tableAttr.dataType
-  }
-}
-
-
-
+                                tableName: String,
+                                hbaseTable: String,
+                                keyCols: Seq[(String, String)],
+                                nonKeyCols: Seq[(String, String, String, String)]
+                                 ) extends Command

@@ -66,7 +66,7 @@ class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf:
     override val strategies: Seq[Strategy] = Seq(
       CommandStrategy(self),
       TakeOrdered,
-      ParquetOperations,
+//      ParquetOperations,
       InMemoryScans,
       HBaseTableScans,
       HashAggregation,

@@ -33,6 +33,16 @@ class CreateTableSuite extends QueryTest {
     )
   }
 
+  test("Insert Into table") {
+//    sql("""CREATE TABLE t1 (t1c1 STRING, t1c2 STRING)
+//      MAPPED BY (ht1, KEYS=[t1c1], COLS=[t1c2=cf1.cq11])""".stripMargin
+//    )
+//    sql("""CREATE TABLE t2 (t2c1 STRING, t2c2 STRING)
+//      MAPPED BY (ht2, KEYS=[t2c1], COLS=[t2c2=cf2.cq21])""".stripMargin
+//    )
+    sql("""INSERT INTO t1 SELECT * FROM t2""".stripMargin)
+  }
+
   test("SPARK-3176 Added Parser of SQL ABS()") {
     checkAnswer(
       sql("SELECT ABS(-1.3)"),
