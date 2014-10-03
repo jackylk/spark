@@ -35,6 +35,12 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
   var catalog : HBaseCatalog = _
   var testUtil :HBaseTestingUtility = _
 
+  @inline def assert(p: Boolean, msg: String) = {
+    if (!p) {
+      throw new IllegalStateException(s"AssertionError: $msg")
+    }
+  }
+
   override def beforeAll() = {
     logger.info(s"Spin up hbase minicluster w/ $NMasters mast, $NRegionServers RS, $NDataNodes dataNodes")
     testUtil = new HBaseTestingUtility
@@ -94,7 +100,7 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
       HBaseCatalog.QualKeyColumns)
 //    assert(new String(tname.getQualifierArray).contains(HBaseCatalog.QualColumnInfo),
 //      "We were unable to read the columnInfo cell")
-    val catTab = catalog.getTable(DbName, TabName)
+    val catTab = catalog.getTable(Some(DbName), TabName)
     assert(catTab.get.tablename == TabName)
     // TODO(Bo, XinYu): fix parser/Catalog to support Namespace=Dbname
     assert(catTab.get.hbaseTableName.toString == s"$DbName:$HbaseTabName")
@@ -130,7 +136,7 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
       col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])"""
       .stripMargin)
 
-    val catTab = catalog.getTable(DbName, TabName)
+    val catTab = catalog.getTable(Some(DbName), TabName)
     assert(catTab.get.tablename == TabName)
 
     val ctx = hbContext
@@ -152,11 +158,12 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
     val hbRelation = catalog.lookupRelation(Some(DbName), TabName).asInstanceOf[HBaseRelation]
 
     val hbasePlanner = new SparkPlanner with HBaseStrategies {
-      override val hbaseContext: HBaseSQLContext = hbContext
+      @transient override val hbaseContext: HBaseSQLContext = hbContext
     }
 
+    val myRowsSchemaRdd = hbContext.createSchemaRDD(myRows)
     val insertPlan = hbasePlanner.InsertIntoHBaseTableFromRdd(hbRelation,
-      hbContext.createSchemaRDD(myRows))(hbContext)
+        myRowsSchemaRdd)(hbContext)
 
     val insertRdd = insertPlan.execute.collect
 
@@ -169,7 +176,7 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
 
   test("Run a simple query") {
     // ensure the catalog exists (created in the "Create a test table" test)
-    val catTab = catalog.getTable(DbName, TabName).get
+    val catTab = catalog.getTable(Some(DbName), TabName).get
     assert(catTab.tablename == TabName)
     val rdd = hbContext.sql(s"select * from $TabName")
     rdd.take(1)

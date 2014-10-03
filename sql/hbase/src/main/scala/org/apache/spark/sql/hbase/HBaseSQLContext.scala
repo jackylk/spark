@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.hbase
 
+import java.io.{DataInputStream, ByteArrayInputStream, ByteArrayOutputStream, DataOutputStream}
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase._
 import org.apache.hadoop.hbase.client.HConnectionManager
@@ -36,18 +38,30 @@ import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Column, HBaseDataType
  * An instance of the Spark SQL execution engine that integrates with data stored in Hive.
  * Configuration for Hive is read from hive-site.xml on the classpath.
  */
-class HBaseSQLContext(val sc: SparkContext, val hbaseConf: Configuration
+class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf: Configuration
 = HBaseConfiguration.create())
-  extends SQLContext(sc) {
+  extends SQLContext(sc) with Serializable {
   self =>
+
   @transient val configuration = hbaseConf
+
+  def serializeProps = {
+    val bos = new ByteArrayOutputStream
+    val props = hbaseConf.write(new DataOutputStream(bos))
+    bos.toByteArray
+  }
 
   @transient
   override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this, configuration)
 
-  @transient val hbasePlanner = new SparkPlanner with HBaseStrategies {
+  @transient val hBasePlanner = new SparkPlanner with HBaseStrategies {
+
+  //    self: SQLContext#SparkPlanner =>
+
+    import HBaseStrategies._
+
     val hbaseContext = self
-    SparkPlan.currentContext.set(self)  // Replicate logic from SQLContext
+    SparkPlan.currentContext.set(self)
 
     override val strategies: Seq[Strategy] = Seq(
       CommandStrategy(self),
@@ -66,7 +80,7 @@ class HBaseSQLContext(val sc: SparkContext, val hbaseConf: Configuration
   }
 
   @transient
-  override protected[sql] val planner = hbasePlanner
+  override protected[sql] val planner = hBasePlanner
 
   @transient
   private[hbase] val hconnection = HConnectionManager.createConnection(hbaseConf)
@@ -121,4 +135,7 @@ class HBaseSQLContext(val sc: SparkContext, val hbaseConf: Configuration
     hconnection.close
     sparkContext.stop()
   }
+}
+
+object HBaseSQLContext {
 }

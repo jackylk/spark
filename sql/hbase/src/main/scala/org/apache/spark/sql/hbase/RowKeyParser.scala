@@ -23,12 +23,6 @@ import org.apache.spark.sql.catalyst.expressions.Row
 import org.apache.spark.sql.catalyst.types.{StringType, StructType}
 import org.apache.spark.sql.hbase.HBaseCatalog.Columns
 
-//case class RowKey(colVals: Seq[HColumn]) {
-//  override def toString() = {
-//    new String(RowKeyParser.parse
-//  }
-//}
-
 /**
  * Trait for RowKeyParser's that convert a raw array of bytes into their constituent
  * logical column values
@@ -83,7 +77,7 @@ trait AbstractRowKeyParser {
 
 case class RowKeySpec(offsets: Seq[Int], version: Byte = RowKeyParser.Version1)
 
-object RowKeyParser extends AbstractRowKeyParser {
+object RowKeyParser extends AbstractRowKeyParser with Serializable {
 
   val Version1 = '1'.toByte
 

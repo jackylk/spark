@@ -30,9 +30,9 @@ import java.math.BigDecimal
 /**
  * HBaseCatalog
  */
-private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
-                                   configuration : Configuration)
-      extends SimpleCatalog(false) with Logging {
+private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
+                                   @transient configuration : Configuration)
+      extends SimpleCatalog(false) with Logging with Serializable {
 
   import HBaseCatalog._
 
@@ -54,8 +54,9 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
 
   override def lookupRelation(nameSpace: Option[String], sqlTableName: String,
                               alias: Option[String]): LogicalPlan = {
+    val ns = nameSpace.getOrElse("")
     val itableName = processTableName(sqlTableName)
-    val catalogTable = getTable(nameSpace.get, sqlTableName)
+    val catalogTable = getTable(nameSpace, sqlTableName)
     if (catalogTable.isEmpty) {
       throw new IllegalArgumentException
       (s"Table $nameSpace.$sqlTableName does not exist in the catalog")
@@ -77,10 +78,11 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
     }
   }
 
-  def getTable(namespace: String, tableName: String): Option[HBaseCatalogTable] = {
+  def getTable(namespace: Option[String], tableName: String): Option[HBaseCatalogTable] = {
     val table = new HTable(configuration, MetaData)
 
-    val get = new Get(Bytes.toBytes(namespace + "." + tableName))
+    val ns = namespace.getOrElse("")
+    val get = new Get(Bytes.toBytes(ns + "." + tableName))
     val rest1 = table.get(get)
     if (rest1 == null) {
       None
@@ -125,11 +127,11 @@ private[hbase] class HBaseCatalog(hbaseContext: HBaseSQLContext,
       val rowKey = TypedRowKey(new Columns(keysList))
 
       val fullHBaseName =
-        if (namespace.length == 0) {
+        if (ns.length == 0) {
           TableName.valueOf(hbaseName)
         }
         else {
-          TableName.valueOf(namespace, hbaseName)
+          TableName.valueOf(ns, hbaseName)
         }
 
       Some(HBaseCatalogTable(tableName, SerializableTableName(fullHBaseName), rowKey,

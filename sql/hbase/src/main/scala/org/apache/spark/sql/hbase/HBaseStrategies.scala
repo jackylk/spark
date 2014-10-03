@@ -17,11 +17,15 @@
 
 package org.apache.spark.sql.hbase
 
+import java.io._
 import java.util.concurrent.atomic.AtomicLong
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client.HTable
+import org.apache.hadoop.hbase.HBaseConfiguration
+import org.apache.hadoop.hbase.client.{Get, HConnectionManager, HTableInterface, HTable}
 import org.apache.hadoop.hbase.filter.{Filter => HFilter}
+import org.apache.spark.SparkContext
+import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{StructType, SchemaRDD, SQLContext}
 import org.apache.spark.sql.catalyst.expressions._
@@ -30,7 +34,6 @@ import org.apache.spark.sql.catalyst.plans.logical.{Filter, Join, LogicalPlan}
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.hbase.HBaseCatalog.Columns
 
-
 /**
  * HBaseStrategies
  * Created by sboesch on 8/22/14.
@@ -38,7 +41,10 @@ import org.apache.spark.sql.hbase.HBaseCatalog.Columns
 private[hbase] trait HBaseStrategies extends SparkStrategies {
   self: SQLContext#SparkPlanner =>
 
+  import HBaseStrategies._
+
   val hbaseContext: HBaseSQLContext
+
 
   /**
    * Retrieves data using a HBaseTableScan.  Partition pruning predicates are also detected and
@@ -192,7 +198,7 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
             externalResource,
             plan)(hbaseContext).asInstanceOf[Seq[Expression] => SparkPlan]
 
-          pruneFilterProject(
+          this.asInstanceOf[SQLContext#SparkPlanner].pruneFilterProject(
             projectList,
             otherPredicates,
             identity[Seq[Expression]], // removeRowKeyPredicates,
@@ -210,18 +216,14 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
 
   def sparkFilterProjectJoinToHBaseScan(sFilter: Filter,
                                         sProject: Projection, sJoin: Join) = {
-    //    if (sFilter.child.
-
+    // TODO..
   }
 
-  object InsertIntoHBaseTable {
-    def rowKeysFromRows(schemaRdd: SchemaRDD, relation: HBaseRelation) = schemaRdd.map { r : Row =>
-      val rkey = relation.rowKeyParser.createKeyFromCatalystRow(schemaRdd.schema,
-        relation.catalogTable.rowKeyColumns,r)
-      rkey
+  @inline def assertFromClosure(p: Boolean, msg: String) = {
+    if (!p) {
+        throw new IllegalStateException(s"AssertionError: $msg")
     }
   }
-
   case class InsertIntoHBaseTable(
                                    relation: HBaseRelation,
                                    child: SparkPlan,
@@ -232,7 +234,7 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
     import InsertIntoHBaseTable._
     override def execute() = {
       val childRdd = child.execute().asInstanceOf[SchemaRDD]
-      assert(childRdd != null, "InsertIntoHBaseTable: the source RDD failed")
+      assertFromClosure(childRdd != null, "InsertIntoHBaseTable: the source RDD failed")
 
       val rowKeysWithRows = childRdd.zip(rowKeysFromRows(childRdd,relation))
 
@@ -252,7 +254,7 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
     extends UnaryNode {
     import InsertIntoHBaseTable._
     override def execute() = {
-      assert(childRdd != null, "InsertIntoHBaseTable: the child RDD is empty")
+      assertFromClosure(childRdd != null, "InsertIntoHBaseTable: the child RDD is empty")
 
       val rowKeysWithRows = childRdd.zip(rowKeysFromRows(childRdd,relation))
 
@@ -267,7 +269,6 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
     override def output = child.output
   }
 
-
   object HBaseOperations extends Strategy {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
       case CreateHBaseTablePlan(nameSpace, tableName, hbaseTableName, keyCols, nonKeyCols) =>
@@ -277,20 +278,101 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
         new InsertIntoHBaseTable(table, planLater(child), bulk, overwrite)(hbaseContext) :: Nil
       case _ => Nil
     }
+
+  }
+}
+
+object HBaseStrategies {
+  def readFieldsIntoConfFromSerializedProps(conf : Configuration, serializedProps : Array[Byte]) = {
+    val conf = HBaseConfiguration.create
+    val bis = new ByteArrayInputStream(serializedProps)
+    conf.readFields(new DataInputStream(bis))
+    conf
   }
 
-  def putToHBase(rddSchema: StructType, relation: HBaseRelation,
-                 hbContext: HBaseSQLContext, rowKeysWithRows: RDD[(Row, HBaseRawType)]) = {
-    rowKeysWithRows.map{ case (row, rkey) =>
-      // TODO(sboesch): below is v poor performance wise. Need to fix partitioning
-
-      // Where do we put the tableIf? If we put inside the childRdd.map will a new tableIF
-      // be instantiated for every row ??
-      val tableIf = hbContext.hconnection.getTable(relation.catalogTable.hbaseTableName.tableName)
-      val put = relation.rowToHBasePut(rddSchema, row)
-      tableIf.put(put)
-      tableIf.close
+  def writeToFile(fname: String, msg: Any) = {
+    msg match {
+      case s : String =>
+        val pw = new PrintWriter(new FileWriter(fname))
+        pw.write(s)
+        pw.close
+      case arr : Array[Byte] =>
+        val os = new FileOutputStream(fname)
+        os.write(arr)
+        os.close
+      case  x =>
+        val pw = new PrintWriter(new FileWriter(fname))
+        pw.write(x.toString)
+        pw.close
     }
   }
+  def putToHBase(rddSchema: StructType, relation: HBaseRelation,
+             @transient hbContext: HBaseSQLContext, rowKeysWithRows: RDD[(Row, HBaseRawType)]) = {
 
+    val contextInfo = (hbContext.catalog,
+      hbContext.serializeProps) // TODO: we need the externalresource as well
+    println(s"RowCount is ${rowKeysWithRows.count}")
+    rowKeysWithRows.zipWithIndex.map{ case ((row, rkey),ix) =>
+      // TODO(sboesch): below is v poor performance wise. Need to fix partitioning
+
+      var hbaseConf = HBaseConfiguration.create   // SparkHadoopUtil.get.newConfiguration
+      readFieldsIntoConfFromSerializedProps(hbaseConf, contextInfo._2)
+      val hConnection = HConnectionManager.createConnection(hbaseConf)
+      val tableIf = hConnection.getTable(relation.catalogTable.hbaseTableName.tableName)
+      //      val tableIf :HTableInterface = ???
+      //val tableif =hbContext.hconnection.getTable(relation.catalogTable.hbaseTableName.tableName)
+      val put = relation.rowToHBasePut(rddSchema, row)
+      tableIf.put(put)
+
+      val get = tableIf.get(new Get(rkey))
+      val map = get.getNoVersionMap
+      val fname = s"/tmp/row$ix"
+      // RowKeyParser.createKeyFromCatalystRow(rddSchema, relation.catalogTable.rowKeyColumns, row)
+      writeToFile(fname, s"rowkey=${new String(get.getRow)} map=${map.toString}")
+      tableIf.close
+
+      println("we are running the putToHBase..")
+    }
+    println("Hey we finished the putToHBase..")
+    null
+  }
+
+  def putToHBaseLocal(rddSchema: StructType, relation: HBaseRelation,
+             @transient hbContext: HBaseSQLContext, rowKeysWithRows: RDD[(Row, HBaseRawType)]) = {
+
+    val contextInfo = (hbContext.catalog, hbContext.serializeProps) // TODO: add externalresource
+    val localData = rowKeysWithRows.collect
+    println(s"RowCount is ${rowKeysWithRows.count}")
+    var hbaseConf = HBaseConfiguration.create   // SparkHadoopUtil.get.newConfiguration
+    val hConnection = HConnectionManager.createConnection(hbaseConf)
+    val tableIf = hConnection.getTable(relation.catalogTable.hbaseTableName.tableName)
+    localData.zipWithIndex.map{ case ((row, rkey),ix) =>
+      // TODO(sboesch): below is v poor performance wise. Need to fix partitioning
+
+      //      val tableIf :HTableInterface = ??? // hbContext.hconnection
+      //              .getTable(relation.catalogTable.hbaseTableName.tableName)
+      println("we are running the putToHBase..")
+      val put = relation.rowToHBasePut(rddSchema, row)
+      tableIf.put(put)
+
+      val get = tableIf.get(new Get(rkey))
+      val map = get.getNoVersionMap
+      val fname = s"/tmp/row$ix"
+      // RowKeyParser.createKeyFromCatalystRow(rddSchema, relation.catalogTable.rowKeyColumns, row)
+      writeToFile(fname, s"rowkey=${new String(get.getRow)} map=${map.toString}")
+
+    }
+    tableIf.close
+    println("Hey we finished the putToHBase..")
+    null
+  }
+
+  def rowKeysFromRows(schemaRdd: SchemaRDD, relation: HBaseRelation) = schemaRdd.map { r : Row =>
+    assert(schemaRdd!=null)
+    assert(relation !=null)
+    assert(relation.rowKeyParser!=null)
+    val rkey = relation.rowKeyParser.createKeyFromCatalystRow(schemaRdd.schema,
+      relation.catalogTable.rowKeyColumns,r)
+    rkey
+  }
 }
