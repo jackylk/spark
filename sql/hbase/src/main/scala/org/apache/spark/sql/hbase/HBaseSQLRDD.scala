@@ -45,28 +45,21 @@ abstract class HBaseSQLRDD(
 
   lazy val hbPartitions = HBaseUtils.
     getPartitions(tableName,
-      hbaseContext.configuration). /* unzip._1 . */ toArray[Partition]
+      hbaseContext.configuration).toArray
 
-  override def getPartitions: Array[Partition] = hbPartitions
+  override def getPartitions: Array[Partition] = hbPartitions.asInstanceOf[Array[Partition]]
 
-  // TODO(sboesch): getting error: method partitioner needs to be stable, immutable value
-//  override def partitioner = Some(new Partitioner() {
-//    override def numPartitions: Int = hbPartitions.size
-//
-//    override def getPartition(key: Any): Int = {
-//      // TODO(sboesch):  How is the "key" determined for a SchemaRDD Row object??
-//      // the documentation for the more general RDD (not SchemaRDD..) says it is
-//      // based on the grouping/aggregation "key" for groupBy/cogroup/aggregate.
-//      // But that key is not useful for us!  Need to look more into this..
-//      val hbaseRowKey = key.asInstanceOf[HBaseRawType]
-//      //      partitions.find{
-//      key.hashCode % numPartitions
-//    }
-//  })
+
+  override def partitioner = {
+    Some(new HBasePartitioner(hbPartitions))
+  }
+
   /**
    * Optionally overridden by subclasses to specify placement preferences.
    */
   override protected def getPreferredLocations(split: Partition): Seq[String] = {
-    split.asInstanceOf[HBasePartition].server.map{identity}.toSeq
+    split.asInstanceOf[HBasePartition].server.map {
+      identity
+    }.toSeq
   }
 }

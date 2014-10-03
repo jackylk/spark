@@ -18,35 +18,41 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.log4j.Logger
-import org.apache.spark.Partitioner
+import org.apache.spark.{Logging, Partitioner}
 
 /**
  * BoundedRangePartitioner
  * Created by sboesch on 9/9/14.
  */
 //  class BoundedRangePartitioner( bounds: Seq[(Array[Byte],Array[Byte])]) extends Partitioner {
-class BoundedRangePartitioner[K <: Comparable[K] ] ( bounds: Seq[(K,K)]) extends Partitioner {
+class BoundedRangePartitioner[K <: Comparable[K] ] ( bounds: Seq[(K,K)])
+  extends Partitioner with Logging {
   override def numPartitions: Int = bounds.size
 
+  val DefaultPartitionIfNotFound = 0
   override def getPartition(key: Any): Int = {
     val keyComp = key.asInstanceOf[Comparable[K]]
-    var partNum = bounds.size / 2
-    var incr = bounds.size / 4
     var found = false
-    do {
-      if (keyComp.compareTo(bounds(partNum)._1) <0) {
-        partNum -= incr
-      } else if (keyComp.compareTo(bounds(partNum)._2) > 0) {
-        partNum += incr
-      } else {
-        found = true
+    // TODO(sboesch): ensure the lower bounds = Lowest possible value
+    // and upper bounds = highest possible value for datatype.
+    // If empty then coerce to these values
+
+    import collection.mutable
+    val lowerBounds = bounds.map{_._1}.foldLeft(mutable.ArrayBuffer[K]()){ case (arr, b) =>
+      arr += b
+      arr
+    }.asInstanceOf[IndexedSeq[K]]
+
+    val lowerBound = binarySearchLowerBound(lowerBounds, key).getOrElse{
+      val keyval = key match {
+        case arr : Array[Byte] => new String(arr)
+        case _ => key.toString
       }
-      incr /= 2
-    } while (!found && incr > 0)
-    if (!found) {
-      throw new IllegalArgumentException
-      (s"Unable to locate key $key within HBase Region boundaries")
+      logError(s"Unable to find correct partition for key [$keyval] " +
+        s"so using partition $DefaultPartitionIfNotFound")
+      DefaultPartitionIfNotFound
     }
-    partNum
+    val partIndex = bounds.map{ _._1}.indexOf(lowerBound)
+    partIndex
   }
 }

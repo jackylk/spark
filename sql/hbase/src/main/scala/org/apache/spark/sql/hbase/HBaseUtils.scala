@@ -52,10 +52,11 @@ object HBaseUtils extends Serializable {
       BoundsAndServers( regionInfo.getStartKey, regionInfo.getEndKey,
         Seq(hregionLocation.getServerName.getHostname))
     }
-    regionBoundsAndServers.zipWithIndex.map{ case (rb,ix) =>
+    val partSeq = regionBoundsAndServers.zipWithIndex.map{ case (rb,ix) =>
       new HBasePartition(ix, HBasePartitionBounds(Some(rb.startKey), Some(rb.endKey)),
         Some(rb.servers(0)))
     }
+    partSeq.toIndexedSeq
   }
 
 }

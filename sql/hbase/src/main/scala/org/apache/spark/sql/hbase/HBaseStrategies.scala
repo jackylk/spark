@@ -283,60 +283,39 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
 }
 
 object HBaseStrategies {
-  def readFieldsIntoConfFromSerializedProps(conf : Configuration, serializedProps : Array[Byte]) = {
-    val conf = HBaseConfiguration.create
-    val bis = new ByteArrayInputStream(serializedProps)
-    conf.readFields(new DataInputStream(bis))
-    conf
-  }
 
-  def writeToFile(fname: String, msg: Any) = {
-    msg match {
-      case s : String =>
-        val pw = new PrintWriter(new FileWriter(fname))
-        pw.write(s)
-        pw.close
-      case arr : Array[Byte] =>
-        val os = new FileOutputStream(fname)
-        os.write(arr)
-        os.close
-      case  x =>
-        val pw = new PrintWriter(new FileWriter(fname))
-        pw.write(x.toString)
-        pw.close
-    }
-  }
   def putToHBase(rddSchema: StructType, relation: HBaseRelation,
              @transient hbContext: HBaseSQLContext, rowKeysWithRows: RDD[(Row, HBaseRawType)]) = {
 
     val contextInfo = (hbContext.catalog,
       hbContext.serializeProps) // TODO: we need the externalresource as well
-    println(s"RowCount is ${rowKeysWithRows.count}")
-    rowKeysWithRows.zipWithIndex.map{ case ((row, rkey),ix) =>
-      // TODO(sboesch): below is v poor performance wise. Need to fix partitioning
+    rowKeysWithRows.mapPartitions{ partition =>
+      if (!partition.isEmpty) {
+        println("we are running the putToHBase..")
+        var hbaseConf = HBaseConfiguration.create   // SparkHadoopUtil.get.newConfiguration
+        readFieldsIntoConfFromSerializedProps(hbaseConf, contextInfo._2)
+        val hConnection = HConnectionManager.createConnection(hbaseConf)
+        val tableIf = hConnection.getTable(relation.catalogTable.hbaseTableName.tableName)
+        partition.map{ case (row, rkey) =>
+          val put = relation.rowToHBasePut(rddSchema, row)
+          tableIf.put(put)
+          if (!partition.hasNext) {
+            hConnection.close
+            tableIf.close
+          }
+          row
+        }
+      } else {
+        new Iterator[(Row, HBaseRawType)]() {
+          override def hasNext: Boolean = false
 
-      var hbaseConf = HBaseConfiguration.create   // SparkHadoopUtil.get.newConfiguration
-      readFieldsIntoConfFromSerializedProps(hbaseConf, contextInfo._2)
-      val hConnection = HConnectionManager.createConnection(hbaseConf)
-      val tableIf = hConnection.getTable(relation.catalogTable.hbaseTableName.tableName)
-      //      val tableIf :HTableInterface = ???
-      //val tableif =hbContext.hconnection.getTable(relation.catalogTable.hbaseTableName.tableName)
-      val put = relation.rowToHBasePut(rddSchema, row)
-      tableIf.put(put)
-
-      val get = tableIf.get(new Get(rkey))
-      val map = get.getNoVersionMap
-      val fname = s"/tmp/row$ix"
-      // RowKeyParser.createKeyFromCatalystRow(rddSchema, relation.catalogTable.rowKeyColumns, row)
-      writeToFile(fname, s"rowkey=${new String(get.getRow)} map=${map.toString}")
-      tableIf.close
-
-      println("we are running the putToHBase..")
+          override def next(): (Row, HBaseRawType) = null
+        }
+      }
     }
-    println("Hey we finished the putToHBase..")
-    null
   }
 
+  // For Testing ..
   def putToHBaseLocal(rddSchema: StructType, relation: HBaseRelation,
              @transient hbContext: HBaseSQLContext, rowKeysWithRows: RDD[(Row, HBaseRawType)]) = {
 
@@ -347,10 +326,6 @@ object HBaseStrategies {
     val hConnection = HConnectionManager.createConnection(hbaseConf)
     val tableIf = hConnection.getTable(relation.catalogTable.hbaseTableName.tableName)
     localData.zipWithIndex.map{ case ((row, rkey),ix) =>
-      // TODO(sboesch): below is v poor performance wise. Need to fix partitioning
-
-      //      val tableIf :HTableInterface = ??? // hbContext.hconnection
-      //              .getTable(relation.catalogTable.hbaseTableName.tableName)
       println("we are running the putToHBase..")
       val put = relation.rowToHBasePut(rddSchema, row)
       tableIf.put(put)
@@ -358,13 +333,29 @@ object HBaseStrategies {
       val get = tableIf.get(new Get(rkey))
       val map = get.getNoVersionMap
       val fname = s"/tmp/row$ix"
-      // RowKeyParser.createKeyFromCatalystRow(rddSchema, relation.catalogTable.rowKeyColumns, row)
       writeToFile(fname, s"rowkey=${new String(get.getRow)} map=${map.toString}")
 
     }
     tableIf.close
     println("Hey we finished the putToHBase..")
     null
+
+    def writeToFile(fname: String, msg: Any) = {
+      msg match {
+        case s : String =>
+          val pw = new PrintWriter(new FileWriter(fname))
+          pw.write(s)
+          pw.close
+        case arr : Array[Byte] =>
+          val os = new FileOutputStream(fname)
+          os.write(arr)
+          os.close
+        case  x =>
+          val pw = new PrintWriter(new FileWriter(fname))
+          pw.write(x.toString)
+          pw.close
+      }
+    }
   }
 
   def rowKeysFromRows(schemaRdd: SchemaRDD, relation: HBaseRelation) = schemaRdd.map { r : Row =>
@@ -375,4 +366,12 @@ object HBaseStrategies {
       relation.catalogTable.rowKeyColumns,r)
     rkey
   }
+
+  def readFieldsIntoConfFromSerializedProps(conf : Configuration, serializedProps : Array[Byte]) = {
+    val conf = HBaseConfiguration.create
+    val bis = new ByteArrayInputStream(serializedProps)
+    conf.readFields(new DataInputStream(bis))
+    conf
+  }
+
 }
