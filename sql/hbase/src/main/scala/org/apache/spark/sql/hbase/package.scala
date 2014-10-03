@@ -20,6 +20,7 @@ import org.apache.hadoop.hbase.TableName
 import org.apache.spark.sql.catalyst.expressions.{GenericRow, GenericMutableRow}
 
 import scala.language.implicitConversions
+
 /**
  * package
  * Created by sboesch on 9/22/14.
@@ -30,25 +31,34 @@ package object hbase {
   type HBaseRawRow = Array[HBaseRawType]
   type HBaseRawRowSeq = Seq[HBaseRawType]
 
-  class HBaseRow(vals : HBaseRawRow) extends GenericRow(vals.asInstanceOf[Array[Any]])
-
   val HBaseByteEncoding = "ISO-8859-1"
+
+  class HBaseRow(vals: HBaseRawRow) extends GenericRow(vals.asInstanceOf[Array[Any]])
+
   def s2b(str: String) = str.getBytes(HBaseByteEncoding)
 
   class Optionable[T <: AnyRef](value: T) {
-    def opt: Option[T] = if ( value == null ) None else Some(value)
+    @inline def opt: Option[T] = if (value == null) { None } else { Some(value) }
   }
 
   implicit def anyRefToOptionable[T <: AnyRef](value: T) = new Optionable(value)
 
-  case class SerializableTableName(@transient inTableName : TableName) {
+  implicit def hbaseRawTypeComparable(hbaseRaw: HBaseRawType): Comparable[HBaseRawType] = {
+    new Comparable[HBaseRawType]() {
+      override def compareTo(o: HBaseRawType): Int = {
+        HBaseUtils.cmp(Some(hbaseRaw), Some(o))
+      }
+    }
+  }
+
+  case class SerializableTableName(@transient inTableName: TableName) {
     val namespace = inTableName.getNamespace
     val name = inTableName.getName
-    @transient lazy val tableName : TableName = TableName.valueOf(namespace, name)
+    @transient lazy val tableName: TableName = TableName.valueOf(namespace, name)
   }
 
   def binarySearchLowerBound[T, U](xs: IndexedSeq[T], key: U, keyExtract:
-  (T) => U = (x:T) => x)(implicit ordering: Ordering[U]): Option[Int] = {
+  (T) => U = (x: T) => x)(implicit ordering: Ordering[U]): Option[Int] = {
     var len = xs.length
     var first = 0
     var found = false
@@ -66,10 +76,19 @@ package object hbase {
         len = half
       }
     }
-    if (first < xs.length)
+    if (first < xs.length) {
       Some(first)
-    else
+    } else {
       None
+    }
   }
 
+  val MinByteArr = {
+    val barr = new Array[Byte](1)
+    barr(0) = 0.toByte
+    barr
+  }
+  val MaxByteArr = {
+    Array.fill[Byte](512)(0xff.toByte) // Think that's probably long enough..
+  }
 }

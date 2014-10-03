@@ -338,7 +338,7 @@ object HBaseStrategies {
     }
     tableIf.close
     println("Hey we finished the putToHBase..")
-    null
+    localData
 
     def writeToFile(fname: String, msg: Any) = {
       msg match {

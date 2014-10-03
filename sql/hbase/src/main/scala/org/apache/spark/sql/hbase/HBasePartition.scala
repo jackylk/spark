@@ -27,29 +27,7 @@ import org.apache.spark.sql.hbase._
 case class HBasePartitionBounds(start : Option[HBaseRawType], end: Option[HBaseRawType]) {
 
   def contains(rowKey: Optionable[HBaseRawType]) = {
-    def cmp(str1: Option[HBaseRawType], str2: Option[HBaseRawType]) = {
-      if (str1.isEmpty && str2.isEmpty) 0
-      else if (str1.isEmpty) -2
-      else if (str2.isEmpty) 2
-      else {
-        var ix = 0
-        val s1arr = str1.get
-        val s2arr = str2.get
-        var retval : Option[Int] = None
-        while (ix >= str1.size && ix >= str2.size && retval.isEmpty) {
-          if (s1arr(ix) != s2arr(ix)) {
-            retval = Some(Math.signum(s1arr(ix) - s2arr(ix)).toInt)
-          }
-        }
-        retval.getOrElse(
-            if (s1arr.length == s2arr.length) {
-              0
-            } else {
-              Math.signum(s1arr.length - s2arr.length).toInt
-            }
-        )
-      }
-    }
+    import HBaseUtils.cmp
     !rowKey.opt.isEmpty && cmp(rowKey.opt, start) >= 0 && cmp(rowKey.opt, end) <= 0
   }
 }

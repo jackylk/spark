@@ -25,12 +25,14 @@ import org.apache.spark.{Logging, Partitioner}
  * Created by sboesch on 9/9/14.
  */
 //  class BoundedRangePartitioner( bounds: Seq[(Array[Byte],Array[Byte])]) extends Partitioner {
-class BoundedRangePartitioner[K <: Comparable[K] ] ( bounds: Seq[(K,K)])
+class BoundedRangePartitioner[K <: Comparable[K]](bounds: Seq[(K, K)])
   extends Partitioner with Logging {
   override def numPartitions: Int = bounds.size
 
   val DefaultPartitionIfNotFound = 0
+
   override def getPartition(key: Any): Int = {
+    val pkey = key.asInstanceOf[K]
     val keyComp = key.asInstanceOf[Comparable[K]]
     var found = false
     // TODO(sboesch): ensure the lower bounds = Lowest possible value
@@ -38,21 +40,25 @@ class BoundedRangePartitioner[K <: Comparable[K] ] ( bounds: Seq[(K,K)])
     // If empty then coerce to these values
 
     import collection.mutable
-    val lowerBounds = bounds.map{_._1}.foldLeft(mutable.ArrayBuffer[K]()){ case (arr, b) =>
+    val lowerBounds = bounds.map {
+      _._1
+    }.foldLeft(mutable.ArrayBuffer[K]()) { case (arr, b) =>
       arr += b
       arr
     }.asInstanceOf[IndexedSeq[K]]
 
-    val lowerBound = binarySearchLowerBound(lowerBounds, key).getOrElse{
-      val keyval = key match {
-        case arr : Array[Byte] => new String(arr)
-        case _ => key.toString
-      }
-      logError(s"Unable to find correct partition for key [$keyval] " +
+    val lowerBound = binarySearchLowerBound[K, K](lowerBounds, pkey, { key => key}).getOrElse {
+//      val keyval = pkey match {
+//        case arr: Array[Byte] => new String(arr)
+//        case x => x.toString
+//      }
+      logError(s"Unable to find correct partition for key [$pkey.toString] " +
         s"so using partition $DefaultPartitionIfNotFound")
       DefaultPartitionIfNotFound
     }
-    val partIndex = bounds.map{ _._1}.indexOf(lowerBound)
+    val partIndex = bounds.map {
+      _._1
+    }.indexOf(lowerBound)
     partIndex
   }
 }

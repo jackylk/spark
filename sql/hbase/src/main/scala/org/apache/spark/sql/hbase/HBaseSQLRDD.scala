@@ -50,9 +50,7 @@ abstract class HBaseSQLRDD(
   override def getPartitions: Array[Partition] = hbPartitions.asInstanceOf[Array[Partition]]
 
 
-  override def partitioner = {
-    Some(new HBasePartitioner(hbPartitions))
-  }
+  override val partitioner = Some(new HBasePartitioner(hbPartitions))
 
   /**
    * Optionally overridden by subclasses to specify placement preferences.
