@@ -66,7 +66,11 @@ class HBaseSQLReaderRDD(tableName: TableName,
         def toRow(result: Result, projList: Seq[ColumnName]) :  HBaseRow = {
           // TODO(sboesch): analyze if can be multiple Cells in the result
           // Also, consider if we should go lower level to the cellScanner()
+          // TODO:  is this handling the RowKey's properly? Looks need to add that..
           val vmap = result.getNoVersionMap
+          hbaseRelation.catalogTable.rowKeyColumns.columns.foreach{ rkcol =>
+              // TODO: add the rowkeycols to the metadata map via   vmap.put()
+          }
           val rowArr = projList.zipWithIndex.
             foldLeft(new Array[HBaseRawType](projList.size)) { case (arr, (cname, ix)) =>
             arr(ix) = vmap.get(s2b(projList(ix).fullName)).asInstanceOf[HBaseRawType]

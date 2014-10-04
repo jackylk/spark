@@ -80,10 +80,15 @@ logger.info("Insert data into the test table using applySchema")
 
     val ctx = hbContext
 
-    val results = ctx.sql(s"""SELECT * FROM $DbName.$TabName
-    WHERE col1 >=3 AND col1 <= 10
+    val results = ctx.sql(s"""SELECT col4, col1, col3, col2 FROM $DbName.$TabName
+    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 group by col7, col1
     ORDER BY col1 DESC"""
       .stripMargin)
+
+//    val results = ctx.sql(s"""SELECT * FROM $DbName.$TabName
+//    WHERE col1 >=3 AND col1 <= 10
+//    ORDER BY col1 DESC"""
+//      .stripMargin)
 
     val data = results.collect
 
