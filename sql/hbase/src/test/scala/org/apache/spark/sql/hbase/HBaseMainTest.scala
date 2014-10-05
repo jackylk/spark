@@ -4,6 +4,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.hadoop.hbase.{HBaseTestingUtility, MiniHBaseCluster}
 import org.apache.log4j.Logger
+import org.apache.spark.sql.hbase.HBaseCatalog.{HBaseDataType, Column, Columns}
 import org.apache.spark.sql.test.TestSQLContext._
 import org.apache.spark.{Logging, SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
@@ -22,23 +23,50 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
   val NWorkers = 1
 
 
-  @inline def assert(p: Boolean, msg: String) = {
-    if (!p) {
-      throw new IllegalStateException(s"AssertionError: $msg")
-    }
-  }
+  logger.info("Insert data into the test table using applySchema")
+  @transient var cluster : MiniHBaseCluster = null
+  @transient var config : Configuration = null
+  @transient var hbaseAdmin : HBaseAdmin = null
+  @transient var hbContext : HBaseSQLContext = null
+  @transient var catalog : HBaseCatalog = null
+  @transient var testUtil :HBaseTestingUtility = null
+
+  //  @inline def assert(p: Boolean, msg: String) = {
+//    if (!p) {
+//      throw new IllegalStateException(s"AssertionError: $msg")
+//    }
+//  }
 
   case class MyTable(col1: String, col2: Byte, col3: Short, col4: Int, col5: Long,
                      col6: Float, col7: Double)
 
+  val DbName = "mynamespace"
+  val TabName = "myTable"
+  val HbaseTabName = "hbasetaba"
+
+  def testGetTable = {
+    println("get table")
+    // prepare the test data
+    catalog.getKeysFromAllMetaRows.foreach{ r => logger.info(s"Metatable Rowkey: ${new String(r)}")}
+
+    val oresult = catalog.getTable(Some(DbName), TabName)
+    assert(oresult.isDefined)
+    val result = oresult.get
+    assert(result.tablename == TabName)
+    assert(result.hbaseTableName.tableName.getNameAsString == DbName + ":" + HbaseTabName)
+    assert(result.colFamilies.size == 2)
+    assert(result.columns.columns.size == 2)
+    val relation = catalog.lookupRelation(None, TabName)
+    val hbRelation = relation.asInstanceOf[HBaseRelation]
+    assert(hbRelation.colFamilies == Set("family1", "family2"))
+    assert(hbRelation.partitionKeys == Seq("column1", "column2"))
+    val rkColumns = new Columns(Seq(Column("column1",null, "column1", HBaseDataType.STRING,1),
+      Column("column1",null, "column1", HBaseDataType.INTEGER,2)))
+    assert(hbRelation.catalogTable.rowKeyColumns.equals(rkColumns))
+    assert(relation.childrenResolved)
+  }
+
   def main(args: Array[String]) = {
-logger.info("Insert data into the test table using applySchema")
-    @transient var cluster : MiniHBaseCluster = null
-    @transient var config : Configuration = null
-    @transient var hbaseAdmin : HBaseAdmin = null
-    @transient var hbContext : HBaseSQLContext = null
-    @transient var catalog : HBaseCatalog = null
-    @transient var testUtil :HBaseTestingUtility = null
 
     logger.info(s"Spin up hbase minicluster w/ $NMasters mast, $NRegionServers RS, $NDataNodes dataNodes")
     testUtil = new HBaseTestingUtility
@@ -48,6 +76,15 @@ logger.info("Insert data into the test table using applySchema")
     config = testUtil.getConfiguration
     config.set("hbase.regionserver.info.port","-1")
     config.set("hbase.master.info.port","-1")
+    config.set("dfs.client.socket-timeout","240000")
+    config.set("dfs.datanode.socket.write.timeout","240000")
+    config.set("zookeeper.session.timeout","240000")
+    config.set("zookeeper.minSessionTimeout","10")
+    config.set("zookeeper.tickTime","10")
+    config.set("hbase.rpc.timeout","240000")
+    config.set("ipc.client.connect.timeout","240000")
+    config.set("dfs.namenode.stale.datanode.interva","240000")
+    config.set("hbase.rpc.shortoperation.timeout","240000")
     cluster = testUtil.startMiniCluster(NMasters, NRegionServers)
     println(s"# of region servers = ${cluster.countServedRegions}")
     @transient val conf = new SparkConf
@@ -64,23 +101,20 @@ logger.info("Insert data into the test table using applySchema")
     catalog = hbContext.catalog
     hbaseAdmin = new HBaseAdmin(config)
 
-
-    val DbName = "mynamespace"
-    val TabName = "myTable"
-    val HbaseTabName = "hbasetaba"
-
-    hbContext.sql(s"""CREATE TABLE $DbName.$TabName(col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
+    hbContext.sql(s"""CREATE TABLE $TabName(col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
       col5 LONG, col6 FLOAT, col7 DOUBLE)
-      MAPPED BY (hbaseTableName, KEYS=[col7, col1, col3], COLS=[col2=cf1.cq11,
+      MAPPED BY ($DbName.$TabName KEYS=[col7, col1, col3], COLS=[col2=cf1.cq11,
       col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])"""
       .stripMargin)
 
     val catTab = catalog.getTable(Some(DbName), TabName)
     assert(catTab.get.tablename == TabName)
 
+    testGetTable
+
     val ctx = hbContext
 
-    val results = ctx.sql(s"""SELECT col4, col1, col3, col2 FROM $DbName.$TabName
+    val results = ctx.sql(s"""SELECT col4, col1, col3, col2 FROM $TabName
     WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 group by col7, col1
     ORDER BY col1 DESC"""
       .stripMargin)

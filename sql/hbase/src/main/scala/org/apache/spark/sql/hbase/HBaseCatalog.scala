@@ -17,7 +17,8 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client.{Get, HBaseAdmin, HTable, HTableInterface, Put}
+import org.apache.hadoop.hbase.client._
+import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.log4j.Logger
@@ -76,6 +77,21 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
     } else {
       tableName
     }
+  }
+
+  def getKeysFromAllMetaRows() : Seq[HBaseRawType] = {
+    val htable = new HTable(configuration, MetaData)
+    val scan = new Scan
+    scan.setFilter(new FirstKeyOnlyFilter())
+    val scanner = htable.getScanner(scan)
+    import collection.JavaConverters._
+    import collection.mutable
+    val rkeys = mutable.ArrayBuffer[HBaseRawType]()
+    val siter = scanner.iterator.asScala
+    while (siter.hasNext) {
+      rkeys += siter.next.getRow
+    }
+    rkeys
   }
 
   def getTable(namespace: Option[String], tableName: String): Option[HBaseCatalogTable] = {
@@ -289,8 +305,6 @@ object HBaseCatalog {
 
   class Columns(val columns: Seq[Column]) extends Serializable {
 
-    val colx = new java.util.concurrent.atomic.AtomicInteger
-
     def apply(colName: ColumnName) = {
       map(colName)
     }
@@ -325,6 +339,13 @@ object HBaseCatalog {
       columns.map { col =>
         Column.toAttribute(col)
       }
+    }
+    override def equals(that : Any) = {
+      that.isInstanceOf[Columns] && that.hashCode == hashCode
+    }
+
+    override def hashCode() = {
+      47 + columns.foldLeft(0){  _ + _.hashCode}
     }
 
     def lift[A: reflect.ClassTag](a: A): Option[A] = a match {

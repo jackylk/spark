@@ -35,11 +35,11 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
   var catalog : HBaseCatalog = _
   var testUtil :HBaseTestingUtility = _
 
-  @inline def assert(p: Boolean, msg: String) = {
-    if (!p) {
-      throw new IllegalStateException(s"AssertionError: $msg")
-    }
-  }
+//  @inline def assert(p: Boolean, msg: String) = {
+//    if (!p) {
+//      throw new IllegalStateException(s"AssertionError: $msg")
+//    }
+//  }
 
   override def beforeAll() = {
     logger.info(s"Spin up hbase minicluster w/ $NMasters mast, $NRegionServers RS, $NDataNodes dataNodes")
@@ -123,6 +123,30 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
 //        .stripMargin)
 
   }
+
+  test("get table") {
+    // prepare the test data
+    val namespace = "testNamespace"
+    val tableName = "testTable"
+    val hbaseTableName = "hbaseTable"
+
+    val oresult = catalog.getTable(Some(namespace), tableName)
+    assert(oresult.isDefined)
+    val result = oresult.get
+    assert(result.tablename == tableName)
+    assert(result.hbaseTableName.tableName.getNameAsString == namespace + ":" + hbaseTableName)
+    assert(result.colFamilies.size === 2)
+    assert(result.columns.columns.size === 2)
+    val relation = catalog.lookupRelation(None, tableName)
+    val hbRelation = relation.asInstanceOf[HBaseRelation]
+    assert(hbRelation.colFamilies == Set("family1", "family2"))
+    assert(hbRelation.partitionKeys == Seq("column1", "column2"))
+    val rkColumns = new Columns(Seq(Column("column1",null, "column1", HBaseDataType.STRING,1),
+      Column("column1",null, "column1", HBaseDataType.INTEGER,2)))
+    assert(hbRelation.catalogTable.rowKeyColumns.equals(rkColumns))
+    assert(relation.childrenResolved)
+  }
+
   case class MyTable(col1: String, col2: Byte, col3: Short, col4: Int, col5: Long,
                      col6: Float, col7: Double)
 

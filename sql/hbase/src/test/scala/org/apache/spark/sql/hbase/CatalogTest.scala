@@ -36,7 +36,7 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     sparkConf = new SparkConf().setAppName("Catalog Test").setMaster("local[4]")
     sparkContext = new SparkContext(sparkConf)
     hbaseContext = new HBaseSQLContext(sparkContext)
-    configuration = HBaseConfiguration.create()
+    configuration = hbaseContext.configuration
     catalog = new HBaseCatalog(hbaseContext, configuration)
   }
 
@@ -75,5 +75,13 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     assert(result.hbaseTableName.tableName.getNameAsString === namespace + ":" + hbaseTableName)
     assert(result.colFamilies.size === 2)
     assert(result.columns.columns.size === 2)
+    val relation = catalog.lookupRelation(None, tableName)
+    val hbRelation = relation.asInstanceOf[HBaseRelation]
+    assert(hbRelation.colFamilies == Set("family1", "family2"))
+    assert(hbRelation.partitionKeys == Seq("column1", "column2"))
+    val rkColumns = new Columns(Seq(Column("column1",null, "column1", HBaseDataType.STRING,1),
+      Column("column1",null, "column1", HBaseDataType.INTEGER,2)))
+    assert(hbRelation.catalogTable.rowKeyColumns.equals(rkColumns))
+    assert(relation.childrenResolved)
   }
 }

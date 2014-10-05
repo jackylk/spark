@@ -53,7 +53,7 @@ package object hbase {
 
   case class SerializableTableName(@transient inTableName: TableName) {
     val namespace = inTableName.getNamespace
-    val name = inTableName.getName
+    val name = inTableName.getQualifier
     @transient lazy val tableName: TableName = TableName.valueOf(namespace, name)
   }
 
