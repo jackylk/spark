@@ -56,10 +56,11 @@ class HBaseSQLParser extends SqlParser {
       | insert | cache | create | drop | alter
     )
 
+  // TODO(XinYu): move the namespace next to hbaseTable
   protected lazy val create: Parser[LogicalPlan] =
     CREATE ~> TABLE ~> opt(nameSpace) ~ ident ~
       ("(" ~> tableCols <~ ")") ~
-      (MAPPED ~> BY ~> "(" ~> ident <~ ",") ~
+      (MAPPED ~> BY ~> "(" ~> ident) ~
       (KEYS ~> "=" ~> "[" ~> keys <~ "]" <~ ",") ~
       (COLS ~> "=" ~> "[" ~> expressions <~ "]" <~ ")") <~ opt(";") ^^ {
 
@@ -87,13 +88,20 @@ class HBaseSQLParser extends SqlParser {
           case (name, _) =>
             keySeq.contains(name)
         }
-        val keyCols = partitionResultOfTableColumns._1
+        val keyColDataTypes = keySeq.toList.map{ orderedKeyCol =>
+          partitionResultOfTableColumns._1.find{ allCol =>
+            allCol._1 ==  orderedKeyCol
+          }.get._2
+        }
+        val keyColsWithDataTypes = keySeq.zip(keyColDataTypes)
+//          zip(partitionResultOfTableColumns._1.map{_._2})
         val nonKeyCols = partitionResultOfTableColumns._2.map {
           case (name, typeOfData) =>
             val infoElem = infoMap.get(name).get
             (name, typeOfData, infoElem._1, infoElem._2)
         }
-        CreateHBaseTablePlan(customizedNameSpace, tableName, hbaseTableName, keyCols, nonKeyCols)
+        CreateHBaseTablePlan(tableName, customizedNameSpace, hbaseTableName,
+          keyColsWithDataTypes, nonKeyCols)
     }
 
   protected lazy val drop: Parser[LogicalPlan] =
@@ -123,8 +131,8 @@ class HBaseSQLParser extends SqlParser {
 
 }
 
-case class CreateHBaseTablePlan(nameSpace: String,
-                                tableName: String,
+case class CreateHBaseTablePlan(tableName: String,
+                                nameSpace: String,
                                 hbaseTable: String,
                                 keyCols: Seq[(String, String)],
                                 nonKeyCols: Seq[(String, String, String, String)]

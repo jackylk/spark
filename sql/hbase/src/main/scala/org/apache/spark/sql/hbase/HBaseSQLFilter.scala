@@ -31,7 +31,8 @@ import HBaseUtils._
  *
  * Created by sboesch on 9/22/14.
  */
-class HBaseSQLFilters(colFamilies: Set[String], colNames : Seq[ColumnName],
+class HBaseSQLFilters(colFamilies: Seq[String],
+                      colNames : Seq[ColumnName],
                       rowKeyPreds: Option[Seq[ColumnPredicate]],
                       opreds: Option[Seq[ColumnPredicate]])
   extends FilterBase {
@@ -74,7 +75,8 @@ class HBaseSQLFilters(colFamilies: Set[String], colNames : Seq[ColumnName],
  * Presently only a sequence of AND predicates supported. TODO(sboesch): support simple tree
  * of AND/OR predicates
  */
-class HBaseRowFilter(colFamilies: Set[String], rkCols : Seq[ColumnName],
+class HBaseRowFilter(colFamilies: Seq[String],
+                     rkCols : Seq[ColumnName],
                      rowKeyPreds: Seq[ColumnPredicate]
  /*, preds: Seq[ColumnPredicate] */) extends FilterBase {
   val logger = Logger.getLogger(getClass.getName)

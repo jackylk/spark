@@ -33,7 +33,7 @@ class HBaseSQLReaderRDD(tableName: TableName,
                         //      rowKeyPredicates : Option[Seq[ColumnPredicate]],
                         //      colPredicates : Option[Seq[ColumnPredicate]],
                         partitions: Seq[HBasePartition],
-                        colFamilies: Set[String],
+                        colFamilies: Seq[String],
                         colFilters: Option[FilterList],
                           @transient hbaseContext: HBaseSQLContext)
   extends HBaseSQLRDD(tableName, externalResource, partitions, hbaseContext) {

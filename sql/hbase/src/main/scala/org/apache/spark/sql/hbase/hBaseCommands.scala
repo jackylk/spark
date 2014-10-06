@@ -20,12 +20,12 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.{Command, LeafNode}
 
-case class CreateHBaseTableCommand(nameSpace: String,
-                              tableName: String,
-                              hbaseTable: String,
-                              keyCols: Seq[(String, String)],
-                              nonKeyCols: Seq[(String, String, String, String)])
-                             (@transient context: HBaseSQLContext)
+case class CreateHBaseTableCommand(tableName: String,
+                                   nameSpace: String,
+                                   hbaseTable: String,
+                                   keyCols: Seq[(String, String)],
+                                   nonKeyCols: Seq[(String, String, String, String)])
+                                  (@transient context: HBaseSQLContext)
   extends LeafNode with Command {
 
   override protected[sql] lazy val sideEffectResult = {

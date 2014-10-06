@@ -268,8 +268,8 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
 
   object HBaseOperations extends Strategy {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-      case CreateHBaseTablePlan(nameSpace, tableName, hbaseTableName, keyCols, nonKeyCols) =>
-        Seq(CreateHBaseTableCommand(nameSpace, tableName, hbaseTableName, keyCols, nonKeyCols)
+      case CreateHBaseTablePlan(tableName, nameSpace, hbaseTableName, keyCols, nonKeyCols) =>
+        Seq(CreateHBaseTableCommand(tableName, nameSpace, hbaseTableName, keyCols, nonKeyCols)
           (hbaseContext))
       case logical.InsertIntoTable(table: HBaseRelation, partition, child, overwrite) =>
         new InsertIntoHBaseTable(table, planLater(child), overwrite)(hbaseContext) :: Nil

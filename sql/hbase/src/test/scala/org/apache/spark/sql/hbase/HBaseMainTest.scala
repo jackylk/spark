@@ -47,7 +47,8 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
   def testGetTable = {
     println("get table")
     // prepare the test data
-    catalog.getKeysFromAllMetaRows.foreach{ r => logger.info(s"Metatable Rowkey: ${new String(r)}")}
+    HBaseCatalog.getKeysFromAllMetaTableRows(config)
+      .foreach{ r => logger.info(s"Metatable Rowkey: ${new String(r)}")}
 
     val oresult = catalog.getTable(Some(DbName), TabName)
     assert(oresult.isDefined)
@@ -55,13 +56,16 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     assert(result.tablename == TabName)
     assert(result.hbaseTableName.tableName.getNameAsString == DbName + ":" + HbaseTabName)
     assert(result.colFamilies.size == 2)
-    assert(result.columns.columns.size == 2)
-    val relation = catalog.lookupRelation(None, TabName)
+    assert(result.columns.columns.size == 4)
+    assert(result.rowKeyColumns.columns.size == 3)
+    val relation = catalog.lookupRelation(Some(DbName), TabName)
     val hbRelation = relation.asInstanceOf[HBaseRelation]
-    assert(hbRelation.colFamilies == Set("family1", "family2"))
-    assert(hbRelation.partitionKeys == Seq("column1", "column2"))
-    val rkColumns = new Columns(Seq(Column("column1",null, "column1", HBaseDataType.STRING,1),
-      Column("column1",null, "column1", HBaseDataType.INTEGER,2)))
+    assert(hbRelation.colFamilies == Seq("cf1", "cf2"))
+    assert(Seq("col7", "col1", "col3").zip(hbRelation.partitionKeys)
+      .forall{x => x._1 == x._2.name})
+    val rkColumns = new Columns(Seq(Column("col7",null, "col7", HBaseDataType.DOUBLE),
+      Column("col1",null, "col1", HBaseDataType.STRING),
+      Column("col3",null, "col3", HBaseDataType.SHORT)))
     assert(hbRelation.catalogTable.rowKeyColumns.equals(rkColumns))
     assert(relation.childrenResolved)
   }
@@ -101,9 +105,9 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     catalog = hbContext.catalog
     hbaseAdmin = new HBaseAdmin(config)
 
-    hbContext.sql(s"""CREATE TABLE $TabName(col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
+    hbContext.sql(s"""CREATE TABLE $DbName.$TabName(col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
       col5 LONG, col6 FLOAT, col7 DOUBLE)
-      MAPPED BY ($DbName.$TabName KEYS=[col7, col1, col3], COLS=[col2=cf1.cq11,
+      MAPPED BY ($HbaseTabName KEYS=[col7, col1, col3], COLS=[col2=cf1.cq11,
       col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])"""
       .stripMargin)
 

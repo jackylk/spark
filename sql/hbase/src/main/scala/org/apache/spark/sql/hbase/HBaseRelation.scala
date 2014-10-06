@@ -51,7 +51,7 @@ private[hbase] case class HBaseRelation (
 
   lazy val attributes = catalogTable.columns.asAttributes
 
-  lazy val colFamilies = catalogTable.colFamilies.seq
+  lazy val colFamilies = catalogTable.colFamilies
 
   @transient lazy val rowKeyParser = catalogTable.rowKeyParser
 

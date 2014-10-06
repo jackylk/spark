@@ -23,8 +23,8 @@ import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.log4j.Logger
 import org.apache.spark.Logging
-import org.apache.spark.sql.catalyst.analysis.{SimpleCatalog}
-import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, SimpleCatalog}
+import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
 import org.apache.spark.sql.catalyst.plans.logical._
 import java.math.BigDecimal
 
@@ -32,8 +32,8 @@ import java.math.BigDecimal
  * HBaseCatalog
  */
 private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
-                                   @transient configuration : Configuration)
-      extends SimpleCatalog(false) with Logging with Serializable {
+                                  @transient configuration: Configuration)
+  extends SimpleCatalog(false) with Logging with Serializable {
 
   import HBaseCatalog._
 
@@ -79,21 +79,6 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
     }
   }
 
-  def getKeysFromAllMetaRows() : Seq[HBaseRawType] = {
-    val htable = new HTable(configuration, MetaData)
-    val scan = new Scan
-    scan.setFilter(new FirstKeyOnlyFilter())
-    val scanner = htable.getScanner(scan)
-    import collection.JavaConverters._
-    import collection.mutable
-    val rkeys = mutable.ArrayBuffer[HBaseRawType]()
-    val siter = scanner.iterator.asScala
-    while (siter.hasNext) {
-      rkeys += siter.next.getRow
-    }
-    rkeys
-  }
-
   def getTable(namespace: Option[String], tableName: String): Option[HBaseCatalogTable] = {
     val table = new HTable(configuration, MetaData)
 
@@ -105,7 +90,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
     } else {
 
       var columnList = List[Column]()
-      var columnFamilies = Set[(String)]()
+      import collection.mutable.{Seq => MutSeq}
+      var columnFamilies = MutSeq[(String)]()
 
       var nonKeyColumns = Bytes.toString(rest1.getValue(ColumnFamily, QualNonKeyColumns))
       if (nonKeyColumns.length > 0) {
@@ -122,7 +108,9 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
 
         val column = Column(sqlName, family, qualifier, dataType)
         columnList = columnList :+ column
-        columnFamilies = columnFamilies + family
+        if (! (columnFamilies contains family)) {
+          columnFamilies = columnFamilies :+ family
+        }
       }
 
       val hbaseName = Bytes.toString(rest1.getValue(ColumnFamily, QualHbaseName))
@@ -137,7 +125,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
         val index = keyColumn.indexOf(",")
         val sqlName = keyColumn.substring(0, index)
         val dataType = HBaseDataType.withName(keyColumn.substring(index + 1))
-        val col = Column(sqlName, null, null, dataType)
+        val qualName = sqlName
+        val col = Column(sqlName, null, qualName, dataType)
         keysList = keysList :+ col
       }
       val rowKey = TypedRowKey(new Columns(keysList))
@@ -150,8 +139,10 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
           TableName.valueOf(ns, hbaseName)
         }
 
-      Some(HBaseCatalogTable(tableName, SerializableTableName(fullHBaseName), rowKey,
-        columnFamilies,
+      Some(HBaseCatalogTable(tableName,
+        SerializableTableName(fullHBaseName),
+        rowKey,
+        Seq(columnFamilies: _*),
         new Columns(columnList),
         HBaseUtils.getPartitions(fullHBaseName, configuration)))
     }
@@ -176,11 +167,12 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
   }
 
 
-  def createTable(namespace: String, tableName: String,
+  def createTable(namespace: String,
+                  tableName: String,
                   hbaseTableName: String,
                   keyColumns: Seq[KeyColumn],
                   nonKeyColumns: Columns
-                  ): Unit = {
+                   ): Unit = {
     val admin = new HBaseAdmin(configuration)
     val avail = admin.isTableAvailable(MetaData)
 
@@ -241,6 +233,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
 }
 
 object HBaseCatalog {
+
   import org.apache.spark.sql.catalyst.types._
 
   val MetaData = "metadata"
@@ -255,23 +248,35 @@ object HBaseCatalog {
 
   sealed trait RowKey
 
+  // TODO: change family to Option[String]
   case class Column(sqlName: String, family: String, qualifier: String,
                     dataType: HBaseDataType.Value,
-                    ordinal: Int = Column.nextOrdinal) {
+                    ordinal: Int = -1) {
     def fullName = s"$family:$qualifier"
 
     def toColumnName = ColumnName(family, qualifier)
+
+    override def hashCode(): Int = {
+      sqlName.hashCode * 31 + (if (family != null) family.hashCode * 37 else 0)
+      + qualifier.hashCode * 41 + dataType.hashCode * 43 + ordinal.hashCode * 47
+    }
+
+    override def equals(obj: scala.Any): Boolean = {
+      val superEquals = super.equals(obj)
+      val retval = hashCode == obj.hashCode
+      retval   // note: superEquals is false whereas retval is true. Interesting..
+    }
+  }
+
+  object Column extends Serializable {
+
+    def toAttributeReference(col: Column): AttributeReference = {
+      AttributeReference(col.qualifier, HBaseCatalog.convertType(col.dataType),
+        nullable = true)()
+    }
   }
 
   case class KeyColumn(sqlName: String, dataType: HBaseDataType.Value)
-
-  object Column extends Serializable {
-    private val colx = new java.util.concurrent.atomic.AtomicInteger
-
-    def nextOrdinal = colx.getAndIncrement
-
-    def toAttribute(col: Column): Attribute = null
-  }
 
   def convertToBytes(dataType: DataType, data: Any): Array[Byte] = {
     dataType match {
@@ -289,7 +294,8 @@ object HBaseCatalog {
       case _ => throw new Exception("not supported")
     }
   }
-  def convertType(dataType: HBaseDataType.Value) : DataType = {
+
+  def convertType(dataType: HBaseDataType.Value): DataType = {
     import HBaseDataType._
     dataType match {
       case STRING => StringType
@@ -303,7 +309,15 @@ object HBaseCatalog {
     }
   }
 
-  class Columns(val columns: Seq[Column]) extends Serializable {
+  class Columns(inColumns: Seq[Column]) extends Serializable {
+    private val colx = new java.util.concurrent.atomic.AtomicInteger
+
+    val columns = inColumns.map {
+      case Column(s, f, q, d, -1) => Column(s, f, q, d, nextOrdinal)
+      case col => col
+    }
+
+    def nextOrdinal() = colx.getAndIncrement
 
     def apply(colName: ColumnName) = {
       map(colName)
@@ -337,15 +351,29 @@ object HBaseCatalog {
 
     def asAttributes() = {
       columns.map { col =>
-        Column.toAttribute(col)
+        Column.toAttributeReference(col)
       }
     }
-    override def equals(that : Any) = {
-      that.isInstanceOf[Columns] && that.hashCode == hashCode
+
+    override def equals(that: Any) = {
+//      that.isInstanceOf[Columns] && that.hashCode == hashCode
+      if (!that.isInstanceOf[Columns]) {
+        false
+      } else {
+        val other = that.asInstanceOf[Columns]
+        val result = other.columns.size == columns.size && columns.zip(other.columns)
+          .forall{ case (col, ocol) =>
+            col.equals(ocol)
+          }
+        result
+      }
     }
 
     override def hashCode() = {
-      47 + columns.foldLeft(0){  _ + _.hashCode}
+      val hash = columns.foldLeft(47 /* arbitrary start val .. */) {
+        _ + _.hashCode
+      }
+      hash
     }
 
     def lift[A: reflect.ClassTag](a: A): Option[A] = a match {
@@ -358,7 +386,7 @@ object HBaseCatalog {
   case class HBaseCatalogTable(tablename: String,
                                hbaseTableName: SerializableTableName,
                                rowKey: TypedRowKey,
-                               colFamilies: Set[String],
+                               colFamilies: Seq[String],
                                columns: Columns,
                                partitions: Seq[HBasePartition]) {
     val rowKeyParser = RowKeyParser
@@ -369,5 +397,22 @@ object HBaseCatalog {
   case class TypedRowKey(columns: Columns) extends RowKey
 
   case object RawBytesRowKey extends RowKey
+
+  // Convenience method to aid in validation/testing
+  def getKeysFromAllMetaTableRows(configuration: Configuration): Seq[HBaseRawType] = {
+    val htable = new HTable(configuration, MetaData)
+    val scan = new Scan
+    scan.setFilter(new FirstKeyOnlyFilter())
+    val scanner = htable.getScanner(scan)
+    import collection.JavaConverters._
+    import collection.mutable
+    val rkeys = mutable.ArrayBuffer[HBaseRawType]()
+    val siter = scanner.iterator.asScala
+    while (siter.hasNext) {
+      rkeys += siter.next.getRow
+    }
+    rkeys
+  }
+
 }
 
