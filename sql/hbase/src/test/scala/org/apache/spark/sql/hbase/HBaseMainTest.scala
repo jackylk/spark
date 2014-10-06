@@ -50,7 +50,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     HBaseCatalog.getKeysFromAllMetaTableRows(config)
       .foreach{ r => logger.info(s"Metatable Rowkey: ${new String(r)}")}
 
-    val oresult = catalog.getTable(Some(DbName), TabName)
+    val oresult = catalog.getTable(TabName)
     assert(oresult.isDefined)
     val result = oresult.get
     assert(result.tablename == TabName)
@@ -216,7 +216,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
       col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])"""
       .stripMargin)
 
-    val catTab = catalog.getTable(Some(DbName), TabName)
+    val catTab = catalog.getTable(TabName)
     assert(catTab.get.tablename == TabName)
 
     testGetTable

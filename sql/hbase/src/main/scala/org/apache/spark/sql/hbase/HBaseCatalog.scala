@@ -59,9 +59,9 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
 
   override def lookupRelation(nameSpace: Option[String], sqlTableName: String,
                               alias: Option[String]): LogicalPlan = {
-    val ns = nameSpace.getOrElse("")
+    // val ns = nameSpace.getOrElse("")
     val itableName = processTableName(sqlTableName)
-    val catalogTable = getTable(nameSpace, sqlTableName)
+    val catalogTable = getTable(sqlTableName)
     if (catalogTable.isEmpty) {
       throw new IllegalArgumentException
       (s"Table $nameSpace.$sqlTableName does not exist in the catalog")
@@ -83,16 +83,14 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
     }
   }
 
-  def getTable(namespace: Option[String], tableName: String): Option[HBaseCatalogTable] = {
+  def getTable(tableName: String): Option[HBaseCatalogTable] = {
     val table = new HTable(configuration, MetaData)
 
-    val ns = namespace.getOrElse("")
-    val get = new Get(Bytes.toBytes(ns + "." + tableName))
+    val get = new Get(Bytes.toBytes(tableName))
     val rest1 = table.get(get)
     if (rest1 == null) {
       None
     } else {
-
       var columnList = List[Column]()
       import collection.mutable.{Seq => MutSeq}
       var columnFamilies = MutSeq[(String)]()
@@ -118,6 +116,9 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
       }
 
       val hbaseName = Bytes.toString(rest1.getValue(ColumnFamily, QualHbaseName))
+      val hbaseNameArray = hbaseName.split(",")
+      val hbaseNamespace = hbaseNameArray(0)
+      val hbaseTableName = hbaseNameArray(1)
 
       var keyColumns = Bytes.toString(rest1.getValue(ColumnFamily, QualKeyColumns))
       if (keyColumns.length > 0) {
@@ -136,11 +137,11 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
       val rowKey = TypedRowKey(new Columns(keysList))
 
       val fullHBaseName =
-        if (ns.length == 0) {
-          TableName.valueOf(hbaseName)
+        if (hbaseNamespace.length == 0) {
+          TableName.valueOf(hbaseTableName)
         }
         else {
-          TableName.valueOf(ns, hbaseName)
+          TableName.valueOf(hbaseNamespace, hbaseTableName)
         }
 
       Some(HBaseCatalogTable(tableName,
@@ -171,7 +172,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
   }
 
 
-  def createTable(namespace: String,
+  def createTable(hbaseNamespace: String,
                   tableName: String,
                   hbaseTableName: String,
                   keyColumns: Seq[KeyColumn],
@@ -187,7 +188,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
 
     val table = new HTable(configuration, MetaData)
     table.setAutoFlushTo(false)
-    val rowKey = namespace + "." + tableName
+    val rowKey = tableName
 
     val get = new Get(Bytes.toBytes(rowKey))
     if (table.exists(get)) {
@@ -214,6 +215,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
       put.add(ColumnFamily, QualNonKeyColumns, Bytes.toBytes(result1.toString))
 
       val result2 = new StringBuilder
+      result2.append(hbaseNamespace)
+      result2.append(",")
       result2.append(hbaseTableName)
       put.add(ColumnFamily, QualHbaseName, Bytes.toBytes(result2.toString))
 
@@ -233,7 +236,6 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
       table.flushCommits()
     }
   }
-
 }
 
 object HBaseCatalog {

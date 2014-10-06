@@ -64,15 +64,15 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
 
   test("get table") {
     // prepare the test data
-    val namespace = "testNamespace"
+    val hbaseNamespace = "testNamespace"
     val tableName = "testTable"
     val hbaseTableName = "hbaseTable"
 
-    val oresult = catalog.getTable(Some(namespace), tableName)
+    val oresult = catalog.getTable(tableName)
     assert(oresult.isDefined)
     val result = oresult.get
     assert(result.tablename === tableName)
-    assert(result.hbaseTableName.tableName.getNameAsString === namespace + ":" + hbaseTableName)
+    assert(result.hbaseTableName.tableName.getNameAsString === hbaseNamespace + ":" + hbaseTableName)
     assert(result.colFamilies.size === 2)
     assert(result.columns.columns.size === 2)
     val relation = catalog.lookupRelation(None, tableName)
