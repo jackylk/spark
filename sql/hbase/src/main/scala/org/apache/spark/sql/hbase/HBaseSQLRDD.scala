@@ -35,7 +35,7 @@ abstract class HBaseSQLRDD(
                             @transient hbaseContext: HBaseSQLContext)
   extends RDD[Row](hbaseContext.sparkContext, Nil) {
 
-  val logger = Logger.getLogger(getClass.getName)
+  @transient val logger = Logger.getLogger(getClass.getName)
 
   // The SerializedContext will contain the necessary instructions
   // for all Workers to know how to connect to HBase

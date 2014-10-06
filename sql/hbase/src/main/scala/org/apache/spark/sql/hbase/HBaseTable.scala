@@ -30,6 +30,4 @@ case class HBaseTable(
   columns : Seq[Attribute],
   partitions: Seq[HBasePartition]
                        ) {
-  val logger = Logger.getLogger(getClass.getName)
-
 }

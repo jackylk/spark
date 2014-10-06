@@ -36,7 +36,7 @@ class HBaseSQLFilters(colFamilies: Seq[String],
                       rowKeyPreds: Option[Seq[ColumnPredicate]],
                       opreds: Option[Seq[ColumnPredicate]])
   extends FilterBase {
-  val logger = Logger.getLogger(getClass.getName)
+  @transient val logger = Logger.getLogger(getClass.getName)
 
   def createColumnFilters(): Option[FilterList] = {
     val colFilters: FilterList = new FilterList(FilterList.Operator.MUST_PASS_ALL)
@@ -58,7 +58,7 @@ class HBaseSQLFilters(colFamilies: Seq[String],
             col = p.right.asInstanceOf[HColumn]
             colval = p.left.asInstanceOf[HLiteral]
           }
-          new SingleColumnValueFilter(s2b(col.colName.family),
+          new SingleColumnValueFilter(s2b(col.colName.family.get),
             s2b(col.colName.qualifier),
             p.op.toHBase,
             new BinaryComparator(s2b(colval.litval.toString)))
@@ -79,7 +79,7 @@ class HBaseRowFilter(colFamilies: Seq[String],
                      rkCols : Seq[ColumnName],
                      rowKeyPreds: Seq[ColumnPredicate]
  /*, preds: Seq[ColumnPredicate] */) extends FilterBase {
-  val logger = Logger.getLogger(getClass.getName)
+  @transient val logger = Logger.getLogger(getClass.getName)
 
   override def filterRowKey(rowKey: Array[Byte], offset: Int, length: Int): Boolean = {
     val rowKeyColsMap = RowKeyParser.parseRowKeyWithMetaData(rkCols,

@@ -48,8 +48,8 @@ class HBaseSQLReaderRDD(tableName: TableName,
     val conn = Some(hbConn)
     try {
       val hbPartition = split.asInstanceOf[HBasePartition]
-      val scan = new Scan(hbPartition.bounds.start.asInstanceOf[Array[Byte]],
-        hbPartition.bounds.end.asInstanceOf[Array[Byte]])
+      val scan = new Scan(hbPartition.bounds.start.get,
+        hbPartition.bounds.end.get)
       colFamilies.foreach { cf =>
         scan.addFamily(s2b(cf))
       }

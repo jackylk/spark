@@ -32,7 +32,7 @@ class HBaseSQLWriterRDD(tableName : TableName,
     @transient hbaseContext: HBaseSQLContext)
   extends HBaseSQLRDD(tableName, externalResource, partitions, hbaseContext) {
 
-  override val logger = Logger.getLogger(getClass.getName)
+  @transient override val logger = Logger.getLogger(getClass.getName)
 
   /**
    * :: DeveloperApi ::

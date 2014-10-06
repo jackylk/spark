@@ -26,7 +26,7 @@ import org.apache.spark.sql.hbase.HBaseCatalog.HBaseDataType._
  * Created by sboesch on 10/1/14.
  */
 object CatalystToHBase {
-  val logger = Logger.getLogger(getClass.getName)
+  @transient val logger = Logger.getLogger(getClass.getName)
 
   def schemaIndex(schema: StructType, sqlName: String) = {
     schema.fieldNames.zipWithIndex.find { case (name: String, ix: Int) => name == sqlName}

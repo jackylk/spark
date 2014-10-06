@@ -9,11 +9,11 @@ import HBaseUtils._
  * Created by sboesch on 9/25/14.
  */
 class RowKeyParserSuite extends FunSuite with ShouldMatchers {
-  val logger = Logger.getLogger(getClass.getName)
+  @transient val logger = Logger.getLogger(getClass.getName)
 
   test("rowkey test") {
     val cols = Range(0, 4).map { ix =>
-      ColumnName(s"cf${ix + 1}", s"cq${ix + 10}")
+      ColumnName(Some(s"cf${ix + 1}"), s"cq${ix + 10}")
     }.toSeq
 
     val pat = "Hello1234GoHome".getBytes("ISO-8859-1")

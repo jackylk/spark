@@ -26,18 +26,28 @@ import org.apache.hadoop.hbase.client.{Get, HConnectionManager, HTable}
 import org.apache.hadoop.hbase.filter.{Filter => HFilter}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.planning.PhysicalOperation
+import org.apache.spark.sql.catalyst.planning.{QueryPlanner, PhysicalOperation}
 import org.apache.spark.sql.catalyst.plans.logical
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, Join, LogicalPlan}
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.hbase.HBaseCatalog.Columns
+import org.apache.spark.sql.parquet.ParquetTableScan
 import org.apache.spark.sql.{SQLContext, SchemaRDD, StructType}
 
 /**
  * HBaseStrategies
  * Created by sboesch on 8/22/14.
  */
-private[hbase] trait HBaseStrategies extends SparkStrategies {
+
+/**
+ *
+ *
+private[sql] abstract class SparkStrategies extends QueryPlanner[SparkPlan] {
+  self: SQLContext#SparkPlanner =>
+
+
+ */
+private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
   self: SQLContext#SparkPlanner =>
 
   import org.apache.spark.sql.hbase.HBaseStrategies._
@@ -115,50 +125,55 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
 
 
         // If any predicates passed all restrictions then let us now build the RowKeyFilter
-        var invalidRKPreds = false
-        var rowKeyColumnPredicates: Option[Seq[ColumnPredicate]] =
-          if (!sortedRowPrefixPredicates.isEmpty) {
-            val bins = rowKeyPredicates.map {
+        if (HBaseStrategies.PushDownPredicates) {
+          var invalidRKPreds = false
+          var rowKeyColumnPredicates: Option[Seq[ColumnPredicate]] =
+            if (!sortedRowPrefixPredicates.isEmpty) {
+              val bins = rowKeyPredicates.map {
+                case pp: BinaryComparison =>
+                  Some(ColumnPredicate.catalystToHBase(pp))
+                case s =>
+                  log.info(s"RowKeyPreds: Only BinaryComparison operators supported ${s.toString}")
+                  invalidRKPreds = true
+                  None
+              }.flatten
+              if (!bins.isEmpty) {
+                Some(bins)
+              } else {
+                None
+              }
+            } else {
+              None
+            }
+          if (invalidRKPreds) {
+            rowKeyColumnPredicates = None
+          }
+          // TODO(sboesch): map the RowKey predicates to the Partitions
+          // to achieve Partition Pruning.
+
+          // Now process the projection predicates
+          var invalidPreds = false
+          var colPredicates = if (!predicates.isEmpty) {
+            predicates.map {
               case pp: BinaryComparison =>
                 Some(ColumnPredicate.catalystToHBase(pp))
               case s =>
-                log.info(s"RowKeyPreds: Only BinaryComparison operators supported ${s.toString}")
-                invalidRKPreds = true
+                log.info(s"ColPreds: Only BinaryComparison operators supported ${s.toString}")
+                invalidPreds = true
                 None
-            }.flatten
-            if (!bins.isEmpty) {
-              Some(bins)
-            } else {
-              None
             }
           } else {
             None
           }
-        if (invalidRKPreds) {
-          rowKeyColumnPredicates = None
-        }
-        // TODO(sboesch): map the RowKey predicates to the Partitions
-        // to achieve Partition Pruning.
-
-        // Now process the projection predicates
-        var invalidPreds = false
-        var colPredicates = if (!predicates.isEmpty) {
-          predicates.map {
-            case pp: BinaryComparison =>
-              Some(ColumnPredicate.catalystToHBase(pp))
-            case s =>
-              log.info(s"ColPreds: Only BinaryComparison operators supported ${s.toString}")
-              invalidPreds = true
-              None
+          if (invalidPreds) {
+            colPredicates = None
           }
-        } else {
-          None
-        }
-        if (invalidPreds) {
-          colPredicates = None
         }
 
         val emptyPredicate = ColumnPredicate.EmptyColumnPredicate
+
+        val rowKeyColumnPredicates = Some(Seq(ColumnPredicate.EmptyColumnPredicate))
+
         // TODO(sboesch):  create multiple HBaseSQLTableScan's based on the calculated partitions
         def partitionRowKeyPredicatesByHBasePartition(rowKeyPredicates:
                                                       Option[Seq[ColumnPredicate]]):
@@ -173,10 +188,10 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
         val partitionRowKeyPredicates =
           partitionRowKeyPredicatesByHBasePartition(rowKeyColumnPredicates)
 
-        partitionRowKeyPredicates.flatMap { partitionSpecificRowKeyPredicates =>
+//        partitionRowKeyPredicates.flatMap { partitionSpecificRowKeyPredicates =>
           def projectionToHBaseColumn(expr: NamedExpression,
                                       hbaseRelation: HBaseRelation): ColumnName = {
-            hbaseRelation.catalogTable.columns.findBySqlName(expr.name).map(_.toColumnName).get
+            hbaseRelation.catalogTable.allColumns.findBySqlName(expr.name).map(_.toColumnName).get
           }
 
           val columnNames = projectList.map(projectionToHBaseColumn(_, relation))
@@ -188,21 +203,23 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
               rowKeyColumnPredicates
             }
 
-          val scanBuilder = HBaseSQLTableScan(partitionKeyIds.toSeq,
+          val scanBuilder : (Seq[Attribute] => SparkPlan)  = HBaseSQLTableScan(
+            _,
+            partitionKeyIds.toSeq,
             relation,
             columnNames,
             predicates.reduceLeftOption(And),
             rowKeyPredicates.reduceLeftOption(And),
             effectivePartitionSpecificRowKeyPredicates,
             externalResource,
-            plan)(hbaseContext).asInstanceOf[Seq[Expression] => SparkPlan]
+            plan)(hbaseContext)
 
-          this.asInstanceOf[SQLContext#SparkPlanner].pruneFilterProject(
+          pruneFilterProject(
             projectList,
-            otherPredicates,
+            Nil, // otherPredicates,
             identity[Seq[Expression]], // removeRowKeyPredicates,
             scanBuilder) :: Nil
-        }
+
       case _ =>
         Nil
     }
@@ -282,6 +299,7 @@ private[hbase] trait HBaseStrategies extends SparkStrategies {
 
 object HBaseStrategies {
 
+  val PushDownPredicates = false  // WIP
   def putToHBase(rddSchema: StructType,
                  relation: HBaseRelation,
                  @transient hbContext: HBaseSQLContext,

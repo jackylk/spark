@@ -41,6 +41,10 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
 
   @transient val logger = Logger.getLogger(getClass.getName)
 
+
+  override def registerTable(databaseName: Option[String], tableName: String,
+                             plan: LogicalPlan): Unit = ???
+
   // TODO(Bo): read the entire HBASE_META_TABLE and process it once, then cache it
   // in this class
   override def unregisterAllTables(): Unit = {
@@ -254,7 +258,7 @@ object HBaseCatalog {
                     ordinal: Int = -1) {
     def fullName = s"$family:$qualifier"
 
-    def toColumnName = ColumnName(family, qualifier)
+    def toColumnName = ColumnName(Some(family), qualifier)
 
     override def hashCode(): Int = {
       sqlName.hashCode * 31 + (if (family != null) family.hashCode * 37 else 0)
@@ -326,7 +330,7 @@ object HBaseCatalog {
     def apply(colName: String): Option[Column] = {
       val Pat = "(.*):(.*)".r
       colName match {
-        case Pat(colfam, colqual) => lift(map(ColumnName(colfam, colqual)))
+        case Pat(colfam, colqual) => lift(map(ColumnName(Some(colfam), colqual)))
         case sqlName: String => findBySqlName(sqlName)
       }
     }
@@ -341,7 +345,7 @@ object HBaseCatalog {
 
     private val map: mutable.Map[ColumnName, Column] =
       columns.foldLeft(mutable.Map[ColumnName, Column]()) { case (m, c) =>
-        m(ColumnName(c.family, c.qualifier)) = c
+        m(ColumnName(Some(c.family), c.qualifier)) = c
         m
       }
 
@@ -389,9 +393,13 @@ object HBaseCatalog {
                                colFamilies: Seq[String],
                                columns: Columns,
                                partitions: Seq[HBasePartition]) {
+
     val rowKeyParser = RowKeyParser
 
     val rowKeyColumns = rowKey.columns
+
+    lazy val allColumns = new Columns(rowKeyColumns.columns ++ columns.columns)
+
   }
 
   case class TypedRowKey(columns: Columns) extends RowKey

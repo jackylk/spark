@@ -18,6 +18,7 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.commons.el.RelationalOperator
+import org.apache.hadoop.hbase.filter.FilterList
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.{BinaryComparison, Attribute, Expression, Row}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
@@ -28,6 +29,7 @@ import org.apache.spark.sql.execution.LeafNode
  * Created by sboesch on 9/2/14.
  */
 case class HBaseSQLTableScan(
+                              ignoredAttributes: Seq[Attribute],
                               attributes: Seq[Attribute],
                               relation: HBaseRelation,
                               projList: Seq[ColumnName],
@@ -44,37 +46,40 @@ case class HBaseSQLTableScan(
    */
   override def execute(): RDD[Row] = {
 
-    // Now process the projection predicates
-    var invalidPreds = false
-    var colPredicates: Option[Seq[ColumnPredicate]] = if (!predicates.isEmpty) {
-      val bs = predicates.map {
-        case pp: BinaryComparison =>
-          ColumnPredicate.catalystToHBase(pp)
-        //        case s =>
-        //          log.info(s"ColPreds: Only BinaryComparison operators supported ${s.toString}")
-        //          invalidPreds = true
-        //          null.asInstanceOf[Option[Seq[ColumnPredicate]]]
-      }.filter(_ != null).asInstanceOf[Seq[ColumnPredicate]]
-      Some(bs)
-    } else {
-      None
-    }
-    if (invalidPreds) {
-      colPredicates = None
-    }
+    var colFilters : Option[FilterList] = None
+    if (HBaseStrategies.PushDownPredicates) {
+      // Now process the projection predicates
+      var invalidPreds = false
+      var colPredicates: Option[Seq[ColumnPredicate]] = if (!predicates.isEmpty) {
+        val bs = predicates.map {
+          case pp: BinaryComparison =>
+            ColumnPredicate.catalystToHBase(pp)
+          //        case s =>
+          //          log.info(s"ColPreds: Only BinaryComparison operators supported ${s.toString}")
+          //          invalidPreds = true
+          //          null.asInstanceOf[Option[Seq[ColumnPredicate]]]
+        }.filter(_ != null).asInstanceOf[Seq[ColumnPredicate]]
+        Some(bs)
+      } else {
+        None
+      }
+      if (invalidPreds) {
+        colPredicates = None
+      }
 
-    val colNames = relation.catalogTable.rowKey.columns.columns.
-      map{ c => ColumnName(c.family, c.qualifier)
-    }
+      val colNames = relation.catalogTable.rowKey.columns.columns.
+        map{ c => ColumnName(Some(c.family), c.qualifier)
+      }
 
-    // TODO: Do column pruning based on only the required colFamilies
-    val filters = new HBaseSQLFilters(relation.colFamilies, colNames,
-      rowKeyPredicates, colPredicates
-      )
-    val colFilters = filters.createColumnFilters
+      // TODO: Do column pruning based on only the required colFamilies
+      val filters = new HBaseSQLFilters(relation.colFamilies, colNames,
+        rowKeyPredicates, colPredicates
+        )
+      val colFilters = filters.createColumnFilters
 
     // TODO(sboesch): Perform Partition pruning based on the rowKeyPredicates
 
+    }
     new HBaseSQLReaderRDD(relation.tableName,
       externalResource,
       relation,

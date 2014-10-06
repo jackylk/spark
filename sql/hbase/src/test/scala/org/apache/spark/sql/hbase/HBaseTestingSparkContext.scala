@@ -11,7 +11,7 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
  */
 class HBaseTestingSparkContext(nSlaves: Int) /* extends BeforeAndAfterAll */ {
   self: Suite  =>
-  val logger = Logger.getLogger(getClass.getName)
+  @transient val logger = Logger.getLogger(getClass.getName)
   @transient private var _sc: SparkContext = _
 
   def sc: SparkContext = _sc

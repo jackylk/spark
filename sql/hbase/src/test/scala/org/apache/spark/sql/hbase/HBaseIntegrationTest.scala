@@ -20,7 +20,7 @@ import org.apache.hadoop.hbase.{HBaseConfiguration, HBaseTestingUtility, MiniHBa
  * Created by sboesch on 9/27/14.
  */
 class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging {
-  val logger = Logger.getLogger(getClass.getName)
+  @transient val logger = Logger.getLogger(getClass.getName)
 
   val NMasters = 1
   val NRegionServers = 3

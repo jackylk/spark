@@ -1,8 +1,8 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client.HBaseAdmin
-import org.apache.hadoop.hbase.{HBaseTestingUtility, MiniHBaseCluster}
+import org.apache.hadoop.hbase.client.{HTable, Put, HBaseAdmin}
+import org.apache.hadoop.hbase._
 import org.apache.log4j.Logger
 import org.apache.spark.sql.hbase.HBaseCatalog.{HBaseDataType, Column, Columns}
 import org.apache.spark.sql.test.TestSQLContext._
@@ -105,6 +105,111 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     catalog = hbContext.catalog
     hbaseAdmin = new HBaseAdmin(config)
 
+    hbContext.sql(s"""CREATE TABLE $TabName(col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
+      col5 LONG, col6 FLOAT, col7 DOUBLE)
+      MAPPED BY ($HbaseTabName KEYS=[col7, col1, col3], COLS=[col2=cf1.cq11,
+      col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])"""
+      .stripMargin)
+
+
+    val hdesc = new HTableDescriptor(TableName.valueOf(HbaseTabName))
+    Array(new HColumnDescriptor("cf1"), new HColumnDescriptor("cf2")).foreach{ f =>
+      hdesc.addFamily(f)
+    }
+    hbaseAdmin.createTable(hdesc)
+
+    if (!hbaseAdmin.tableExists(HbaseTabName)) {
+      throw new IllegalArgumentException("where is our table?")
+    }
+
+    def makeRowKey(col7 : Double, col1: String, col3: Short) = {
+      val size = 1+8+col1.size+2+3*2+1
+//      val barr = new Array[Byte](size)
+      val bos = new ByteArrayOutputStream(size)
+      val dos = new DataOutputStream(bos)
+      dos.writeByte('1'.toByte)
+      dos.writeDouble(col7)
+      dos.writeBytes(col1)
+      dos.writeShort(col3)
+      dos.writeShort(1)
+      dos.writeShort(1+8)
+      dos.writeShort(1+8+col1.length)
+      dos.writeByte(3.toByte)
+      val s = bos.toString
+      println(s"MakeRowKey: [${s}]")
+      bos.toByteArray
+    }
+    def addRowVals(put: Put, col2 : Byte, col4: Int, col5: Long, col6: Float) = {
+      //      val barr = new Array[Byte](size)
+      var bos = new ByteArrayOutputStream()
+      var dos = new DataOutputStream(bos)
+      dos.writeByte(col2)
+      put.add(s2b("cf1"), s2b("cq11"), bos.toByteArray)
+      bos = new ByteArrayOutputStream()
+      dos = new DataOutputStream(bos)
+      dos.writeInt(col4)
+      put.add(s2b("cf1"), s2b("cq12"), bos.toByteArray)
+      bos = new ByteArrayOutputStream()
+      dos = new DataOutputStream(bos)
+      dos.writeLong(col5)
+      put.add(s2b("cf2"), s2b("cq21"), bos.toByteArray)
+      bos = new ByteArrayOutputStream()
+      dos = new DataOutputStream(bos)
+      dos.writeFloat(col6)
+      put.add(s2b("cf2"), s2b("cq22"), bos.toByteArray)
+    }
+//    val conn = hbaseAdmin.getConnection
+//    val htable = conn.getTable(TableName.valueOf(DbName, TabName))
+    val tname = TableName.valueOf(HbaseTabName)
+    val htable = new HTable(config, tname)
+    if (!hbaseAdmin.tableExists(tname)) {
+      throw new IllegalStateException(s"Unable to find table ${tname.toString}")
+    }
+    hbaseAdmin.listTableNames.foreach{ t => println(s"table: $t")}
+
+    var put = new Put(makeRowKey(12345.0,"Col1Value12345", 12345))
+    addRowVals(put, (123).toByte, 12345678, 12345678901234L, 1234.5678F)
+    htable.put(put)
+    put = new Put(makeRowKey(456789.0,"Col1Value45678", 4567))
+    addRowVals(put, (456).toByte, 456789012, 4567890123446789L, 456.78901F)
+    htable.close
+
+    val ctx = hbContext
+    val results = ctx.sql(s"""SELECT col1, col3, col7 FROM $TabName
+    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50
+    """.stripMargin)
+
+    val data = results.collect
+
+    System.exit(0)
+
+    val results00 = ctx.sql(s"""SELECT col1, col3, col7 FROM $TabName
+    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col3 != 7.0
+    """.stripMargin)
+
+    val results0 = ctx.sql(s"""SELECT col1, col2, col3, col7 FROM $TabName
+    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
+    """.stripMargin)
+
+    val results1 = ctx.sql(s"""SELECT sum(col3) as col3sum, col1, col3 FROM $TabName
+    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
+    group by col1,  col3
+    """.stripMargin)
+
+
+    val results2 = ctx.sql(s"""SELECT sum(col2) as col2sum, col4, col1, col3, col2 FROM $TabName
+    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50
+    group by col1, col2, col4, col3
+    """.stripMargin)
+
+    // Following fails with Unresolved:
+    // Col1 Sort is unresolved
+    // Col4 and col2 Aggregation are unresolved (interesting col3 IS resolved)
+//    val results = ctx.sql(s"""SELECT col4, col1, col3, col2 FROM $TabName
+//    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 group by col7, col1
+//    ORDER BY col1 DESC"""
+//      .stripMargin)
+
     hbContext.sql(s"""CREATE TABLE $DbName.$TabName(col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
       col5 LONG, col6 FLOAT, col7 DOUBLE)
       MAPPED BY ($HbaseTabName KEYS=[col7, col1, col3], COLS=[col2=cf1.cq11,
@@ -115,20 +220,6 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     assert(catTab.get.tablename == TabName)
 
     testGetTable
-
-    val ctx = hbContext
-
-    val results = ctx.sql(s"""SELECT col4, col1, col3, col2 FROM $TabName
-    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 group by col7, col1
-    ORDER BY col1 DESC"""
-      .stripMargin)
-
-//    val results = ctx.sql(s"""SELECT * FROM $DbName.$TabName
-//    WHERE col1 >=3 AND col1 <= 10
-//    ORDER BY col1 DESC"""
-//      .stripMargin)
-
-    val data = results.collect
 
 
     import ctx.createSchemaRDD

@@ -26,7 +26,7 @@ import org.apache.log4j.Logger
  * Created by sboesch on 9/24/14.
  */
 class ExternalResource {
-  val logger = Logger.getLogger(getClass.getName)
+  @transient val logger = Logger.getLogger(getClass.getName)
 
 }
 

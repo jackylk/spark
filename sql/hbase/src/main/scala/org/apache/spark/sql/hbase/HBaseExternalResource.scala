@@ -27,8 +27,6 @@ import org.apache.log4j.Logger
  */
 class HBaseExternalResource extends ExternalResource {
 
-  override val logger = Logger.getLogger(getClass.getName)
-
   def getConnection(conf : Configuration, tableName : TableName) : HConnection = ???
 
   def releaseConnection(connection: HConnection) = ???
