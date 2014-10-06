@@ -26,9 +26,9 @@ class CreateTableSuite extends QueryTest {
   TestData // Initialize TestData
 
   test("create table") {
-    sql("""CREATE TABLE namespace.tableName (col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
+    sql("""CREATE TABLE tableName (col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
       col5 LONG, col6 FLOAT, col7 DOUBLE)
-      MAPPED BY (hbaseTableName, KEYS=[col7, col1, col3], COLS=[col2=cf1.cq11,
+      MAPPED BY (namespace.hbaseTableName, KEYS=[col7, col1, col3], COLS=[col2=cf1.cq11,
       col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])""".stripMargin
     )
   }

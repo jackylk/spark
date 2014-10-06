@@ -56,15 +56,15 @@ class HBaseSQLParser extends SqlParser {
       | insert | cache | create | drop | alter
     )
 
-  // TODO(XinYu): move the namespace next to hbaseTable
   protected lazy val create: Parser[LogicalPlan] =
-    CREATE ~> TABLE ~> opt(nameSpace) ~ ident ~
+    CREATE ~> TABLE ~> ident ~
       ("(" ~> tableCols <~ ")") ~
-      (MAPPED ~> BY ~> "(" ~> ident) ~
+      (MAPPED ~> BY ~> "(" ~> opt(nameSpace)) ~
+      (ident <~ ",") ~
       (KEYS ~> "=" ~> "[" ~> keys <~ "]" <~ ",") ~
       (COLS ~> "=" ~> "[" ~> expressions <~ "]" <~ ")") <~ opt(";") ^^ {
 
-      case tableNameSpace ~ tableName ~ tableColumns ~ hbaseTableName ~ keySeq ~ mappingInfo =>
+      case tableName ~ tableColumns ~ tableNameSpace ~ hbaseTableName ~ keySeq ~ mappingInfo =>
         //Since the lexical can not recognize the symbol "=" as we expected,
         //we compose it to expression first and then translate it into Map[String, (String, String)]
         //TODO: Now get the info by hacking, need to change it into normal way if possible
