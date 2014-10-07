@@ -84,4 +84,11 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     assert(hbRelation.catalogTable.rowKeyColumns.equals(rkColumns))
     assert(relation.childrenResolved)
   }
+
+  test("delete table") {
+    // prepare the test data
+    val tableName = "testTable"
+
+    catalog.deleteTable(tableName)
+  }
 }

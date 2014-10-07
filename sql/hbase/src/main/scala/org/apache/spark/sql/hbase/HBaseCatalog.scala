@@ -171,6 +171,15 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
     tableDescriptor.hasFamily(Bytes.toBytes(family))
   }
 
+  def deleteTable(tableName: String): Unit = {
+    val admin = new HBaseAdmin(configuration)
+    val table = new HTable(configuration, MetaData)
+
+    val delete = new Delete(Bytes.toBytes(tableName))
+    table.delete(delete)
+
+    table.close()
+  }
 
   def createTable(hbaseNamespace: String,
                   tableName: String,
@@ -239,7 +248,6 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
 }
 
 object HBaseCatalog {
-
   import org.apache.spark.sql.catalyst.types._
 
   val MetaData = "metadata"
