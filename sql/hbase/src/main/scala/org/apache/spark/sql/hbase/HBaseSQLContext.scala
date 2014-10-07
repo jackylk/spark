@@ -131,6 +131,10 @@ class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf:
     catalog.createTable(nameSpace, tableName, hbaseTable, keyColumns, nonKeyColumns)
   }
 
+  def dropHbaseTable(tableName: String): Unit = {
+    catalog.deleteTable(tableName)
+  }
+
   def stop() = {
     hconnection.close
     sparkContext.stop()

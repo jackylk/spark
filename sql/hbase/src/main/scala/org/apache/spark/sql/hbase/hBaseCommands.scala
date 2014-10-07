@@ -36,3 +36,14 @@ case class CreateHBaseTableCommand(tableName: String,
   override def output: Seq[Attribute] = Seq.empty
 }
 
+case class DropHbaseTableCommand(tableName: String)
+                                (@transient context: HBaseSQLContext)
+  extends LeafNode with Command {
+
+  override protected[sql] lazy val sideEffectResult = {
+    context.dropHbaseTable(tableName)
+    Seq.empty[Row]
+  }
+
+  override def output: Seq[Attribute] = Seq.empty
+}

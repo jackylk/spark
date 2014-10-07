@@ -20,13 +20,14 @@ package org.apache.spark.sql.hbase
 import org.apache.spark.sql.QueryTest
 
 //Implicits
+
 import org.apache.spark.sql.hbase.TestHbase._
 
 class CreateTableSuite extends QueryTest {
   TestData // Initialize TestData
 
   test("create table") {
-    sql("""CREATE TABLE tableName (col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
+    sql( """CREATE TABLE tableName (col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
       col5 LONG, col6 FLOAT, col7 DOUBLE)
       MAPPED BY (namespace.hbaseTableName, KEYS=[col7, col1, col3], COLS=[col2=cf1.cq11,
       col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])""".stripMargin
@@ -34,13 +35,20 @@ class CreateTableSuite extends QueryTest {
   }
 
   test("Insert Into table") {
-//    sql("""CREATE TABLE t1 (t1c1 STRING, t1c2 STRING)
-//      MAPPED BY (ht1, KEYS=[t1c1], COLS=[t1c2=cf1.cq11])""".stripMargin
-//    )
-//    sql("""CREATE TABLE t2 (t2c1 STRING, t2c2 STRING)
-//      MAPPED BY (ht2, KEYS=[t2c1], COLS=[t2c2=cf2.cq21])""".stripMargin
-//    )
-    sql("""INSERT INTO t1 SELECT * FROM t2""".stripMargin)
+    //    sql("""CREATE TABLE t1 (t1c1 STRING, t1c2 STRING)
+    //      MAPPED BY (ht1, KEYS=[t1c1], COLS=[t1c2=cf1.cq11])""".stripMargin
+    //    )
+    //    sql("""CREATE TABLE t2 (t2c1 STRING, t2c2 STRING)
+    //      MAPPED BY (ht2, KEYS=[t2c1], COLS=[t2c2=cf2.cq21])""".stripMargin
+    //    )
+    sql( """INSERT INTO t1 SELECT * FROM t2""".stripMargin)
+  }
+
+  test("Drop table") {
+    sql( """CREATE TABLE t1 (t1c1 STRING, t1c2 STRING)
+          MAPPED BY (ht1, KEYS=[t1c1], COLS=[t1c2=cf1.cq11])""".stripMargin
+    )
+    sql( """DROP TABLE t1""".stripMargin)
   }
 
   test("SPARK-3176 Added Parser of SQL ABS()") {

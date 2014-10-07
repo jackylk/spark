@@ -106,7 +106,7 @@ class HBaseSQLParser extends SqlParser {
 
   protected lazy val drop: Parser[LogicalPlan] =
     DROP ~> TABLE ~> ident <~ opt(";") ^^ {
-      case tn => null
+      case tableName => DropTablePlan(tableName)
     }
 
   protected lazy val alter: Parser[LogicalPlan] =
@@ -137,3 +137,5 @@ case class CreateHBaseTablePlan(tableName: String,
                                 keyCols: Seq[(String, String)],
                                 nonKeyCols: Seq[(String, String, String, String)]
                                  ) extends Command
+
+case class DropTablePlan(tableName: String) extends Command

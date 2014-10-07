@@ -45,7 +45,6 @@ import org.apache.spark.sql.{SQLContext, SchemaRDD, StructType}
 private[sql] abstract class SparkStrategies extends QueryPlanner[SparkPlan] {
   self: SQLContext#SparkPlanner =>
 
-
  */
 private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
   self: SQLContext#SparkPlanner =>
@@ -188,37 +187,37 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
         val partitionRowKeyPredicates =
           partitionRowKeyPredicatesByHBasePartition(rowKeyColumnPredicates)
 
-//        partitionRowKeyPredicates.flatMap { partitionSpecificRowKeyPredicates =>
-          def projectionToHBaseColumn(expr: NamedExpression,
-                                      hbaseRelation: HBaseRelation): ColumnName = {
-            hbaseRelation.catalogTable.allColumns.findBySqlName(expr.name).map(_.toColumnName).get
+        //        partitionRowKeyPredicates.flatMap { partitionSpecificRowKeyPredicates =>
+        def projectionToHBaseColumn(expr: NamedExpression,
+                                    hbaseRelation: HBaseRelation): ColumnName = {
+          hbaseRelation.catalogTable.allColumns.findBySqlName(expr.name).map(_.toColumnName).get
+        }
+
+        val columnNames = projectList.map(projectionToHBaseColumn(_, relation))
+
+        val effectivePartitionSpecificRowKeyPredicates =
+          if (rowKeyColumnPredicates == ColumnPredicate.EmptyColumnPredicate) {
+            None
+          } else {
+            rowKeyColumnPredicates
           }
 
-          val columnNames = projectList.map(projectionToHBaseColumn(_, relation))
+        val scanBuilder: (Seq[Attribute] => SparkPlan) = HBaseSQLTableScan(
+          _,
+          partitionKeyIds.toSeq,
+          relation,
+          columnNames,
+          predicates.reduceLeftOption(And),
+          rowKeyPredicates.reduceLeftOption(And),
+          effectivePartitionSpecificRowKeyPredicates,
+          externalResource,
+          plan)(hbaseContext)
 
-          val effectivePartitionSpecificRowKeyPredicates =
-            if (rowKeyColumnPredicates == ColumnPredicate.EmptyColumnPredicate) {
-              None
-            } else {
-              rowKeyColumnPredicates
-            }
-
-          val scanBuilder : (Seq[Attribute] => SparkPlan)  = HBaseSQLTableScan(
-            _,
-            partitionKeyIds.toSeq,
-            relation,
-            columnNames,
-            predicates.reduceLeftOption(And),
-            rowKeyPredicates.reduceLeftOption(And),
-            effectivePartitionSpecificRowKeyPredicates,
-            externalResource,
-            plan)(hbaseContext)
-
-          pruneFilterProject(
-            projectList,
-            Nil, // otherPredicates,
-            identity[Seq[Expression]], // removeRowKeyPredicates,
-            scanBuilder) :: Nil
+        pruneFilterProject(
+          projectList,
+          Nil, // otherPredicates,
+          identity[Seq[Expression]], // removeRowKeyPredicates,
+          scanBuilder) :: Nil
 
       case _ =>
         Nil
@@ -290,6 +289,7 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
           (hbaseContext))
       case logical.InsertIntoTable(table: HBaseRelation, partition, child, overwrite) =>
         new InsertIntoHBaseTable(table, planLater(child), overwrite)(hbaseContext) :: Nil
+      case DropTablePlan(tableName) => Seq(DropHbaseTableCommand(tableName)(hbaseContext))
       case _ => Nil
     }
 
@@ -299,7 +299,9 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
 
 object HBaseStrategies {
 
-  val PushDownPredicates = false  // WIP
+  val PushDownPredicates = false
+
+  // WIP
   def putToHBase(rddSchema: StructType,
                  relation: HBaseRelation,
                  @transient hbContext: HBaseSQLContext,
