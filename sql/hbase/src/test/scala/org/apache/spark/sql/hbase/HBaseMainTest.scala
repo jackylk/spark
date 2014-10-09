@@ -3,10 +3,10 @@ package org.apache.spark.sql.hbase
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase._
-import org.apache.hadoop.hbase.filter.{SingleColumnValueFilter, Filter, FilterList}
 import org.apache.log4j.Logger
-import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute, NamedExpression}
-import org.apache.spark.sql.hbase.HBaseCatalog.{HBaseDataType, Column, Columns}
+import org.apache.spark.sql.catalyst.expressions.{AttributeReference}
+import org.apache.spark.sql.catalyst.types.{ShortType, StringType, DoubleType}
+import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns}
 import org.apache.spark.sql.test.TestSQLContext._
 import org.apache.spark.{Logging, SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
@@ -60,9 +60,9 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     assert(hbRelation.colFamilies == Seq("cf1", "cf2"))
     assert(Seq("col7", "col1", "col3").zip(hbRelation.partitionKeys)
       .forall { x => x._1 == x._2.name})
-    val rkColumns = new Columns(Seq(Column("col7", null, "col7", HBaseDataType.DOUBLE),
-      Column("col1", null, "col1", HBaseDataType.STRING),
-      Column("col3", null, "col3", HBaseDataType.SHORT)))
+    val rkColumns = new Columns(Seq(Column("col7", null, "col7", DoubleType),
+      Column("col1", null, "col1", StringType),
+      Column("col3", null, "col3", ShortType)))
     assert(hbRelation.catalogTable.rowKeyColumns.equals(rkColumns))
     assert(relation.childrenResolved)
   }

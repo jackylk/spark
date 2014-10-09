@@ -287,15 +287,6 @@ object HBaseCatalog {
   val QualNonKeyColumns = Bytes.toBytes("nonKeyColumns")
   val QualHbaseName = Bytes.toBytes("hbaseName")
 
-  /**
-   * @deprecated
-   */
-  /*
-  object HBaseDataType extends Enumeration {
-    val STRING, BYTE, SHORT, INTEGER, LONG, FLOAT, DOUBLE, BOOLEAN = Value
-  }
-  */
-
   sealed trait RowKey
 
   // TODO: change family to Option[String]
@@ -344,22 +335,6 @@ object HBaseCatalog {
       case _ => throw new Exception("not supported")
     }
   }
-
-  /*
-  def convertType(dataType: HBaseDataType.Value): DataType = {
-    import HBaseDataType._
-    dataType match {
-      case STRING => StringType
-      case BYTE => ByteType
-      case SHORT => ShortType
-      case INTEGER => IntegerType
-      case LONG => LongType
-      case FLOAT => FloatType
-      case DOUBLE => DoubleType
-      case BOOLEAN => BooleanType
-    }
-  }
-  */
 
   class Columns(inColumns: Seq[Column]) extends Serializable {
     private val colx = new java.util.concurrent.atomic.AtomicInteger

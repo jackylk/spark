@@ -6,12 +6,13 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.{Result, Scan, HTable, HBaseAdmin}
 import org.apache.log4j.Logger
 import org.apache.spark.sql.catalyst.ScalaReflection
+import org.apache.spark.sql.catalyst.types.{IntegerType, StringType, LongType}
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.test.TestSQLContext._
 import org.apache.spark.sql.{ReflectData, SQLContext, SchemaRDD}
 //import org.apache.spark.sql.hbase.TestHbase._
 import org.apache.spark.{SparkConf, Logging, SparkContext}
-import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Columns, HBaseDataType, Column}
+import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Columns, Column}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfter, FunSuite}
 import org.apache.hadoop.hbase.{HBaseConfiguration, HBaseTestingUtility, MiniHBaseCluster}
 
@@ -75,11 +76,11 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
 //    import hbContext.
     val columns = new Columns(Array.tabulate[Column](10){ ax =>
       Column(s"sqlColName$ax",s"cf${ax % 2}",s"cq${ax %2}ax",
-        if (ax % 2 == 0) HBaseDataType.LONG else HBaseDataType.STRING)
+        if (ax % 2 == 0) LongType else StringType)
     })
     val keys = Array.tabulate(4){ ax =>
       KeyColumn(s"sqlColName$ax",
-        if (ax % 2 == 0) HBaseDataType.LONG else HBaseDataType.STRING)
+        if (ax % 2 == 0) LongType else StringType)
     }.toSeq
 
     catalog.createTable(DbName, TabName, HbaseTabName, keys, columns)
@@ -141,8 +142,8 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
     val hbRelation = relation.asInstanceOf[HBaseRelation]
     assert(hbRelation.colFamilies == Set("family1", "family2"))
     assert(hbRelation.partitionKeys == Seq("column1", "column2"))
-    val rkColumns = new Columns(Seq(Column("column1",null, "column1", HBaseDataType.STRING,1),
-      Column("column1",null, "column1", HBaseDataType.INTEGER,2)))
+    val rkColumns = new Columns(Seq(Column("column1",null, "column1", StringType,1),
+      Column("column1",null, "column1", IntegerType,2)))
     assert(hbRelation.catalogTable.rowKeyColumns.equals(rkColumns))
     assert(relation.childrenResolved)
   }
