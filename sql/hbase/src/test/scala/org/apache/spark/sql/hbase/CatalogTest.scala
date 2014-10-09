@@ -17,8 +17,8 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.HBaseConfiguration
-import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns, HBaseDataType, KeyColumn}
+import org.apache.spark.sql.catalyst.types.{FloatType, BooleanType, IntegerType, StringType}
+import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns, KeyColumn}
 import org.apache.spark.{Logging, SparkContext, _}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
@@ -46,14 +46,14 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     val tableName = "testTable"
     val hbaseTableName = "hbaseTable"
 
-    val keyColumn1 = KeyColumn("column1", HBaseDataType.STRING)
-    val keyColumn2 = KeyColumn("column2", HBaseDataType.INTEGER)
+    val keyColumn1 = KeyColumn("column1", StringType)
+    val keyColumn2 = KeyColumn("column2", IntegerType)
     var keyColumns = List[KeyColumn]()
     keyColumns = keyColumns :+ keyColumn1
     keyColumns = keyColumns :+ keyColumn2
 
-    val nonKeyColumn3 = Column("column3", "family1", "qualifier1", HBaseDataType.BOOLEAN)
-    val nonKeyColumn4 = Column("column4", "family2", "qualifier2", HBaseDataType.FLOAT)
+    val nonKeyColumn3 = Column("column3", "family1", "qualifier1", BooleanType)
+    val nonKeyColumn4 = Column("column4", "family2", "qualifier2", FloatType)
     var nonKeyColumnList = List[Column]()
     nonKeyColumnList = nonKeyColumnList :+ nonKeyColumn3
     nonKeyColumnList = nonKeyColumnList :+ nonKeyColumn4
@@ -79,8 +79,8 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     val hbRelation = relation.asInstanceOf[HBaseRelation]
     assert(hbRelation.colFamilies == Set("family1", "family2"))
     assert(hbRelation.partitionKeys == Seq("column1", "column2"))
-    val rkColumns = new Columns(Seq(Column("column1",null, "column1", HBaseDataType.STRING,1),
-      Column("column1",null, "column1", HBaseDataType.INTEGER,2)))
+    val rkColumns = new Columns(Seq(Column("column1", null, "column1", StringType, 1),
+      Column("column1", null, "column1", IntegerType, 2)))
     assert(hbRelation.catalogTable.rowKeyColumns.equals(rkColumns))
     assert(relation.childrenResolved)
   }

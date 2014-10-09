@@ -17,22 +17,17 @@
 
 package org.apache.spark.sql.hbase
 
-import java.io.{DataInputStream, ByteArrayInputStream, ByteArrayOutputStream, DataOutputStream}
+import java.io.{ByteArrayOutputStream, DataOutputStream}
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase._
 import org.apache.hadoop.hbase.client.HConnectionManager
-import org.apache.spark.sql.catalyst.dsl.ExpressionConversions
-import org.apache.spark.{sql, SparkContext}
+import org.apache.spark.SparkContext
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.analysis.Analyzer
-import org.apache.spark.sql.catalyst.expressions.{EqualTo, Attribute, Expression}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Column, HBaseDataType, Columns}
-
-//import org.apache.spark.sql.execution.SparkStrategies.HashAggregation
-
+import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Column, Columns}
 
 /**
  * An instance of the Spark SQL execution engine that integrates with data stored in Hive.
@@ -57,8 +52,6 @@ class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf:
   @transient val hBasePlanner = new SparkPlanner with HBaseStrategies {
 
   //    self: SQLContext#SparkPlanner =>
-
-    import HBaseStrategies._
 
     val hbaseContext = self
     SparkPlan.currentContext.set(self)
@@ -121,11 +114,13 @@ class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf:
                        keyCols: Seq[(String, String)],
                        nonKeyCols: Seq[(String, String, String, String)]): Unit = {
     val keyColumns = keyCols.map { case (name, typeOfData) =>
-      KeyColumn(name, HBaseDataType.withName(typeOfData))
+      // TODO: Fix null
+      KeyColumn(name, null)
     }
     val nonKeyColumns = new Columns(nonKeyCols.map {
       case (name, typeOfData, family, qualifier) =>
-        Column(name, family, qualifier, HBaseDataType.withName(typeOfData))
+        // TODO: Fix null
+        Column(name, family, qualifier, null)
     })
 
     catalog.createTable(nameSpace, tableName, hbaseTable, keyColumns, nonKeyColumns)

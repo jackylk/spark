@@ -18,8 +18,7 @@ package org.apache.spark.sql.hbase
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.catalyst.expressions.Row
-import org.apache.spark.sql.catalyst.types.{StringType, StructType}
-import org.apache.spark.sql.hbase.HBaseCatalog.HBaseDataType._
+import org.apache.spark.sql.catalyst.types._
 
 /**
  * CatalystToHBase
@@ -63,23 +62,23 @@ object CatalystToHBase {
       val rType = schema(col.sqlName).dataType
       //      if (!kc.dataType == rx) {}
       col.dataType match {
-        case STRING =>
+        case StringType =>
           if (rType != StringType) {
           }
           row.getString(rx)
-        case BYTE =>
+        case ByteType =>
           row.getByte(rx)
-        case SHORT =>
+        case ShortType =>
           Array(row.getShort(rx).toByte)
-        case INTEGER =>
+        case IntegerType =>
           row.getInt(rx)
-        case LONG =>
+        case LongType =>
           row.getLong(rx)
-        case FLOAT =>
+        case FloatType =>
           row.getFloat(rx)
-        case DOUBLE =>
+        case DoubleType =>
           row.getDouble(rx)
-        case BOOLEAN =>
+        case BooleanType =>
           row.getBoolean(rx)
         case _ =>
           throw

@@ -28,6 +28,9 @@ import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
 import org.apache.spark.sql.catalyst.plans.logical._
 import java.math.BigDecimal
 
+import org.apache.spark.sql.catalyst.types
+import org.apache.spark.sql.catalyst.types._
+
 /**
  * HBaseCatalog
  */
@@ -83,6 +86,34 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
     }
   }
 
+  private def getDataType(dataType: String): DataType = {
+    if (dataType.equalsIgnoreCase(StringType.simpleString)) {
+      StringType
+    }
+    else if (dataType.equalsIgnoreCase(ByteType.simpleString)) {
+      ByteType
+    }
+    else if (dataType.equalsIgnoreCase(ShortType.simpleString)) {
+      ShortType
+    }
+    else if (dataType.equalsIgnoreCase(IntegerType.simpleString)) {
+      IntegerType
+    }
+    else if (dataType.equalsIgnoreCase(LongType.simpleString)) {
+      LongType
+    }
+    else if (dataType.equalsIgnoreCase(FloatType.simpleString)) {
+      FloatType
+    }
+    else if (dataType.equalsIgnoreCase(DoubleType.simpleString)) {
+      DoubleType
+    }
+    else if (dataType.equalsIgnoreCase(BooleanType.simpleString)) {
+      BooleanType
+    }
+    null
+  }
+
   def getTable(tableName: String): Option[HBaseCatalogTable] = {
     val table = new HTable(configuration, MetaData)
 
@@ -106,7 +137,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
         val sqlName = nonKeyColumnInfo(0)
         val family = nonKeyColumnInfo(1)
         val qualifier = nonKeyColumnInfo(2)
-        val dataType = HBaseDataType.withName(nonKeyColumnInfo(3))
+        val dataType = getDataType(nonKeyColumnInfo(3))
 
         val column = Column(sqlName, family, qualifier, dataType)
         columnList = columnList :+ column
@@ -129,7 +160,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
       for (keyColumn <- keyColumnArray) {
         val index = keyColumn.indexOf(",")
         val sqlName = keyColumn.substring(0, index)
-        val dataType = HBaseDataType.withName(keyColumn.substring(index + 1))
+        val dataType = getDataType(keyColumn.substring(index + 1))
         val qualName = sqlName
         val col = Column(sqlName, null, qualName, dataType)
         keysList = keysList :+ col
@@ -235,7 +266,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
         val dataType = column.dataType
         result3.append(sqlName)
         result3.append(",")
-        result3.append(dataType)
+        result3.append(dataType.simpleString)
         result3.append(";")
       }
       put.add(ColumnFamily, QualKeyColumns, Bytes.toBytes(result3.toString))
@@ -256,15 +287,20 @@ object HBaseCatalog {
   val QualNonKeyColumns = Bytes.toBytes("nonKeyColumns")
   val QualHbaseName = Bytes.toBytes("hbaseName")
 
+  /**
+   * @deprecated
+   */
+  /*
   object HBaseDataType extends Enumeration {
     val STRING, BYTE, SHORT, INTEGER, LONG, FLOAT, DOUBLE, BOOLEAN = Value
   }
+  */
 
   sealed trait RowKey
 
   // TODO: change family to Option[String]
   case class Column(sqlName: String, family: String, qualifier: String,
-                    dataType: HBaseDataType.Value,
+                    dataType: DataType,
                     ordinal: Int = -1) {
     def fullName = s"$family:$qualifier"
 
@@ -285,12 +321,12 @@ object HBaseCatalog {
   object Column extends Serializable {
 
     def toAttributeReference(col: Column): AttributeReference = {
-      AttributeReference(col.qualifier, HBaseCatalog.convertType(col.dataType),
+      AttributeReference(col.qualifier, col.dataType,
         nullable = true)()
     }
   }
 
-  case class KeyColumn(sqlName: String, dataType: HBaseDataType.Value)
+  case class KeyColumn(sqlName: String, dataType: DataType)
 
   def convertToBytes(dataType: DataType, data: Any): Array[Byte] = {
     dataType match {
@@ -309,6 +345,7 @@ object HBaseCatalog {
     }
   }
 
+  /*
   def convertType(dataType: HBaseDataType.Value): DataType = {
     import HBaseDataType._
     dataType match {
@@ -322,6 +359,7 @@ object HBaseCatalog {
       case BOOLEAN => BooleanType
     }
   }
+  */
 
   class Columns(inColumns: Seq[Column]) extends Serializable {
     private val colx = new java.util.concurrent.atomic.AtomicInteger

@@ -31,7 +31,6 @@ import org.apache.spark.sql.catalyst.plans.logical
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, Join, LogicalPlan}
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.hbase.HBaseCatalog.Columns
-import org.apache.spark.sql.parquet.ParquetTableScan
 import org.apache.spark.sql.{SQLContext, SchemaRDD, StructType}
 
 /**
