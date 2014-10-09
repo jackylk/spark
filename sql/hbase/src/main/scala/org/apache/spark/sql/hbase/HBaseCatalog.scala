@@ -86,7 +86,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
     }
   }
 
-  private def getDataType(dataType: String): DataType = {
+  def getDataType(dataType: String): DataType = {
     if (dataType.equalsIgnoreCase(StringType.simpleString)) {
       StringType
     }
@@ -111,7 +111,9 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
     else if (dataType.equalsIgnoreCase(BooleanType.simpleString)) {
       BooleanType
     }
-    null
+    else {
+      null
+    }
   }
 
   def getTable(tableName: String): Option[HBaseCatalogTable] = {
