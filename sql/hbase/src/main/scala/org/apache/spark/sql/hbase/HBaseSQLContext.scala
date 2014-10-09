@@ -51,7 +51,7 @@ class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf:
 
   @transient val hBasePlanner = new SparkPlanner with HBaseStrategies {
 
-  //    self: SQLContext#SparkPlanner =>
+    //    self: SQLContext#SparkPlanner =>
 
     val hbaseContext = self
     SparkPlan.currentContext.set(self)
@@ -59,7 +59,7 @@ class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf:
     override val strategies: Seq[Strategy] = Seq(
       CommandStrategy(self),
       TakeOrdered,
-//      ParquetOperations,
+      //      ParquetOperations,
       InMemoryScans,
       HBaseTableScans,
       HashAggregation,

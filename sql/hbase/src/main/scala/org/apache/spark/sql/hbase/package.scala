@@ -46,7 +46,7 @@ package object hbase {
   implicit def hbaseRawTypeComparable(hbaseRaw: HBaseRawType): Comparable[HBaseRawType] = {
     new Comparable[HBaseRawType]() {
       override def compareTo(o: HBaseRawType): Int = {
-        HBaseUtils.cmp(Some(hbaseRaw), Some(o))
+        DataTypeUtils.cmp(Some(hbaseRaw), Some(o))
       }
     }
   }

@@ -143,7 +143,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
 
         val column = Column(sqlName, family, qualifier, dataType)
         columnList = columnList :+ column
-        if (! (columnFamilies contains family)) {
+        if (!(columnFamilies contains family)) {
           columnFamilies = columnFamilies :+ family
         }
       }
@@ -281,6 +281,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
 }
 
 object HBaseCatalog {
+
   import org.apache.spark.sql.catalyst.types._
 
   val MetaData = "metadata"
@@ -301,13 +302,13 @@ object HBaseCatalog {
 
     override def hashCode(): Int = {
       sqlName.hashCode * 31 + (if (family != null) family.hashCode * 37 else 0)
-      + qualifier.hashCode * 41 + dataType.hashCode * 43 + ordinal.hashCode * 47
+      +qualifier.hashCode * 41 + dataType.hashCode * 43 + ordinal.hashCode * 47
     }
 
     override def equals(obj: scala.Any): Boolean = {
       val superEquals = super.equals(obj)
       val retval = hashCode == obj.hashCode
-      retval   // note: superEquals is false whereas retval is true. Interesting..
+      retval // note: superEquals is false whereas retval is true. Interesting..
     }
   }
 
@@ -390,15 +391,15 @@ object HBaseCatalog {
     }
 
     override def equals(that: Any) = {
-//      that.isInstanceOf[Columns] && that.hashCode == hashCode
+      //      that.isInstanceOf[Columns] && that.hashCode == hashCode
       if (!that.isInstanceOf[Columns]) {
         false
       } else {
         val other = that.asInstanceOf[Columns]
         val result = other.columns.size == columns.size && columns.zip(other.columns)
-          .forall{ case (col, ocol) =>
-            col.equals(ocol)
-          }
+          .forall { case (col, ocol) =>
+          col.equals(ocol)
+        }
         result
       }
     }

@@ -45,33 +45,6 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
 
   override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
 
-//    def testHBaseScannerFromConnectionManager() = {
-//      val scan = new Scan
-//      val hbConn = HBaseUtils.getHBaseConnection(HBaseUtils.configuration)
-//      @transient val htable = hbConn.getTable(hbaseRelation.tableName)
-//      @transient val scanner = htable.getScanner(scan)
-//      var res: Result = null
-//      do {
-//        res = scanner.next
-//        if (res != null) println(s"testHBaseScannerFromConnectionManager:
-//              Row ${res.getRow} has map=${res.getNoVersionMap.toString}")
-//      } while (res != null)
-//    }
-//    testHBaseScannerFromConnectionManager
-//
-//    def testHBaseScanner() = {
-//      val scan = new Scan
-//      @transient val htable = new HTable(configuration, tableName.tableName)
-//      @transient val scanner = htable.getScanner(scan)
-//      var res: Result = null
-//      do {
-//        res = scanner.next
-//        if (res != null) println(s"testHBaseScanner: Row ${res.getRow}
-//              has map=${res.getNoVersionMap.toString}")
-//      } while (res != null)
-//    }
-//    testHBaseScanner
-
     val hbPartition = split.asInstanceOf[HBasePartition]
     val scan = if (applyFilters) {
       new Scan(hbPartition.bounds.start.get,
@@ -79,17 +52,18 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
     } else {
       new Scan
     }
-    //      colFamilies.foreach { cf =>
-    //        scan.addFamily(s2b(cf))
-    //      }
     if (applyFilters) {
+      colFamilies.foreach { cf =>
+        scan.addFamily(s2b(cf))
+      }
+
       colFilters.map { flist => scan.setFilter(flist)}
     }
     // scan.setMaxVersions(1)
 
     @transient val htable = new HTable(configuration, tableName.tableName)
     @transient val scanner = htable.getScanner(scan)
-//      @transient val scanner = htable.getScanner(scan)
+    //      @transient val scanner = htable.getScanner(scan)
     new Iterator[Row] {
 
       import scala.collection.mutable
@@ -98,9 +72,9 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
 
       var onextVal: Row = _
 
-      def nextRow() : Row = {
+      def nextRow(): Row = {
         val result = scanner.next
-        if (result!=null) {
+        if (result != null) {
           onextVal = toRow(result, projList)
           onextVal
         } else {
@@ -115,31 +89,31 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
       }
 
       override def next(): Row = {
-          nextRow()
-          onextVal
-        }
+        nextRow()
+        onextVal
       }
+    }
   }
 
   def toRow(result: Result, projList: Seq[ColumnName]): Row = {
     // TODO(sboesch): analyze if can be multiple Cells in the result
     // Also, consider if we should go lower level to the cellScanner()
     val row = result.getRow
-    val rkCols = hbaseRelation.catalogTable.rowKeyColumns.toColumnNames
-    val rowKeyMap = RowKeyParser.parseRowKeyWithMetaData(rkCols, row)
+    val rkCols = hbaseRelation.catalogTable.rowKeyColumns
+    val rowKeyMap = RowKeyParser.parseRowKeyWithMetaData(rkCols.columns, row)
     var rmap = new mutable.HashMap[String, Any]()
 
-    rkCols.foreach { rkcol =>
-      rmap.update(rkcol.toString, rowKeyMap(rkcol))
+    rkCols.columns.foreach { rkcol =>
+      rmap.update(rkcol.toString, rowKeyMap(rkcol.toColumnName))
     }
 
-    val jmap = new java.util.TreeMap[Array[Byte],Array[Byte]](Bytes.BYTES_COMPARATOR)
-    rmap.foreach{ case (k,v) =>
+    val jmap = new java.util.TreeMap[Array[Byte], Array[Byte]](Bytes.BYTES_COMPARATOR)
+    rmap.foreach { case (k, v) =>
       jmap.put(s2b(k), CatalystToHBase.toBytes(v))
     }
     import collection.JavaConverters._
     val vmap = result.getNoVersionMap
-    vmap.put(s2b(""),jmap)
+    vmap.put(s2b(""), jmap)
     val rowArr = projList.zipWithIndex.
       foldLeft(new Array[HBaseRawType](projList.size)) {
       case (arr, (cname, ix)) =>
@@ -155,7 +129,7 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
    */
   override private[spark] def computeOrReadCheckpoint(split: Partition,
                                                       context: TaskContext): Iterator[Row]
-    = super.computeOrReadCheckpoint(split, context)
+  = super.computeOrReadCheckpoint(split, context)
 
 
 }

@@ -17,16 +17,12 @@
 
 package org.apache.spark.sql.hbase
 
-import java.util
-
 import org.apache.spark.sql.DataType
 import org.apache.spark.sql.catalyst.expressions._
-
-import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.types.{StringType, LongType, IntegerType}
+import org.apache.spark.sql.catalyst.types.{IntegerType, LongType, StringType}
 
 case class ColumnName(var family: Option[String], qualifier: String) {
-  if (family.isDefined && family.get==null) {
+  if (family.isDefined && family.get == null) {
     family = None
   }
 
@@ -38,13 +34,13 @@ case class ColumnName(var family: Option[String], qualifier: String) {
     s":$qualifier"
   }
 
-//  override def equals(other: Any) = {
-//    if (!other.isInstanceOf[ColumnName]) {
-//      false
-//    }
-//    val cother = other.asInstanceOf[ColumnName]
-//    family == cother.family && qualifier == cother.qualifier
-//  }
+  //  override def equals(other: Any) = {
+  //    if (!other.isInstanceOf[ColumnName]) {
+  //      false
+  //    }
+  //    val cother = other.asInstanceOf[ColumnName]
+  //    family == cother.family && qualifier == cother.qualifier
+  //  }
 }
 
 object ColumnName {
@@ -55,28 +51,22 @@ object ColumnName {
     } else {
       new ColumnName(None, toks(0))
     }
-    //    toks match {
-    //      case fam :: qual => new ColumnName(Some(toks(0)), toks(1))
-    //      case qual => new ColumnName(None, toks(1))
-    //    }
   }
 }
 
 /**
- * Initially we support initially predicates of the form
+ * Initially we support predicates of the form
  * col RELOP literal
  * OR
  * literal RELOP col
  *
- * The ColumnOrLiteral allows us to represent that restrictions
+ * The ColumnOrLiteral allows us to represent that restriction
  */
 sealed trait ColumnOrLiteral
 
-case class HColumn(colName: ColumnName) extends ColumnOrLiteral
+case class HColumn(colName: ColumnName, dataType: DataType) extends ColumnOrLiteral
 
 case class HLiteral(litval: Any) extends ColumnOrLiteral
-
-//case class ColumnVal(colName: HColumn, colVal: Option[Any] = None)
 
 case class ColumnPredicate(left: ColumnOrLiteral, right: ColumnOrLiteral,
                            op: HRelationalOperator = EQ)
@@ -89,8 +79,8 @@ object ColumnPredicate {
   def catalystToHBase(predicate: BinaryComparison) = {
     def fromExpression(expr: Expression) = expr match {
       case lit: Literal => HLiteral(lit.eval(null))
-      case attrib: AttributeReference => HColumn(ColumnName(attrib.name))
-      case Cast(child, dataType : DataType) => dataType match {
+      case attrib: AttributeReference => HColumn(ColumnName(attrib.name), attrib.dataType)
+      case Cast(child, dataType: DataType) => dataType match {
         case IntegerType => HLiteral(child.eval(null).toString.toInt)
         case LongType => HLiteral(child.eval(null).toString.toLong)
         case StringType => HLiteral(child.eval(null).toString)

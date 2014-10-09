@@ -17,11 +17,9 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client.{HConnection, HConnectionManager}
+import org.apache.hadoop.hbase.client.HConnectionManager
 import org.apache.hadoop.hbase.{HBaseConfiguration, TableName}
 import org.apache.log4j.Logger
-
-import scala.collection.JavaConverters
 
 /**
  * HBaseUtils
@@ -30,57 +28,36 @@ import scala.collection.JavaConverters
  * Created by sboesch on 9/16/14.
  */
 object HBaseUtils extends Serializable {
+
   @transient val logger = Logger.getLogger(getClass.getName)
 
-  @transient private lazy val lazyConfig =   HBaseConfiguration.create()
+  @transient private lazy val lazyConfig = HBaseConfiguration.create()
+
   def configuration() = lazyConfig
 
-  def getHBaseConnection(configuration : Configuration)  = {
+  def getHBaseConnection(configuration: Configuration) = {
     val connection = HConnectionManager.createConnection(configuration)
     connection
   }
 
-  def getPartitions(tableName : TableName,
-                    config : Configuration) = {
+  def getPartitions(tableName: TableName,
+                    config: Configuration) = {
     import scala.collection.JavaConverters._
     val hConnection = getHBaseConnection(config)
     val regionLocations = hConnection.locateRegions(tableName)
-    case class BoundsAndServers(startKey : Array[Byte], endKey : Array[Byte],
-                                servers : Seq[String])
-    val regionBoundsAndServers = regionLocations.asScala.map{ hregionLocation =>
+    case class BoundsAndServers(startKey: HBaseRawType, endKey: HBaseRawType,
+                                servers: Seq[String])
+    val regionBoundsAndServers = regionLocations.asScala.map { hregionLocation =>
       val regionInfo = hregionLocation.getRegionInfo
-      BoundsAndServers( regionInfo.getStartKey, regionInfo.getEndKey,
+      BoundsAndServers(regionInfo.getStartKey, regionInfo.getEndKey,
         Seq(hregionLocation.getServerName.getHostname))
     }
-    val partSeq = regionBoundsAndServers.zipWithIndex.map{ case (rb,ix) =>
+    val partSeq = regionBoundsAndServers.zipWithIndex.map { case (rb, ix) =>
       new HBasePartition(ix, HBasePartitionBounds(Some(rb.startKey), Some(rb.endKey)),
         Some(rb.servers(0)))
     }
     partSeq.toIndexedSeq
   }
 
-  def cmp(str1: Option[HBaseRawType], str2: Option[HBaseRawType]) = {
-    if (str1.isEmpty && str2.isEmpty) 0
-    else if (str1.isEmpty) -2
-    else if (str2.isEmpty) 2
-    else {
-      var ix = 0
-      val s1arr = str1.get
-      val s2arr = str2.get
-      var retval : Option[Int] = None
-      while (ix >= str1.size && ix >= str2.size && retval.isEmpty) {
-        if (s1arr(ix) != s2arr(ix)) {
-          retval = Some(Math.signum(s1arr(ix) - s2arr(ix)).toInt)
-        }
-      }
-      retval.getOrElse(
-        if (s1arr.length == s2arr.length) {
-          0
-        } else {
-          Math.signum(s1arr.length - s2arr.length).toInt
-        }
-      )
-    }
-  }
 
 }

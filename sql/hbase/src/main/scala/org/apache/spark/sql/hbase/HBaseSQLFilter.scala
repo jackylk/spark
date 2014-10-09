@@ -23,7 +23,8 @@ import org.apache.hadoop.hbase.client.Scan
 import org.apache.hadoop.hbase.filter.Filter.ReturnCode
 import org.apache.hadoop.hbase.filter._
 import org.apache.log4j.Logger
-import HBaseUtils._
+import DataTypeUtils._
+import org.apache.spark.sql.hbase.HBaseCatalog.Column
 
 /**
  * HBaseSQLFilter: a set of PushDown filters for optimizing Column Pruning
@@ -32,7 +33,7 @@ import HBaseUtils._
  * Created by sboesch on 9/22/14.
  */
 class HBaseSQLFilters(colFamilies: Seq[String],
-                      colNames : Seq[ColumnName],
+                      columns: Seq[Column],
                       rowKeyPreds: Option[Seq[ColumnPredicate]],
                       opreds: Option[Seq[ColumnPredicate]])
   extends FilterBase {
@@ -40,7 +41,7 @@ class HBaseSQLFilters(colFamilies: Seq[String],
 
   def createColumnFilters(): Option[FilterList] = {
     val colFilters: FilterList = new FilterList(FilterList.Operator.MUST_PASS_ALL)
-    colFilters.addFilter(new HBaseRowFilter(colFamilies, colNames, rowKeyPreds.orNull))
+    colFilters.addFilter(new HBaseRowFilter(colFamilies, columns, rowKeyPreds.orNull))
     val filters = opreds.map {
       case preds: Seq[ColumnPredicate] =>
         preds.filter { p: ColumnPredicate =>
@@ -76,9 +77,9 @@ class HBaseSQLFilters(colFamilies: Seq[String],
  * of AND/OR predicates
  */
 class HBaseRowFilter(colFamilies: Seq[String],
-                     rkCols : Seq[ColumnName],
+                     rkCols: Seq[Column],
                      rowKeyPreds: Seq[ColumnPredicate]
- /*, preds: Seq[ColumnPredicate] */) extends FilterBase {
+                      ) extends FilterBase {
   @transient val logger = Logger.getLogger(getClass.getName)
 
   override def filterRowKey(rowKey: Array[Byte], offset: Int, length: Int): Boolean = {
@@ -89,16 +90,14 @@ class HBaseRowFilter(colFamilies: Seq[String],
       var colval: HLiteral = null
 
       val passFilter = p.right match {
-        case a : HLiteral => {
+        case a: HLiteral => {
           col = p.left.asInstanceOf[HColumn]
           colval = p.right.asInstanceOf[HLiteral]
-          // TODO(sboesch): handle proper conversion of datatypes to bytes
-          p.op.cmp(rowKeyColsMap(col.colName), colval.litval.toString.getBytes)
+          p.op.cmp(rowKeyColsMap(col.colName)._2, colval.litval)
         }
         case _ => {
           col = p.right.asInstanceOf[HColumn]
           colval = p.left.asInstanceOf[HLiteral]
-          // TODO(sboesch): handle proper conversion of datatypes to bytes
           p.op.cmp(colval.litval.toString.getBytes, rowKeyColsMap(col.colName))
         }
       }

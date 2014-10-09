@@ -67,12 +67,14 @@ case class HBaseSQLTableScan(
         colPredicates = None
       }
 
-      val colNames = relation.catalogTable.rowKey.columns.columns.
-        map{ c => ColumnName(Some(c.family), c.qualifier)
-      }
+//      val colNames = relation.catalogTable.rowKey.columns.columns.
+//        map{ c => ColumnName(Some(c.family), c.qualifier)
+//      }
+//
 
       // TODO: Do column pruning based on only the required colFamilies
-      val filters = new HBaseSQLFilters(relation.colFamilies, colNames,
+      val filters = new HBaseSQLFilters(relation.colFamilies,
+        relation.catalogTable.rowKey.columns.columns,
         rowKeyPredicates, colPredicates
         )
       val colFilters = filters.createColumnFilters

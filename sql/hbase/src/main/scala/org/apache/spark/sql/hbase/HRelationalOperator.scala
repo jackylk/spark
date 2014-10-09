@@ -17,7 +17,8 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp
-import org.apache.log4j.Logger
+import DataTypeUtils.compare
+import org.apache.spark.sql.DataType
 
 /**
  * RelationalOperator
@@ -25,36 +26,9 @@ import org.apache.log4j.Logger
  */
 sealed trait HRelationalOperator {
   def toHBase: CompareOp
-  def cmp(col1: Array[Byte] /* ByteArrayComparable */,
-          col2 : Array[Byte] /*ByteArrayComparable */) : Boolean
-  def compare(col1: Array[Byte], col2: Array[Byte]) = {
-    if (col1 == null || col2 == null) {
-      throw new IllegalArgumentException("RelationalOperator: Can not compare nulls")
-    } else {
-      new String(col1).compareTo(new String(col2))
-      // TODO(sboesch): do proper byte array comparison
-      //      val c1len = col1.length
-      //      val c2len = col2.length
-      //      if (c1len == 0 && c2len == 0) {
-      //        0
-      //      } else {
-      //        var c1ptr = 0
-      //        var c2ptr = 0
-      //        import scala.util.control.Breaks._
-      //        breakable {
-      //          while (c1ptr < c1len && c2ptr < c2len) {
-      //            if (col1(c1ptr) <= col2(c2ptr)) {
-      //              c1ptr+=1
-      //            } else {
-      //              c2ptr+=1
-      //            }
-      //          }
-      //          if (c1ptr < c1len
-      //
-      //        }
-    }
-  }
-
+  def cmp(col1: Any, col2: Any): Boolean
+  def cmp(col1: HBaseRawType, dataType1: DataType,
+          col2: HBaseRawType, dataType2: DataType): Boolean
 }
 
 case object LT extends HRelationalOperator {
@@ -62,38 +36,53 @@ case object LT extends HRelationalOperator {
     CompareOp.LESS
   }
 
-  override def cmp(col1: Array[Byte] /* ByteArrayComparable */,
-                   col2 : Array[Byte] /*ByteArrayComparable */) = compare(col1,col2) < 0
+  def cmp(col1: Any, col2: Any): Boolean = compare(col1, col2) < 0
+
+  override def cmp(col1: HBaseRawType, dataType1: DataType,
+                   col2: HBaseRawType, dataType2: DataType): Boolean
+    = compare(col1,dataType1, col2, dataType2) < 0
 }
 
 case object LTE extends HRelationalOperator {
   override def toHBase: CompareOp = {
     CompareOp.LESS_OR_EQUAL
   }
-  override def cmp(col1: Array[Byte] /* ByteArrayComparable */,
-                   col2 : Array[Byte] /*ByteArrayComparable */) = compare(col1,col2) <= 0
+  def cmp(col1: Any, col2: Any): Boolean = compare(col1, col2) <= 0
+
+  override def cmp(col1: HBaseRawType, dataType1: DataType,
+                   col2: HBaseRawType, dataType2: DataType): Boolean
+    = compare(col1,dataType1, col2, dataType2) <= 0
 }
 
 case object EQ extends HRelationalOperator {
   override def toHBase: CompareOp = {
     CompareOp.EQUAL
   }
-  override def cmp(col1: Array[Byte] /* ByteArrayComparable */,
-                   col2 : Array[Byte] /*ByteArrayComparable */) = compare(col1,col2) == 0
+  def cmp(col1: Any, col2: Any): Boolean = compare(col1, col2) == 0
+
+  override def cmp(col1: HBaseRawType, dataType1: DataType,
+                   col2: HBaseRawType, dataType2: DataType): Boolean
+    =  compare(col1,dataType1, col2, dataType2) == 0
 }
 
 case object GTE extends HRelationalOperator {
   override def toHBase: CompareOp = {
     CompareOp.GREATER_OR_EQUAL
   }
-  override def cmp(col1: Array[Byte] /* ByteArrayComparable */,
-                   col2 : Array[Byte] /*ByteArrayComparable */) = compare(col1,col2) >= 0
+  def cmp(col1: Any, col2: Any): Boolean = compare(col1, col2) >= 0
+
+  override def cmp(col1: HBaseRawType, dataType1: DataType,
+                   col2: HBaseRawType, dataType2: DataType): Boolean
+    = compare(col1,dataType1, col2, dataType2) >= 0
 }
 
 case object GT extends HRelationalOperator {
   override def toHBase: CompareOp = {
     CompareOp.GREATER
   }
-  override def cmp(col1: Array[Byte] /* ByteArrayComparable */,
-                   col2 : Array[Byte] /*ByteArrayComparable */) = compare(col1,col2) > 0
+  def cmp(col1: Any, col2: Any): Boolean = compare(col1, col2) > 0
+
+  override def cmp(col1: HBaseRawType, dataType1: DataType,
+                   col2: HBaseRawType, dataType2: DataType): Boolean
+    = compare(col1,dataType1, col2, dataType2) > 0
 }

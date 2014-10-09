@@ -43,8 +43,7 @@ abstract class HBaseSQLRDD(
   @transient lazy val configuration = HBaseUtils.configuration
   @transient lazy val connection = HBaseUtils.getHBaseConnection(configuration)
 
-  lazy val hbPartitions = HBaseUtils.
-    getPartitions(tableName.tableName,
+  lazy val hbPartitions = HBaseUtils.getPartitions(tableName.tableName,
       hbaseContext.configuration).toArray
 
   override def getPartitions: Array[Partition] = hbPartitions.asInstanceOf[Array[Partition]]

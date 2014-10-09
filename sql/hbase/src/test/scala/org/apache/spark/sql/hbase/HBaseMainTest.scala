@@ -10,6 +10,7 @@ import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns}
 import org.apache.spark.sql.test.TestSQLContext._
 import org.apache.spark.{Logging, SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import DataTypeUtils._
 
 /**
  * HBaseIntegrationTest
@@ -141,20 +142,25 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
       throw new IllegalArgumentException("where is our table?")
     }
 
+    import RowKeyParser._
     def makeRowKey(col7: Double, col1: String, col3: Short) = {
-      val size = 1 + 8 + col1.size + 2 + 3 * 2 + 1
+      val size = 1 + sizeOf(col7) + sizeOf(col1) + sizeOf(col3) + 3 * 2 + DimensionCountLen
       //      val barr = new Array[Byte](size)
       val bos = new ByteArrayOutputStream(size)
       val dos = new DataOutputStream(bos)
-      dos.writeByte('1'.toByte)
+      dos.writeByte(RowKeyParser.Version1)
       dos.writeDouble(col7)
       dos.writeBytes(col1)
       dos.writeShort(col3)
-      dos.writeShort(1)
-      dos.writeShort(1 + 8)
-      dos.writeShort(1 + 8 + col1.length)
+      var off = 1
+      dos.writeShort(off)
+      off += sizeOf(col7)
+      dos.writeShort(off)
+      off += sizeOf(col1)
+      dos.writeShort(off)
       dos.writeByte(3.toByte)
       val s = bos.toString
+      //      println((s"MakeRowKey: [${RowKeyParser.show(bos.toByteArray)}]")
       println(s"MakeRowKey: [${s}]")
       bos.toByteArray
     }
@@ -222,10 +228,18 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
 
     if (results.isInstanceOf[TestingSchemaRDD]) {
       val data = results.asInstanceOf[TestingSchemaRDD].collectPartitions
-      println(s"Received data length=${data(0).length}: ${data(0).foreach{_.toString}}")
+      println(s"Received data length=${data(0).length}: ${
+        data(0).foreach {
+          _.toString
+        }
+      }")
     } else {
       val data = results.collect
-      println(s"Received data length=${data(0).length}: ${data(0).foreach{_.toString}}")
+      println(s"Received data length=${data(0).length}: ${
+        data(0).foreach {
+          _.toString
+        }
+      }")
     }
 
 
@@ -316,4 +330,36 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     cluster.shutdown
     hbContext.stop
   }
+
+
+//  def testHBaseScannerFromConnectionManager() = {
+//    val scan = new Scan
+//    val hbConn = DataTypeUtils.getHBaseConnection(DataTypeUtils.configuration)
+//    @transient val htable = hbConn.getTable(hbaseRelation.tableName)
+//    @transient val scanner = htable.getScanner(scan)
+//    var res: Result = null
+//    do {
+//      res = scanner.next
+//      if (res != null) println(s"testHBaseScannerFromConnectionManager:
+//        Row $ {res.getRow} has map=${res.getNoVersionMap.toString}")
+//    } while (res != null)
+//  }
+//
+//  testHBaseScannerFromConnectionManager
+//
+//  def testHBaseScanner() = {
+//    val scan = new Scan
+//    @transient val htable = new HTable(configuration, tableName.tableName)
+//    @transient val scanner = htable.getScanner(scan)
+//    var res: Result = null
+//    do {
+//      res = scanner.next
+//      if (res != null) println(s"testHBaseScanner: Row ${res.getRow}
+//        has map = $ {res.getNoVersionMap.toString}")
+//    } while (res != null)
+//  }
+//
+//  testHBaseScanner
+
+
 }

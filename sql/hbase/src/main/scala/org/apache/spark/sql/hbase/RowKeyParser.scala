@@ -20,8 +20,9 @@ package org.apache.spark.sql.hbase
 import java.util.concurrent.atomic.AtomicInteger
 
 import org.apache.spark.sql.catalyst.expressions.Row
-import org.apache.spark.sql.catalyst.types.{StringType, StructType}
-import org.apache.spark.sql.hbase.HBaseCatalog.Columns
+import org.apache.spark.sql.catalyst.types.StructType
+import org.apache.spark.sql.hbase.DataTypeUtils._
+import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns}
 
 /**
  * Trait for RowKeyParser's that convert a raw array of bytes into their constituent
@@ -71,15 +72,16 @@ trait AbstractRowKeyParser {
 
   def parseRowKey(rowKey: HBaseRawType): HBaseRawRowSeq // .NavigableMap[String, HBaseRawType]
 
-  def parseRowKeyWithMetaData(rkCols: Seq[ColumnName], rowKey: HBaseRawType)
-  : Map[ColumnName, HBaseRawType]
+  def parseRowKeyWithMetaData(rkCols: Seq[Column], rowKey: HBaseRawType)
+  : Map[ColumnName, (Column, Any)]
 }
 
 case class RowKeySpec(offsets: Seq[Int], version: Byte = RowKeyParser.Version1)
 
 object RowKeyParser extends AbstractRowKeyParser with Serializable {
 
-  val Version1 = '1'.toByte
+
+  val Version1 = 1.toByte
 
   val VersionFieldLen = 1
   // Length in bytes of the RowKey version field
@@ -142,8 +144,8 @@ object RowKeyParser extends AbstractRowKeyParser with Serializable {
 
     assert(rowKey.length >= getMinimumRowKeyLength,
       s"RowKey is invalid format - less than minlen . Actual length=${rowKey.length}")
-    assert(rowKey(0).toByte == Version1, s"Only Version1 supported. Actual=${rowKey(0).toByte}")
-    val ndims: Int = rowKey(rowKey.length-1).toInt
+    assert(rowKey(0) == Version1, s"Only Version1 supported. Actual=${rowKey(0)}")
+    val ndims: Int = rowKey(rowKey.length - 1).toInt
     val offsetsStart = rowKey.length - DimensionCountLen - ndims * OffsetFieldLen - 1
     val rowKeySpec = RowKeySpec(
       for (dx <- 0 to ndims - 1)
@@ -153,21 +155,28 @@ object RowKeyParser extends AbstractRowKeyParser with Serializable {
 
     val endOffsets = rowKeySpec.offsets.tail :+ (rowKey.length - DimensionCountLen - 1)
     val colsList = rowKeySpec.offsets.zipWithIndex.map { case (off, ix) =>
-      rowKey.slice(off, endOffsets(ix)).asInstanceOf[HBaseRawType]
+      rowKey.slice(off, endOffsets(ix))
     }
     colsList
   }
 
-  override def parseRowKeyWithMetaData(rkCols: Seq[ColumnName], rowKey: HBaseRawType):
-  Map[ColumnName, HBaseRawType] = {
+  override def parseRowKeyWithMetaData(rkCols: Seq[Column], rowKey: HBaseRawType):
+  Map[ColumnName, (Column, Any)] = {
     import scala.collection.mutable.HashMap
 
     val rowKeyVals = parseRowKey(rowKey)
-    val rmap = rowKeyVals.zipWithIndex.foldLeft(new HashMap[ColumnName, HBaseRawType]()) {
+    val rmap = rowKeyVals.zipWithIndex.foldLeft(new HashMap[ColumnName, (Column, Any)]()) {
       case (m, (cval, ix)) =>
-        m.update(rkCols(ix), cval)
+        m.update(rkCols(ix).toColumnName, (rkCols(ix),
+          hbaseFieldToRowField(cval, rkCols(ix).dataType)))
         m
     }
-    rmap.toMap[ColumnName, HBaseRawType]
+    rmap.toMap[ColumnName, (Column, Any)]
   }
+
+  def show(bytes: Array[Byte]) = {
+    val len = bytes.length
+    val out = s"Version=${bytes(0).toInt} NumDims=${bytes(len - 1)} "
+  }
+
 }
