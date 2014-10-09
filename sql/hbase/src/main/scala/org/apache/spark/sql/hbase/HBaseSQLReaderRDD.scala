@@ -53,7 +53,8 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
 //      var res: Result = null
 //      do {
 //        res = scanner.next
-//        if (res != null) println(s"testHBaseScannerFromConnectionManager: Row ${res.getRow} has map=${res.getNoVersionMap.toString}")
+//        if (res != null) println(s"testHBaseScannerFromConnectionManager:
+//              Row ${res.getRow} has map=${res.getNoVersionMap.toString}")
 //      } while (res != null)
 //    }
 //    testHBaseScannerFromConnectionManager
@@ -65,7 +66,8 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
 //      var res: Result = null
 //      do {
 //        res = scanner.next
-//        if (res != null) println(s"testHBaseScanner: Row ${res.getRow} has map=${res.getNoVersionMap.toString}")
+//        if (res != null) println(s"testHBaseScanner: Row ${res.getRow}
+//              has map=${res.getNoVersionMap.toString}")
 //      } while (res != null)
 //    }
 //    testHBaseScanner
@@ -151,7 +153,9 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
   /**
    * Compute an RDD partition or read it from a checkpoint if the RDD is checkpointing.
    */
-  override private[spark] def computeOrReadCheckpoint(split: Partition, context: TaskContext): Iterator[Row] = super.computeOrReadCheckpoint(split, context)
+  override private[spark] def computeOrReadCheckpoint(split: Partition,
+                                                      context: TaskContext): Iterator[Row]
+    = super.computeOrReadCheckpoint(split, context)
 
 
 }
