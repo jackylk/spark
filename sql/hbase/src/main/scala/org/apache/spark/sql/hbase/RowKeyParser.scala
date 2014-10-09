@@ -119,7 +119,7 @@ object RowKeyParser extends AbstractRowKeyParser with Serializable {
   }
 
   def short2b(sh: Short): Array[Byte] = {
-    val barr = Array[Byte](2)
+    val barr = Array.ofDim[Byte](2)
     barr(0) = ((sh >> 8) & 0xff).toByte
     barr(1) = (sh & 0xff).toByte
     barr
@@ -143,19 +143,20 @@ object RowKeyParser extends AbstractRowKeyParser with Serializable {
     assert(rowKey.length >= getMinimumRowKeyLength,
       s"RowKey is invalid format - less than minlen . Actual length=${rowKey.length}")
     assert(rowKey(0).toByte == Version1, s"Only Version1 supported. Actual=${rowKey(0).toByte}")
-    val ndims: Int = b2Short(rowKey.slice(rowKey.length - DimensionCountLen - 1, rowKey.length))
+    val ndims: Int = rowKey(rowKey.length-1).toInt
     val offsetsStart = rowKey.length - DimensionCountLen - ndims * OffsetFieldLen - 1
     val rowKeySpec = RowKeySpec(
-      for (dx <- 0 to ndims)
+      for (dx <- 0 to ndims - 1)
       yield b2Short(rowKey.slice(offsetsStart + dx * OffsetFieldLen,
-        offsetsStart + dx * (OffsetFieldLen + 1) + 1))
+        offsetsStart + (dx + 1) * OffsetFieldLen + 1))
     )
 
     val endOffsets = rowKeySpec.offsets.tail :+ (rowKey.length - DimensionCountLen - 1)
     val colsList = rowKeySpec.offsets.zipWithIndex.map { case (off, ix) =>
       rowKey.slice(off, endOffsets(ix)).asInstanceOf[HBaseRawType]
     }
-  }.asInstanceOf[HBaseRawRowSeq]
+    colsList
+  }
 
   override def parseRowKeyWithMetaData(rkCols: Seq[ColumnName], rowKey: HBaseRawType):
   Map[ColumnName, HBaseRawType] = {

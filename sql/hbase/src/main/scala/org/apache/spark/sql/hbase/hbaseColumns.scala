@@ -25,13 +25,17 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.types.{StringType, LongType, IntegerType}
 
-case class ColumnName(family: Option[String], qualifier: String) {
+case class ColumnName(var family: Option[String], qualifier: String) {
+  if (family.isDefined && family.get==null) {
+    family = None
+  }
+
   override def toString = fullName
 
   def fullName = if (family.isDefined) {
     s"$family:$qualifier"
   } else {
-    s"$qualifier"
+    s":$qualifier"
   }
 
 //  override def equals(other: Any) = {

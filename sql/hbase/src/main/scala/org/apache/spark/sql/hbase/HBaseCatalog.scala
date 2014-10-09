@@ -351,11 +351,16 @@ object HBaseCatalog {
       }.map(_._2)
     }
 
+    def toColumnNames() = {
+      columns.map(_.toColumnName)
+    }
+
     import scala.collection.mutable
 
     private val map: mutable.Map[ColumnName, Column] =
       columns.foldLeft(mutable.Map[ColumnName, Column]()) { case (m, c) =>
-        m(ColumnName(Some(c.family), c.qualifier)) = c
+        m(ColumnName(if (c.family != null) Some(c.family) else None,
+          c.qualifier)) = c
         m
       }
 

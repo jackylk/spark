@@ -29,7 +29,7 @@ import org.apache.spark.{Dependency, Partition}
  */
 @AlphaComponent
 abstract class HBaseSQLRDD(
-                            tableName: TableName,
+                            tableName: SerializableTableName,
                             externalResource: Option[HBaseExternalResource],
                             partitions: Seq[HBasePartition],
                             @transient hbaseContext: HBaseSQLContext)
@@ -44,7 +44,7 @@ abstract class HBaseSQLRDD(
   @transient lazy val connection = HBaseUtils.getHBaseConnection(configuration)
 
   lazy val hbPartitions = HBaseUtils.
-    getPartitions(tableName,
+    getPartitions(tableName.tableName,
       hbaseContext.configuration).toArray
 
   override def getPartitions: Array[Partition] = hbPartitions.asInstanceOf[Array[Partition]]

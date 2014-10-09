@@ -26,7 +26,7 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
  * HBaseSQLReaderRDD
  * Created by sboesch on 9/16/14.
  */
-class HBaseSQLWriterRDD(tableName : TableName,
+class HBaseSQLWriterRDD(tableName : SerializableTableName,
     externalResource: Option[HBaseExternalResource],
     partitions: Seq[HBasePartition],
     @transient hbaseContext: HBaseSQLContext)

@@ -80,7 +80,7 @@ case class HBaseSQLTableScan(
     // TODO(sboesch): Perform Partition pruning based on the rowKeyPredicates
 
     }
-    new HBaseSQLReaderRDD(relation.tableName,
+    new HBaseSQLReaderRDD(relation.catalogTable.hbaseTableName,
       externalResource,
       relation,
       projList,

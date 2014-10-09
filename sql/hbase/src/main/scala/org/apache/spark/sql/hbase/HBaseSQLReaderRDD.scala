@@ -17,16 +17,19 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.hbase.TableName
-import org.apache.hadoop.hbase.client.{Result, Scan}
+import org.apache.hadoop.hbase.client.{HTable, Result, Scan}
 import org.apache.hadoop.hbase.filter.FilterList
+import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.sql.Row
 import org.apache.spark.{Partition, TaskContext}
+
+import scala.collection.mutable
 
 /**
  * HBaseSQLReaderRDD
  * Created by sboesch on 9/16/14.
  */
-class HBaseSQLReaderRDD(tableName: TableName,
+class HBaseSQLReaderRDD(tableName: SerializableTableName,
                         externalResource: Option[HBaseExternalResource],
                         hbaseRelation: HBaseRelation,
                         projList: Seq[ColumnName],
@@ -35,85 +38,120 @@ class HBaseSQLReaderRDD(tableName: TableName,
                         partitions: Seq[HBasePartition],
                         colFamilies: Seq[String],
                         colFilters: Option[FilterList],
-                          @transient hbaseContext: HBaseSQLContext)
+                        @transient hbaseContext: HBaseSQLContext)
   extends HBaseSQLRDD(tableName, externalResource, partitions, hbaseContext) {
 
+  val applyFilters = false
+
   override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
-    val hbConn = if (externalResource.isDefined) {
-      externalResource.get.getConnection(HBaseUtils.configuration(),
-        hbaseRelation.tableName)
-    } else {
-      HBaseUtils.getHBaseConnection(HBaseUtils.configuration)
-    }
-    val conn = Some(hbConn)
-    try {
-      val hbPartition = split.asInstanceOf[HBasePartition]
-      val scan = new Scan(hbPartition.bounds.start.get,
+
+//    def testHBaseScannerFromConnectionManager() = {
+//      val scan = new Scan
+//      val hbConn = HBaseUtils.getHBaseConnection(HBaseUtils.configuration)
+//      @transient val htable = hbConn.getTable(hbaseRelation.tableName)
+//      @transient val scanner = htable.getScanner(scan)
+//      var res: Result = null
+//      do {
+//        res = scanner.next
+//        if (res != null) println(s"testHBaseScannerFromConnectionManager: Row ${res.getRow} has map=${res.getNoVersionMap.toString}")
+//      } while (res != null)
+//    }
+//    testHBaseScannerFromConnectionManager
+//
+//    def testHBaseScanner() = {
+//      val scan = new Scan
+//      @transient val htable = new HTable(configuration, tableName.tableName)
+//      @transient val scanner = htable.getScanner(scan)
+//      var res: Result = null
+//      do {
+//        res = scanner.next
+//        if (res != null) println(s"testHBaseScanner: Row ${res.getRow} has map=${res.getNoVersionMap.toString}")
+//      } while (res != null)
+//    }
+//    testHBaseScanner
+
+    val hbPartition = split.asInstanceOf[HBasePartition]
+    val scan = if (applyFilters) {
+      new Scan(hbPartition.bounds.start.get,
         hbPartition.bounds.end.get)
-      colFamilies.foreach { cf =>
-        scan.addFamily(s2b(cf))
-      }
-      colFilters.map { flist => scan.setFilter(flist)}
-      scan.setMaxVersions(1)
-      val htable = conn.get.getTable(hbaseRelation.tableName)
-      val scanner = htable.getScanner(scan)
-      new Iterator[Row] {
-
-        import scala.collection.mutable
-
-        val map = new mutable.HashMap[String, HBaseRawType]()
-
-        def toRow(result: Result, projList: Seq[ColumnName]) :  HBaseRow = {
-          // TODO(sboesch): analyze if can be multiple Cells in the result
-          // Also, consider if we should go lower level to the cellScanner()
-          // TODO:  is this handling the RowKey's properly? Looks need to add that..
-          val vmap = result.getNoVersionMap
-          hbaseRelation.catalogTable.rowKeyColumns.columns.foreach{ rkcol =>
-              // TODO: add the rowkeycols to the metadata map via   vmap.put()
-          }
-          val rowArr = projList.zipWithIndex.
-            foldLeft(new Array[HBaseRawType](projList.size)) { case (arr, (cname, ix)) =>
-            arr(ix) = vmap.get(s2b(projList(ix).fullName)).asInstanceOf[HBaseRawType]
-            arr
-          }
-          new HBaseRow(rowArr)
-        }
-
-        var onextVal: Option[HBaseRow] = None
-
-        def nextRow() : Option[HBaseRow] = {
-          val result = scanner.next
-          if (result!=null) {
-            onextVal = Some(toRow(result, projList))
-            onextVal
-          } else {
-            None
-          }
-        }
-
-        override def hasNext: Boolean = {
-          if (onextVal.isDefined) {
-            true
-          } else {
-            nextRow.isDefined
-          }
-        }
-        override def next(): Row = {
-          nextRow()
-          onextVal.get
-        }
-      }
-    } finally {
-      // TODO: set up connection caching possibly by HConnectionPool
-      if (!conn.isEmpty) {
-        if (externalResource.isDefined) {
-          externalResource.get.releaseConnection(conn.get)
-        } else {
-          conn.get.close
-        }
-      }
+    } else {
+      new Scan
     }
+    //      colFamilies.foreach { cf =>
+    //        scan.addFamily(s2b(cf))
+    //      }
+    if (applyFilters) {
+      colFilters.map { flist => scan.setFilter(flist)}
+    }
+    // scan.setMaxVersions(1)
+
+    @transient val htable = new HTable(configuration, tableName.tableName)
+    @transient val scanner = htable.getScanner(scan)
+//      @transient val scanner = htable.getScanner(scan)
+    new Iterator[Row] {
+
+      import scala.collection.mutable
+
+      val map = new mutable.HashMap[String, HBaseRawType]()
+
+      var onextVal: Row = _
+
+      def nextRow() : Row = {
+        val result = scanner.next
+        if (result!=null) {
+          onextVal = toRow(result, projList)
+          onextVal
+        } else {
+          null
+        }
+      }
+
+      val ix = new java.util.concurrent.atomic.AtomicInteger()
+
+      override def hasNext: Boolean = {
+        ix.incrementAndGet <= 2
+      }
+
+      override def next(): Row = {
+          nextRow()
+          onextVal
+        }
+      }
   }
+
+  def toRow(result: Result, projList: Seq[ColumnName]): Row = {
+    // TODO(sboesch): analyze if can be multiple Cells in the result
+    // Also, consider if we should go lower level to the cellScanner()
+    val row = result.getRow
+    val rkCols = hbaseRelation.catalogTable.rowKeyColumns.toColumnNames
+    val rowKeyMap = RowKeyParser.parseRowKeyWithMetaData(rkCols, row)
+    var rmap = new mutable.HashMap[String, Any]()
+
+    rkCols.foreach { rkcol =>
+      rmap.update(rkcol.toString, rowKeyMap(rkcol))
+    }
+
+    val jmap = new java.util.TreeMap[Array[Byte],Array[Byte]](Bytes.BYTES_COMPARATOR)
+    rmap.foreach{ case (k,v) =>
+      jmap.put(s2b(k), CatalystToHBase.toBytes(v))
+    }
+    import collection.JavaConverters._
+    val vmap = result.getNoVersionMap
+    vmap.put(s2b(""),jmap)
+    val rowArr = projList.zipWithIndex.
+      foldLeft(new Array[HBaseRawType](projList.size)) {
+      case (arr, (cname, ix)) =>
+        arr(ix) = vmap.get(s2b(projList(ix).family.getOrElse("")))
+          .get(s2b(projList(ix).qualifier))
+        arr
+    }
+    Row(rowArr)
+  }
+
+  /**
+   * Compute an RDD partition or read it from a checkpoint if the RDD is checkpointing.
+   */
+  override private[spark] def computeOrReadCheckpoint(split: Partition, context: TaskContext): Iterator[Row] = super.computeOrReadCheckpoint(split, context)
 
 
 }
