@@ -220,6 +220,19 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
                   keyColumns: Seq[KeyColumn],
                   nonKeyColumns: Columns
                    ): Unit = {
+    if (!checkTableExists(hbaseTableName)) {
+      throw new Exception("The HBase table doesn't exist")
+    }
+
+    nonKeyColumns.columns.foreach {
+      case Column(_, family, _, _, _) =>
+        if (!checkFamilyExists(hbaseTableName, family)) {
+          throw new Exception(
+            "The HBase table doesn't contain the Column Family: " +
+            family)
+        }
+    }
+
     val admin = new HBaseAdmin(configuration)
     val avail = admin.isTableAvailable(MetaData)
 
@@ -302,7 +315,7 @@ object HBaseCatalog {
 
     override def hashCode(): Int = {
       sqlName.hashCode * 31 + (if (family != null) family.hashCode * 37 else 0)
-      + qualifier.hashCode * 41 + dataType.hashCode * 43 + ordinal.hashCode * 47
+      +qualifier.hashCode * 41 + dataType.hashCode * 43 + ordinal.hashCode * 47
     }
 
     override def equals(obj: scala.Any): Boolean = {
