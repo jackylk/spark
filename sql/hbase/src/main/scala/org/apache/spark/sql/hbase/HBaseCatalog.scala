@@ -302,7 +302,7 @@ object HBaseCatalog {
 
     override def hashCode(): Int = {
       sqlName.hashCode * 31 + (if (family != null) family.hashCode * 37 else 0)
-      +qualifier.hashCode * 41 + dataType.hashCode * 43 + ordinal.hashCode * 47
+      + qualifier.hashCode * 41 + dataType.hashCode * 43 + ordinal.hashCode * 47
     }
 
     override def equals(obj: scala.Any): Boolean = {
@@ -313,7 +313,6 @@ object HBaseCatalog {
   }
 
   object Column extends Serializable {
-
     def toAttributeReference(col: Column): AttributeReference = {
       AttributeReference(col.qualifier, col.dataType,
         nullable = true)()

@@ -101,7 +101,8 @@ object DataTypeUtils {
     case c if c == classOf[Long] => LongType
     case c if c == classOf[Float] => FloatType
     case c if c == classOf[Double] => DoubleType
-    case _ => throw new UnsupportedOperationException(s"toDataType: class ${clazz.getName} not supported")
+    case _ => throw new UnsupportedOperationException(
+      s"toDataType: class ${clazz.getName} not supported")
   }
 
   import reflect.runtime.universe._
@@ -119,7 +120,8 @@ object DataTypeUtils {
       (col1.asInstanceOf[Float] - col2.asInstanceOf[Float]).toInt
     case dt if dt == weakTypeOf[Double] =>
       (col1.asInstanceOf[Double] - col2.asInstanceOf[Double]).toInt
-    case _ => throw new UnsupportedOperationException(s"DataTypeUtils.compare: type ${weakTypeOf[T]} not supported")
+    case _ => throw new UnsupportedOperationException(
+      s"DataTypeUtils.compare: type ${weakTypeOf[T]} not supported")
   }
 
   def compareRaw(col1: HBaseRawType, col2: HBaseRawType) = {
