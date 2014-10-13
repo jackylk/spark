@@ -13,13 +13,14 @@ import org.apache.spark.sql.{ReflectData, SQLContext, SchemaRDD}
 //import org.apache.spark.sql.hbase.TestHbase._
 import org.apache.spark.{SparkConf, Logging, SparkContext}
 import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Columns, Column}
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfter, FunSuite}
+import org.scalatest.{Ignore, BeforeAndAfterAll, BeforeAndAfter, FunSuite}
 import org.apache.hadoop.hbase.{HBaseConfiguration, HBaseTestingUtility, MiniHBaseCluster}
 
 /**
  * HBaseIntegrationTest
  * Created by sboesch on 9/27/14.
  */
+@Ignore
 class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging {
   @transient val logger = Logger.getLogger(getClass.getName)
 

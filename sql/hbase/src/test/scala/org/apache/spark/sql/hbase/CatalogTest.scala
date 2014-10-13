@@ -20,11 +20,12 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.catalyst.types.{FloatType, BooleanType, IntegerType, StringType}
 import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns, KeyColumn}
 import org.apache.spark.{Logging, SparkContext, _}
-import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import org.scalatest.{Ignore, BeforeAndAfterAll, FunSuite}
 
 /**
  * Created by mengbo on 10/2/14.
  */
+@Ignore
 class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
   var sparkConf: SparkConf = _
   var sparkContext: SparkContext = _
