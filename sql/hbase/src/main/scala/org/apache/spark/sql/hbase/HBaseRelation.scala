@@ -59,7 +59,7 @@ private[hbase] case class HBaseRelation (
     val ctab = catalogTable
     val rkey = rowKeyParser.createKeyFromCatalystRow(schema, ctab.rowKey.columns, row)
     val p = new Put(rkey)
-    CatalystToHBase.catalystRowToHBaseRawVals(schema, row, ctab.columns).zip(ctab.columns.columns)
+    DataTypeUtils.catalystRowToHBaseRawVals(schema, row, ctab.columns).zip(ctab.columns.columns)
       .map{ case (raw, col) => p.add(s2b(col.family), s2b(col.qualifier), raw)
     }
     p

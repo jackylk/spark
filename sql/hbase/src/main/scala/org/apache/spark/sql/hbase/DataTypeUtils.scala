@@ -16,10 +16,11 @@
  */
 package org.apache.spark.sql.hbase
 
-import java.io.{DataInputStream, ByteArrayInputStream}
+import java.io.{DataOutputStream, ByteArrayOutputStream, DataInputStream, ByteArrayInputStream}
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql
+import org.apache.spark.sql.catalyst.expressions.Row
 import org.apache.spark.sql.catalyst.types._
 
 /**
@@ -28,6 +29,7 @@ import org.apache.spark.sql.catalyst.types._
  */
 object DataTypeUtils {
   val logger = Logger.getLogger(getClass.getName)
+
   def cmp(str1: Option[HBaseRawType], str2: Option[HBaseRawType]) = {
     if (str1.isEmpty && str2.isEmpty) 0
     else if (str1.isEmpty) -2
@@ -87,6 +89,72 @@ object DataTypeUtils {
         dis.close
         outval
       }
+    }
+    out
+  }
+
+  private def calcSizeOfPrimitive(a: Any): Int = {
+    val bos = new ByteArrayOutputStream(32)
+    val dos = new DataOutputStream(bos)
+    a match {
+      case b: Boolean =>
+        dos.writeBoolean(a.asInstanceOf[Boolean])
+        dos.size
+      case i: Integer =>
+        dos.writeInt(a.asInstanceOf[Integer])
+        dos.size
+      case _ => {
+        throw new UnsupportedOperationException
+        ("What type are you interested in {$a.getClas.getName} for its length?")
+        -1 // why does compiler want this after an exception ??
+      }
+    }
+  }
+
+  private val SizeOfBoolean = calcSizeOfPrimitive(true)
+  private val SizeOfInteger = calcSizeOfPrimitive(new Integer(1))
+
+  def toBytes(inval: Any): Array[Byte] = {
+    val out = inval match {
+      case barr: Array[Byte] =>
+        barr
+      case s: String =>
+        inval.asInstanceOf[String].getBytes(HBaseByteEncoding)
+      case b: Byte =>
+        Array(b)
+      case b: Boolean =>
+        val bos = new ByteArrayOutputStream(SizeOfBoolean)
+        val dos = new DataOutputStream(bos)
+        dos.writeBoolean(b)
+        bos.toByteArray
+      case s: Short =>
+        val bos = new ByteArrayOutputStream(2)
+        val dos = new DataOutputStream(bos)
+        dos.writeShort(s)
+        bos.toByteArray
+      case i: Integer =>
+        val bos = new ByteArrayOutputStream(SizeOfInteger)
+        val dos = new DataOutputStream(bos)
+        dos.writeInt(i)
+        bos.toByteArray
+      case l: Long =>
+        val bos = new ByteArrayOutputStream(8)
+        val dos = new DataOutputStream(bos)
+        dos.writeLong(l)
+        bos.toByteArray
+      case f: Float =>
+        val bos = new ByteArrayOutputStream(4)
+        val dos = new DataOutputStream(bos)
+        dos.writeFloat(f)
+        bos.toByteArray
+      case d: Double =>
+        val bos = new ByteArrayOutputStream(8)
+        val dos = new DataOutputStream(bos)
+        dos.writeDouble(d)
+        bos.toByteArray
+      case _ =>
+        throw
+          new UnsupportedOperationException(s"Unknown datatype in toBytes: ${inval.toString}")
     }
     out
   }
@@ -151,7 +219,8 @@ object DataTypeUtils {
   }
 
   import reflect.runtime.universe._
-  def sizeOf[T : WeakTypeTag](t : T) = weakTypeOf[T] match {
+
+  def sizeOf[T: WeakTypeTag](t: T) = weakTypeOf[T] match {
     case dt if dt == weakTypeOf[Byte] => 1
     case dt if dt == weakTypeOf[Short] => 2
     case dt if dt == weakTypeOf[Int] => Integer.SIZE
@@ -161,4 +230,40 @@ object DataTypeUtils {
     case dt if dt == weakTypeOf[String] => t.asInstanceOf[String].length
   }
 
+
+  def schemaIndex(schema: StructType, sqlName: String) = {
+    schema.fieldNames.zipWithIndex.find { case (name: String, ix: Int) => name == sqlName}
+      .getOrElse((null, -1))._2
+  }
+
+  def catalystRowToHBaseRawVals(schema: StructType, row: Row, cols: HBaseCatalog.Columns):
+  HBaseRawRowSeq = {
+    val rawCols = cols.columns.zipWithIndex.map { case (col, ix) =>
+      val rx = schemaIndex(schema, col.sqlName)
+      val rType = schema(col.sqlName).dataType
+      //      if (!kc.dataType == rx) {}
+      col.dataType match {
+        case StringType =>
+          row.getString(rx)
+        case ByteType =>
+          row.getByte(rx)
+        case ShortType =>
+          Array(row.getShort(rx).toByte)
+        case IntegerType =>
+          row.getInt(rx)
+        case LongType =>
+          row.getLong(rx)
+        case FloatType =>
+          row.getFloat(rx)
+        case DoubleType =>
+          row.getDouble(rx)
+        case BooleanType =>
+          row.getBoolean(rx)
+        case _ =>
+          throw
+            new UnsupportedOperationException(s"Need to flesh out all dataytypes: ${col.dataType}")
+      }
+    }
+    rawCols.map(toBytes(_))
+  }
 }

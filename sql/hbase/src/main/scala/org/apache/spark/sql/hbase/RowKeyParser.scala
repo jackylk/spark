@@ -104,19 +104,26 @@ object RowKeyParser extends AbstractRowKeyParser with Serializable {
     var barr = new Array[Byte](computeLength(keys))
     val arrayx = new AtomicInteger(0)
     barr(arrayx.getAndAdd(VersionFieldLen)) = version // VersionByte
+
+    // Remember the starting offset of first data value
     val valuesStartIndex = new AtomicInteger(arrayx.get)
-    keys.foreach { k => copyToArr(barr, k, arrayx.getAndAdd(k.length))} // Dim values
-    keys.foreach { k => // Offsets
+
+    // copy each of the dimension values in turn
+    keys.foreach { k => copyToArr(barr, k, arrayx.getAndAdd(k.length))}
+
+    // Copy the offsets of each dim value
+    // The valuesStartIndex is the location of the first data value and thus the first
+    // value included in the Offsets sequence
+    keys.foreach { k =>
       copyToArr(barr,
         short2b(valuesStartIndex.getAndAdd(k.length).toShort),
-        arrayx.addAndGet(OffsetFieldLen))
+        arrayx.getAndAdd(OffsetFieldLen))
     }
     barr(arrayx.get) = keys.length.toByte // DimensionCountByte
     barr
   }
 
   def copyToArr[T](a: Array[T], b: Array[T], aoffset: Int) = {
-    //    System.arraycopy(a,aoffset,b,0,b.length)
     b.copyToArray(a, aoffset)
   }
 
@@ -133,9 +140,7 @@ object RowKeyParser extends AbstractRowKeyParser with Serializable {
   }
 
   def createKeyFromCatalystRow(schema: StructType, keyCols: Columns, row: Row) = {
-    // TODO(sboesch): provide proper data-type specific serde's.
-    // For now just use to/from String
-    val rawKeyCols = CatalystToHBase.catalystRowToHBaseRawVals(schema, row, keyCols)
+    val rawKeyCols = DataTypeUtils.catalystRowToHBaseRawVals(schema, row, keyCols)
     createKey(rawKeyCols)
   }
 
