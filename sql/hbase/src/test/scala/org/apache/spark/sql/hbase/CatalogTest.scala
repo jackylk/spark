@@ -17,6 +17,8 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.hbase.{HColumnDescriptor, TableName, HTableDescriptor}
+import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.spark.sql.catalyst.types.{FloatType, BooleanType, IntegerType, StringType}
 import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns, KeyColumn}
 import org.apache.spark.{Logging, SparkContext, _}
@@ -46,6 +48,14 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     val namespace = "testNamespace"
     val tableName = "testTable"
     val hbaseTableName = "hbaseTable"
+    val family1 = "family1"
+    val family2 = "family2"
+
+    val admin = new HBaseAdmin(configuration)
+    val desc = new HTableDescriptor(TableName.valueOf(hbaseTableName))
+    desc.addFamily(new HColumnDescriptor(family1))
+    desc.addFamily(new HColumnDescriptor(family2))
+    admin.createTable(desc)
 
     val keyColumn1 = KeyColumn("column1", StringType)
     val keyColumn2 = KeyColumn("column2", IntegerType)
@@ -53,8 +63,8 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     keyColumns = keyColumns :+ keyColumn1
     keyColumns = keyColumns :+ keyColumn2
 
-    val nonKeyColumn3 = Column("column3", "family1", "qualifier1", BooleanType)
-    val nonKeyColumn4 = Column("column4", "family2", "qualifier2", FloatType)
+    val nonKeyColumn3 = Column("column3", family1, "qualifier1", BooleanType)
+    val nonKeyColumn4 = Column("column4", family2, "qualifier2", FloatType)
     var nonKeyColumnList = List[Column]()
     nonKeyColumnList = nonKeyColumnList :+ nonKeyColumn3
     nonKeyColumnList = nonKeyColumnList :+ nonKeyColumn4
