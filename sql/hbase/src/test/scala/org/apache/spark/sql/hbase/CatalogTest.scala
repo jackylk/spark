@@ -40,7 +40,7 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     catalog = new HBaseCatalog(hbaseContext, configuration)
   }
 
-  test("create table") {
+  test("Create Table") {
     // prepare the test data
     val namespace = "testNamespace"
     val tableName = "testTable"
@@ -62,7 +62,7 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     catalog.createTable(namespace, tableName, hbaseTableName, keyColumns, nonKeyColumns)
   }
 
-  test("get table") {
+  test("Get Table") {
     // prepare the test data
     val hbaseNamespace = "testNamespace"
     val tableName = "testTable"
@@ -85,10 +85,16 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     assert(relation.childrenResolved)
   }
 
-  test("delete table") {
+  test("Delete Table") {
     // prepare the test data
     val tableName = "testTable"
 
     catalog.deleteTable(tableName)
+  }
+
+  test("Check Logical Table Exist") {
+    val tableName = "non-exist"
+
+    assert(catalog.checkLogicalTableExist(tableName) === false)
   }
 }

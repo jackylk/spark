@@ -206,9 +206,23 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
     admin.createTable(desc)
   }
 
-  def checkTableExists(hbaseTableName: String): Boolean = {
+  def checkHBaseTableExists(hbaseTableName: String): Boolean = {
     val admin = new HBaseAdmin(configuration)
     admin.tableExists(hbaseTableName)
+  }
+
+  def checkLogicalTableExist(tableName: String): Boolean = {
+    val admin = new HBaseAdmin(configuration)
+    if (!checkHBaseTableExists(MetaData)) {
+      // create table
+      createMetadataTable(admin)
+    }
+
+    val table = new HTable(configuration, MetaData)
+    val get = new Get(Bytes.toBytes(tableName))
+    val result = table.get(get)
+
+    result.size() > 0
   }
 
   def checkFamilyExists(hbaseTableName: String, family: String): Boolean = {
@@ -233,7 +247,11 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
                   keyColumns: Seq[KeyColumn],
                   nonKeyColumns: Columns
                    ): Unit = {
-    if (!checkTableExists(hbaseTableName)) {
+    if (!checkLogicalTableExist(tableName)) {
+      throw new Exception("The logical table doesn't exist")
+    }
+
+    if (!checkHBaseTableExists(hbaseTableName)) {
       throw new Exception("The HBase table doesn't exist")
     }
 
