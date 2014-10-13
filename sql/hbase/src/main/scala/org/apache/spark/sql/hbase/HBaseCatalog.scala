@@ -87,21 +87,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
   }
 
   def getDataType(dataType: String): DataType = {
-    if (dataType.equalsIgnoreCase("bytetype")) {
-      ByteType
-    } else if (dataType.equalsIgnoreCase("shorttype")) {
-      ShortType
-    } else if (dataType.equalsIgnoreCase("integertype")) {
-      IntegerType
-    } else if (dataType.equalsIgnoreCase("longtype")) {
-      LongType
-    } else if (dataType.equalsIgnoreCase("floattype")) {
-      FloatType
-    } else if (dataType.equalsIgnoreCase("doubletype")) {
-      DoubleType
-    } else if (dataType.equalsIgnoreCase("stringtype")) {
-      StringType
-    } else if (dataType.equalsIgnoreCase(StringType.simpleString)) {
+    if (dataType.equalsIgnoreCase(StringType.simpleString)) {
       StringType
     } else if (dataType.equalsIgnoreCase(ByteType.simpleString)) {
       ByteType
@@ -295,7 +281,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
         result1.append(",")
         result1.append(qualifier)
         result1.append(",")
-        result1.append(dataType)
+        result1.append(dataType.simpleString)
         result1.append(";")
       }
       put.add(ColumnFamily, QualNonKeyColumns, Bytes.toBytes(result1.toString))
