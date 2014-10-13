@@ -104,7 +104,7 @@ class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf:
     }
   }
 
-  override lazy val analyzer = new Analyzer(catalog,
+  override lazy val analyzer = new HBaseAnalyzer(catalog,
     functionRegistry, true) {
   }
 

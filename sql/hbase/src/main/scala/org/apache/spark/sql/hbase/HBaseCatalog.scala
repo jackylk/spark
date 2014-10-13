@@ -218,6 +218,11 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
   }
 
   def deleteTable(tableName: String): Unit = {
+    if (!checkLogicalTableExist(tableName)) {
+      throw new Exception("The logical table:" +
+         tableName + " doesn't exist")
+    }
+
     val admin = new HBaseAdmin(configuration)
     val table = new HTable(configuration, MetaData)
 
@@ -233,12 +238,14 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
                   keyColumns: Seq[KeyColumn],
                   nonKeyColumns: Columns
                    ): Unit = {
-    if (!checkLogicalTableExist(tableName)) {
-      throw new Exception("The logical table doesn't exist")
+    if (checkLogicalTableExist(tableName)) {
+      throw new Exception("The logical table:" +
+        tableName + " has already existed")
     }
 
     if (!checkHBaseTableExists(hbaseTableName)) {
-      throw new Exception("The HBase table doesn't exist")
+      throw new Exception("The HBase table " +
+        hbaseTableName + " doesn't exist")
     }
 
     nonKeyColumns.columns.foreach {
