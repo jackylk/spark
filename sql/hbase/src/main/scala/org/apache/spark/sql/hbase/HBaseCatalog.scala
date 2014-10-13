@@ -88,18 +88,18 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
 
   def getDataType(dataType: String): DataType = {
     if (dataType.equalsIgnoreCase("bytetype")) {
-        ByteType
-    } else  if (dataType.equalsIgnoreCase("shorttype")) {
+      ByteType
+    } else if (dataType.equalsIgnoreCase("shorttype")) {
       ShortType
-    } else  if (dataType.equalsIgnoreCase("integertype")) {
+    } else if (dataType.equalsIgnoreCase("integertype")) {
       IntegerType
-    } else  if (dataType.equalsIgnoreCase("longtype")) {
+    } else if (dataType.equalsIgnoreCase("longtype")) {
       LongType
-    } else  if (dataType.equalsIgnoreCase("floattype")) {
+    } else if (dataType.equalsIgnoreCase("floattype")) {
       FloatType
-    } else  if (dataType.equalsIgnoreCase("doubletype")) {
+    } else if (dataType.equalsIgnoreCase("doubletype")) {
       DoubleType
-    } else  if (dataType.equalsIgnoreCase("stringtype")) {
+    } else if (dataType.equalsIgnoreCase("stringtype")) {
       StringType
     } else if (dataType.equalsIgnoreCase(StringType.simpleString)) {
       StringType
@@ -242,7 +242,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
         if (!checkFamilyExists(hbaseTableName, family)) {
           throw new Exception(
             "The HBase table doesn't contain the Column Family: " +
-            family)
+              family)
         }
     }
 
@@ -327,8 +327,8 @@ object HBaseCatalog {
     def toColumnName = ColumnName(Some(family), qualifier)
 
     override def hashCode(): Int = {
-      sqlName.hashCode * 31 + (if (family != null) family.hashCode * 37 else 0)
-      +qualifier.hashCode * 41 + dataType.hashCode * 43 + ordinal.hashCode * 47
+      sqlName.hashCode * 31 + (if (family != null) family.hashCode * 37 else 0) +
+        qualifier.hashCode * 41 + dataType.hashCode * 43 + ordinal.hashCode * 47
     }
 
     override def equals(obj: scala.Any): Boolean = {
@@ -338,7 +338,7 @@ object HBaseCatalog {
     }
 
     override def compare(that: Column): Int = {
-      - (ordinal - that.ordinal)
+      -(ordinal - that.ordinal)
     }
   }
 
