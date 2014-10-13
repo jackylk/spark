@@ -85,12 +85,21 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
       val ix = new java.util.concurrent.atomic.AtomicInteger()
 
       override def hasNext: Boolean = {
-        ix.incrementAndGet <= 2
+        if (onextVal != null) {
+          true
+        } else {
+          nextRow() != null
+        }
       }
 
       override def next(): Row = {
-        nextRow()
-        onextVal
+        if (onextVal != null) {
+          val tmp = onextVal
+          onextVal = null
+          tmp
+        } else {
+          nextRow
+        }
       }
     }
   }
@@ -104,24 +113,30 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
     var rmap = new mutable.HashMap[String, Any]()
 
     rkCols.columns.foreach { rkcol =>
-      rmap.update(rkcol.toString, rowKeyMap(rkcol.toColumnName))
+      rmap.update(rkcol.qualifier, rowKeyMap(rkcol.toColumnName))
     }
 
     val jmap = new java.util.TreeMap[Array[Byte], Array[Byte]](Bytes.BYTES_COMPARATOR)
-    rmap.foreach { case (k, v) =>
-      jmap.put(s2b(k), CatalystToHBase.toBytes(v))
-    }
+//    rmap.foreach { case (k, v) =>
+//      jmap.put(s2b(k), CatalystToHBase.toByteus(v))
+//    }
     import collection.JavaConverters._
     val vmap = result.getNoVersionMap
     vmap.put(s2b(""), jmap)
     val rowArr = projList.zipWithIndex.
-      foldLeft(new Array[HBaseRawType](projList.size)) {
+      foldLeft(new Array[Any](projList.size)) {
       case (arr, (cname, ix)) =>
-        arr(ix) = vmap.get(s2b(projList(ix).family.getOrElse("")))
-          .get(s2b(projList(ix).qualifier))
+        if (rmap.get(cname.qualifier) != null) {
+          arr(ix) = rmap.get(cname.qualifier)
+        } else {
+          val dataType = hbaseRelation.catalogTable.columns.getColumn(projList(ix)
+            .qualifier).get.dataType
+          arr(ix) = DataTypeUtils.hbaseFieldToRowField(vmap.get(s2b(projList(ix).family
+            .getOrElse(""))).get(s2b(projList(ix).qualifier )),dataType)
+        }
         arr
     }
-    Row(rowArr)
+    Row(rowArr: _*)
   }
 
   /**

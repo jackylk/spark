@@ -42,6 +42,8 @@ object CatalystToHBase {
         Array(b)
       case b: Boolean =>
         b.toString.getBytes(HBaseByteEncoding)
+      case s: Short =>
+        s.toString.getBytes(HBaseByteEncoding)
       case i: Integer =>
         i.toString.getBytes(HBaseByteEncoding)
       case l: Long =>

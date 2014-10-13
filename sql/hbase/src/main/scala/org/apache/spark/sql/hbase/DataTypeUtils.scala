@@ -77,7 +77,7 @@ object DataTypeUtils {
       } else {
         val bis = new ByteArrayInputStream(bytes)
         val dis = new DataInputStream(bis)
-        dataType match {
+        val outval = dataType match {
           case ShortType => dis.readShort
           case IntegerType => dis.readInt
           case LongType => dis.readLong
@@ -85,6 +85,7 @@ object DataTypeUtils {
           case _ => throw new UnsupportedOperationException(s"Unsupported type ${dataType}")
         }
         dis.close
+        outval
       }
     }
     out

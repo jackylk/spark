@@ -128,7 +128,8 @@ object RowKeyParser extends AbstractRowKeyParser with Serializable {
   }
 
   def b2Short(barr: Array[Byte]) = {
-    (barr(0).toShort << 8) | barr(1).toShort
+    val out = (barr(0).toShort << 8) | barr(1).toShort
+    out
   }
 
   def createKeyFromCatalystRow(schema: StructType, keyCols: Columns, row: Row) = {
@@ -146,11 +147,11 @@ object RowKeyParser extends AbstractRowKeyParser with Serializable {
       s"RowKey is invalid format - less than minlen . Actual length=${rowKey.length}")
     assert(rowKey(0) == Version1, s"Only Version1 supported. Actual=${rowKey(0)}")
     val ndims: Int = rowKey(rowKey.length - 1).toInt
-    val offsetsStart = rowKey.length - DimensionCountLen - ndims * OffsetFieldLen - 1
+    val offsetsStart = rowKey.length - DimensionCountLen - ndims * OffsetFieldLen
     val rowKeySpec = RowKeySpec(
       for (dx <- 0 to ndims - 1)
       yield b2Short(rowKey.slice(offsetsStart + dx * OffsetFieldLen,
-        offsetsStart + (dx + 1) * OffsetFieldLen + 1))
+        offsetsStart + (dx + 1) * OffsetFieldLen))
     )
 
     val endOffsets = rowKeySpec.offsets.tail :+ (rowKey.length - DimensionCountLen - 1)

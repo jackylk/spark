@@ -3,8 +3,9 @@ package org.apache.spark.sql.hbase
 import java.io.{DataOutputStream, ByteArrayOutputStream}
 
 import org.apache.log4j.Logger
-import org.apache.spark.sql.catalyst.types.{DoubleType, StringType, ShortType}
-import org.apache.spark.sql.hbase.HBaseCatalog.Column
+import org.apache.spark.sql.catalyst.expressions.Row
+import org.apache.spark.sql.catalyst.types.{StructType, DoubleType, StringType, ShortType}
+import org.apache.spark.sql.hbase.HBaseCatalog.{Columns, Column}
 import org.apache.spark.sql.hbase.RowKeyParser._
 import org.scalatest.{ShouldMatchers, FunSuite}
 import DataTypeUtils._
@@ -48,10 +49,21 @@ class RowKeyParserSuite extends FunSuite with ShouldMatchers {
     val pat = makeRowKey(12345.6789, "Column1-val",12345)
     val parsedKeyMap = RowKeyParser.parseRowKeyWithMetaData(cols, pat)
     println(s"parsedKeyWithMetaData: ${parsedKeyMap.toString}")
+    assert(parsedKeyMap === Map("col7" -> (12345.6789, "col1" -> "Column1-val","col3" ->12345)))
+//    assert(parsedKeyMap.values.toList.sorted === List(12345.6789, "Column1-val",12345))
 
     val parsedKey = RowKeyParser.parseRowKey(pat)
     println(s"parsedRowKey: ${parsedKey.toString}")
 
+  }
+
+  test("CreateKeyFromCatalystRow") {
+    def createKeyFromCatalystRow(schema: StructType, keyCols: Columns, row: Row) = {
+      // TODO(sboesch): provide proper data-type specific serde's.
+      // For now just use to/from String
+      val rawKeyCols = CatalystToHBase.catalystRowToHBaseRawVals(schema, row, keyCols)
+      createKey(rawKeyCols)
+    }
   }
 
 }

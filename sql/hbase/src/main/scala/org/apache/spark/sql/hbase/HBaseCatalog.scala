@@ -87,10 +87,23 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
   }
 
   def getDataType(dataType: String): DataType = {
-    if (dataType.equalsIgnoreCase(StringType.simpleString)) {
+    if (dataType.equalsIgnoreCase("bytetype")) {
+        ByteType
+    } else  if (dataType.equalsIgnoreCase("shorttype")) {
+      ShortType
+    } else  if (dataType.equalsIgnoreCase("integertype")) {
+      IntegerType
+    } else  if (dataType.equalsIgnoreCase("longtype")) {
+      LongType
+    } else  if (dataType.equalsIgnoreCase("floattype")) {
+      FloatType
+    } else  if (dataType.equalsIgnoreCase("doubletype")) {
+      DoubleType
+    } else  if (dataType.equalsIgnoreCase("stringtype")) {
       StringType
-    }
-    else if (dataType.equalsIgnoreCase(ByteType.simpleString)) {
+    } else if (dataType.equalsIgnoreCase(StringType.simpleString)) {
+      StringType
+    } else if (dataType.equalsIgnoreCase(ByteType.simpleString)) {
       ByteType
     }
     else if (dataType.equalsIgnoreCase(ShortType.simpleString)) {
@@ -112,7 +125,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
       BooleanType
     }
     else {
-      null
+      throw new IllegalArgumentException(s"Unrecognized datatype ${dataType}")
     }
   }
 
@@ -308,7 +321,7 @@ object HBaseCatalog {
   // TODO: change family to Option[String]
   case class Column(sqlName: String, family: String, qualifier: String,
                     dataType: DataType,
-                    ordinal: Int = -1) {
+                    ordinal: Int = -1) extends Ordered[Column] {
     def fullName = s"$family:$qualifier"
 
     def toColumnName = ColumnName(Some(family), qualifier)
@@ -322,6 +335,10 @@ object HBaseCatalog {
       val superEquals = super.equals(obj)
       val retval = hashCode == obj.hashCode
       retval // note: superEquals is false whereas retval is true. Interesting..
+    }
+
+    override def compare(that: Column): Int = {
+      - (ordinal - that.ordinal)
     }
   }
 

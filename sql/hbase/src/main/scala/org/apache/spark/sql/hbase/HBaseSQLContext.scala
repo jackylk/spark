@@ -114,7 +114,7 @@ class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf:
                        keyCols: Seq[(String, String)],
                        nonKeyCols: Seq[(String, String, String, String)]): Unit = {
     val keyColumns = keyCols.map { case (name, typeOfData) =>
-      KeyColumn(name, catalog.getDataType(typeOfData))
+      KeyColumn(name, catalog.getDataType(typeOfData.toLowerCase))
     }
     val nonKeyColumns = new Columns(nonKeyCols.map {
       case (name, typeOfData, family, qualifier) =>
