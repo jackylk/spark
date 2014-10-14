@@ -91,27 +91,20 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
       StringType
     } else if (dataType.equalsIgnoreCase(ByteType.simpleString)) {
       ByteType
-    }
-    else if (dataType.equalsIgnoreCase(ShortType.simpleString)) {
+    } else if (dataType.equalsIgnoreCase(ShortType.simpleString)) {
       ShortType
-    }
-    else if (dataType.equalsIgnoreCase(IntegerType.simpleString)) {
+    } else if (dataType.equalsIgnoreCase(IntegerType.simpleString)) {
       IntegerType
-    }
-    else if (dataType.equalsIgnoreCase(LongType.simpleString)) {
+    } else if (dataType.equalsIgnoreCase(LongType.simpleString)) {
       LongType
-    }
-    else if (dataType.equalsIgnoreCase(FloatType.simpleString)) {
+    } else if (dataType.equalsIgnoreCase(FloatType.simpleString)) {
       FloatType
-    }
-    else if (dataType.equalsIgnoreCase(DoubleType.simpleString)) {
+    } else if (dataType.equalsIgnoreCase(DoubleType.simpleString)) {
       DoubleType
-    }
-    else if (dataType.equalsIgnoreCase(BooleanType.simpleString)) {
+    } else if (dataType.equalsIgnoreCase(BooleanType.simpleString)) {
       BooleanType
-    }
-    else {
-      throw new IllegalArgumentException(s"Unrecognized datatype ${dataType}")
+    } else {
+      throw new IllegalArgumentException(s"Unrecognized data type '${dataType}'")
     }
   }
 
