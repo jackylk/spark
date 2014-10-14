@@ -86,6 +86,13 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     assert(result.hbaseTableName.tableName.getNameAsString === hbaseNamespace + ":" + hbaseTableName)
     assert(result.colFamilies.size === 2)
     assert(result.columns.columns.size === 2)
+
+    // check the data type
+    assert(result.rowKey.columns.columns(0).dataType === StringType)
+    assert(result.rowKey.columns.columns(1).dataType === IntegerType)
+    assert(result.columns.columns(0).dataType === BooleanType)
+    assert(result.columns.columns(1).dataType === FloatType)
+
     val relation = catalog.lookupRelation(None, tableName)
     val hbRelation = relation.asInstanceOf[HBaseRelation]
     assert(hbRelation.colFamilies == Set("family1", "family2"))

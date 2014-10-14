@@ -66,8 +66,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
     val itableName = processTableName(sqlTableName)
     val catalogTable = getTable(sqlTableName)
     if (catalogTable.isEmpty) {
-      throw new IllegalArgumentException
-      (s"Table $nameSpace.$sqlTableName does not exist in the catalog")
+      throw new IllegalArgumentException(
+        s"Table $nameSpace.$sqlTableName does not exist in the catalog")
     }
     val tableName = TableName.valueOf(nameSpace.orNull, itableName)
     val externalResource = getExternalResource(tableName)
