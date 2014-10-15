@@ -16,12 +16,11 @@
  */
 package org.apache.spark.sql.hbase
 
-import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.client.{HTable, Result, Scan}
 import org.apache.hadoop.hbase.filter.FilterList
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.expressions.{NamedExpression, Expression}
+import org.apache.spark.sql.catalyst.expressions.NamedExpression
 import org.apache.spark.{Partition, TaskContext}
 
 import scala.collection.mutable
@@ -121,7 +120,6 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
 //    rmap.foreach { case (k, v) =>
 //      jmap.put(s2b(k), CatalystToHBase.toByteus(v))
 //    }
-    import collection.JavaConverters._
     val vmap = result.getNoVersionMap
     vmap.put(s2b(""), jmap)
     val rowArr = projList.zipWithIndex.

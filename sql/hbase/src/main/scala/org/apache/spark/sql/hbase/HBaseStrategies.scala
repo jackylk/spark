@@ -68,8 +68,9 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
         // TODO(sboesch) find all attributes referenced in the predicates
         val predAttributes = AttributeSet(predicates.flatMap(_.references))
         val projectSet = AttributeSet(projectList.flatMap(_.references))
-//        @tailrec
-//        private def collectAttributes(preds: Seq[Expression], plan: LogicalPlan): Seq[Attribute] = plan match {
+        //        @tailrec
+        //        private def collectAttributes(preds: Seq[Expression], plan: LogicalPlan)
+        //        : Seq[Attribute] = plan match {
 
         val attributes = projectSet ++ predAttributes
 
@@ -203,7 +204,7 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
           hbaseRelation.catalogTable.allColumns.findBySqlName(expr.name).map(_.toColumnName).get
         }
 
-//        val columnNames = projectList.map(projectionToHBaseColumn(_, relation))
+        //        val columnNames = projectList.map(projectionToHBaseColumn(_, relation))
 
         val effectivePartitionSpecificRowKeyPredicates =
           if (rowKeyColumnPredicates == ColumnPredicate.EmptyColumnPredicate) {
@@ -214,7 +215,9 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
 
         val scanBuilder: (Seq[Attribute] => SparkPlan) = HBaseSQLTableScan(
           _,
-          attributes.map{_.toAttribute}.toSeq,
+          attributes.map {
+            _.toAttribute
+          }.toSeq,
           relation,
           projectList,
           predicates.reduceLeftOption(And),

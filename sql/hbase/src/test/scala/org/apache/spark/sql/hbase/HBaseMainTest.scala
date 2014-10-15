@@ -1,22 +1,19 @@
 package org.apache.spark.sql.hbase
 
-import java.io.{ObjectOutputStream, ByteArrayOutputStream, DataOutputStream}
+import java.io.{ByteArrayOutputStream, DataOutputStream}
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase._
+import org.apache.hadoop.hbase.client._
 import org.apache.log4j.Logger
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.Row
 import org.apache.spark.sql.SchemaRDD
-import org.apache.spark.sql.catalyst.expressions.{AttributeReference}
-import org.apache.spark.sql.catalyst.types.{ShortType, StringType, DoubleType}
+import org.apache.spark.sql.catalyst.types.{DoubleType, ShortType, StringType}
+import org.apache.spark.sql.hbase.DataTypeUtils._
 import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns}
 import org.apache.spark.sql.test.TestSQLContext
 import org.apache.spark.sql.test.TestSQLContext._
-import org.apache.spark.{sql, Logging, SparkConf, SparkContext}
+import org.apache.spark.{Logging, SparkConf, sql}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import DataTypeUtils._
 
 /**
  * HBaseIntegrationTest
@@ -200,6 +197,12 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     printResults("Limit Op",results)
     assert(data.size == 2)
 
+    results = hbContext.sql(
+      s"""SELECT col3, col2, col1, col4, col7 FROM $TabName order by col7 desc
+           """.stripMargin)
+    printResults("Ordering with nonkey columns",results)
+    assert(data.size == 2)
+
     if (false) {
       try {
         results = hbContext.sql(
@@ -338,7 +341,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     hbContext.stop
   }
 
-  import RowKeyParser._
+  import org.apache.spark.sql.hbase.RowKeyParser._
 
   def makeRowKey(col7: Double, col1: String, col3: Short) = {
     val size = 1 + sizeOf(col7) + sizeOf(col1) + sizeOf(col3) + 3 * 2 + DimensionCountLen
