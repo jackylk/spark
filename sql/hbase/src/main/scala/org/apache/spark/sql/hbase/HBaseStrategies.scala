@@ -33,6 +33,8 @@ import org.apache.spark.sql.execution._
 import org.apache.spark.sql.hbase.HBaseCatalog.Columns
 import org.apache.spark.sql.{SQLContext, SchemaRDD, StructType}
 
+import scala.annotation.tailrec
+
 /**
  * HBaseStrategies
  * Created by sboesch on 8/22/14.
@@ -62,6 +64,15 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
       case PhysicalOperation(projectList, inPredicates, relation: HBaseRelation) =>
 
         val predicates = inPredicates.asInstanceOf[Seq[BinaryExpression]]
+
+        // TODO(sboesch) find all attributes referenced in the predicates
+        val predAttributes = AttributeSet(predicates.flatMap(_.references))
+        val projectSet = AttributeSet(projectList.flatMap(_.references))
+//        @tailrec
+//        private def collectAttributes(preds: Seq[Expression], plan: LogicalPlan): Seq[Attribute] = plan match {
+
+        val attributes = projectSet ++ predAttributes
+
         // Filter out all predicates that only deal with partition keys, these are given to the
         // hive table scan operator to be used for partition pruning.
 
@@ -192,7 +203,7 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
           hbaseRelation.catalogTable.allColumns.findBySqlName(expr.name).map(_.toColumnName).get
         }
 
-        val columnNames = projectList.map(projectionToHBaseColumn(_, relation))
+//        val columnNames = projectList.map(projectionToHBaseColumn(_, relation))
 
         val effectivePartitionSpecificRowKeyPredicates =
           if (rowKeyColumnPredicates == ColumnPredicate.EmptyColumnPredicate) {
@@ -203,9 +214,9 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
 
         val scanBuilder: (Seq[Attribute] => SparkPlan) = HBaseSQLTableScan(
           _,
-          partitionKeyIds.toSeq,
+          attributes.map{_.toAttribute}.toSeq,
           relation,
-          columnNames,
+          projectList,
           predicates.reduceLeftOption(And),
           rowKeyPredicates.reduceLeftOption(And),
           effectivePartitionSpecificRowKeyPredicates,
@@ -214,7 +225,7 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
 
         pruneFilterProject(
           projectList,
-          Nil, // otherPredicates,
+          inPredicates,
           identity[Seq[Expression]], // removeRowKeyPredicates,
           scanBuilder) :: Nil
 

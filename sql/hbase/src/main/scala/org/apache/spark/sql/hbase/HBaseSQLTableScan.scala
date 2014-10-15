@@ -20,7 +20,7 @@ package org.apache.spark.sql.hbase
 import org.apache.commons.el.RelationalOperator
 import org.apache.hadoop.hbase.filter.FilterList
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.expressions.{BinaryComparison, Attribute, Expression, Row}
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.LeafNode
 
@@ -32,7 +32,7 @@ case class HBaseSQLTableScan(
                               ignoredAttributes: Seq[Attribute],
                               attributes: Seq[Attribute],
                               relation: HBaseRelation,
-                              projList: Seq[ColumnName],
+                              projList: Seq[NamedExpression],
                               predicates: Option[Expression],
                               partitionPruningPred: Option[Expression],
                               rowKeyPredicates: Option[Seq[ColumnPredicate]],

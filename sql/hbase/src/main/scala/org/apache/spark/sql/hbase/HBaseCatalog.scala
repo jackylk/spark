@@ -121,25 +121,28 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
       var columnFamilies = MutSeq[(String)]()
 
       var nonKeyColumns = Bytes.toString(rest1.getValue(ColumnFamily, QualNonKeyColumns))
-      if (nonKeyColumns.length > 0) {
-        nonKeyColumns = nonKeyColumns.substring(0, nonKeyColumns.length - 1)
-      }
+      if (nonKeyColumns != null) {
+        if (nonKeyColumns.length > 0) {
+          nonKeyColumns = nonKeyColumns.substring(0, nonKeyColumns.length - 1)
+        }
 
-      val nonKeyColumnArray = nonKeyColumns.split(";")
-      for (nonKeyColumn <- nonKeyColumnArray) {
-        val nonKeyColumnInfo = nonKeyColumn.split(",")
-        val sqlName = nonKeyColumnInfo(0)
-        val family = nonKeyColumnInfo(1)
-        val qualifier = nonKeyColumnInfo(2)
-        val dataType = getDataType(nonKeyColumnInfo(3))
+        val nonKeyColumnArray = nonKeyColumns.split(";")
+        for (nonKeyColumn <- nonKeyColumnArray) {
+          val nonKeyColumnInfo = nonKeyColumn.split(",")
+          val sqlName = nonKeyColumnInfo(0)
+          val family = nonKeyColumnInfo(1)
+          val qualifier = nonKeyColumnInfo(2)
+          val dataType = getDataType(nonKeyColumnInfo(3))
 
-        val column = Column(sqlName, family, qualifier, dataType)
-        columnList = columnList :+ column
-        if (!(columnFamilies contains family)) {
-          columnFamilies = columnFamilies :+ family
+          val column = Column(sqlName, family, qualifier, dataType)
+          columnList = columnList :+ column
+          if (!(columnFamilies contains family)) {
+            columnFamilies = columnFamilies :+ family
+          }
         }
       }
 
+      // What if this were not an HBase table?  We get NPE's here..
       val hbaseName = Bytes.toString(rest1.getValue(ColumnFamily, QualHbaseName))
       val hbaseNameArray = hbaseName.split(",")
       val hbaseNamespace = hbaseNameArray(0)
@@ -348,7 +351,7 @@ object HBaseCatalog {
 
   object Column extends Serializable {
     def toAttributeReference(col: Column): AttributeReference = {
-      AttributeReference(col.qualifier, col.dataType,
+      AttributeReference(col.sqlName, col.dataType,
         nullable = true)()
     }
   }

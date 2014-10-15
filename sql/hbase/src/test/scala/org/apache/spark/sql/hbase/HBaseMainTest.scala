@@ -6,11 +6,15 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase._
 import org.apache.log4j.Logger
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.SchemaRDD
 import org.apache.spark.sql.catalyst.expressions.{AttributeReference}
 import org.apache.spark.sql.catalyst.types.{ShortType, StringType, DoubleType}
 import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns}
+import org.apache.spark.sql.test.TestSQLContext
 import org.apache.spark.sql.test.TestSQLContext._
-import org.apache.spark.{Logging, SparkConf, SparkContext}
+import org.apache.spark.{sql, Logging, SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import DataTypeUtils._
 
@@ -75,8 +79,8 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     @transient val conf = new SparkConf
     val SparkPort = 11223
     conf.set("spark.ui.port", SparkPort.toString)
-    @transient val sc = new SparkContext(s"local[$NWorkers]", "HBaseTestsSparkContext", conf)
-    hbContext = new HBaseSQLContext(sc, config)
+//    @transient val sc = new SparkContext(s"local[$NWorkers]", "HBaseTestsSparkContext", conf)
+    hbContext = new HBaseSQLContext(TestSQLContext.sparkContext, config)
 
     catalog = hbContext.catalog
     hbaseAdmin = new HBaseAdmin(config)
@@ -146,27 +150,17 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     assert(relation.childrenResolved)
   }
 
-  def testQuery() {
-    ctxSetup()
-    createTable()
-    testHBaseScanner
-
-    val bos = new ByteArrayOutputStream
-    val oos = new ObjectOutputStream(bos)
-    //    val fl = new FilterList(new SingleColumnValueFilter(s2b("a"),s2b("c"),null, s2b("val")))
-    //    oos.writeObject(fl)
-    val ne = AttributeReference("s", null, true) _
-    oos.writeObject(ne)
-
-
-    //    val conn = hbaseAdmin.getConnection
-    //    val htable = conn.getTable(TableName.valueOf(DbName, TabName))
-    val tname = TableName.valueOf(HbaseTabName)
-    val htable = new HTable(config, tname)
-    if (!hbaseAdmin.tableExists(tname)) {
-      throw new IllegalStateException(s"Unable to find table ${tname.toString}")
-    }
+  def checkHBaseTableExists(hbaseTable : String) = {
     hbaseAdmin.listTableNames.foreach { t => println(s"table: $t")}
+    val tname = TableName.valueOf(hbaseTable)
+    hbaseAdmin.tableExists(tname)
+  }
+
+  def insertTestData() = {
+    if (!checkHBaseTableExists(HbaseTabName)) {
+      throw new IllegalStateException(s"Unable to find table ${HbaseTabName}")
+    }
+    val htable = new HTable(config, HbaseTabName)
 
     var put = new Put(makeRowKey(12345.0, "Col1Value12345", 12345))
     addRowVals(put, (123).toByte, 12345678, 12345678901234L, 1234.5678F)
@@ -176,48 +170,102 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     htable.put(put)
     htable.close
 
-    val results = hbContext.sql( s"""SELECT col1, col3, col7 FROM $TabName
-    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50
-    """.stripMargin)
+  }
 
+  val runMultiTests: Boolean = false
+
+  def testQuery() {
+    ctxSetup()
+    createTable()
+//    testInsertIntoTable
+//    testHBaseScanner
+
+    if (!checkHBaseTableExists(HbaseTabName)) {
+      throw new IllegalStateException(s"Unable to find table ${HbaseTabName}")
+    }
+
+    insertTestData
+
+    var results : SchemaRDD = null
+    var data : Array[sql.Row] = null
+
+    results  = hbContext.sql( s"""SELECT * FROM $TabName """.stripMargin)
+    printResults("Star* operator", results)
+    data = results.collect
+    assert(data.size == 2)
+
+    results = hbContext.sql(
+      s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
+           """.stripMargin)
+    printResults("Limit Op",results)
+    assert(data.size == 2)
+
+    if (false) {
+      try {
+        results = hbContext.sql(
+          s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
+           """.stripMargin)
+        printResults("Limit Op",results)
+      } catch {
+        case e: Exception => "Query with Limit failed"
+          e.printStackTrace
+      }
+
+      results = hbContext.sql( s"""SELECT col3, col1, col7 FROM $TabName ORDER  by col7 DESC
+      """.stripMargin)
+      printResults("Order by", results)
+
+      if (runMultiTests) {
+        results = hbContext.sql( s"""SELECT col3, col1, col7 FROM $TabName
+        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50
+        """.stripMargin)
+        printResults("Where/filter on rowkeys",results)
+
+        results = hbContext.sql( s"""SELECT col1, col3, col7 FROM $TabName
+        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col3 != 7.0
+        """.stripMargin)
+        printResults("Where with notequal", results)
+
+        results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
+        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
+        """.stripMargin)
+        printResults("Include non-rowkey cols in project",results)
+
+        results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
+        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
+        """.stripMargin)
+        printResults("Include non-rowkey cols in filter",results)
+
+        results = hbContext.sql( s"""SELECT sum(col3) as col3sum, col1, col3 FROM $TabName
+        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
+        group by col1,  col3
+        """.stripMargin)
+        printResults("Aggregates on rowkeys", results)
+
+
+        results= hbContext.sql( s"""SELECT sum(col2) as col2sum, col4, col1, col3, col2 FROM $TabName
+        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50
+        group by col1, col2, col4, col3
+        """.stripMargin)
+        printResults("Aggregates on non-rowkeys", results)
+      }
+    }
+  }
+
+  def printResults(msg: String, results: SchemaRDD) = {
     if (results.isInstanceOf[TestingSchemaRDD]) {
       val data = results.asInstanceOf[TestingSchemaRDD].collectPartitions
-      println(s"Received data length=${data(0).length}: ${
-        data(0).foreach {
-          _.toString
-        }
+      println(s"For test [$msg]: Received data length=${data(0).length}: ${
+        data(0).mkString("RDD results: {","],[","}")
       }")
     } else {
       val data = results.collect
-      println(s"Received data length=${data(0).length}: ${
-        data(0).foreach {
-          _.toString
-        }
+      println(s"For test [$msg]: Received data length=${data.length}: ${
+        data.mkString("RDD results: {","],[","}")
       }")
     }
 
-
-    val results00 = hbContext.sql( s"""SELECT col1, col3, col7 FROM $TabName
-    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col3 != 7.0
-    """.stripMargin)
-
-    val results0 = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
-    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
-    """.stripMargin)
-
-    val results1 = hbContext.sql( s"""SELECT sum(col3) as col3sum, col1, col3 FROM $TabName
-    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
-    group by col1,  col3
-    """.stripMargin)
-
-
-    val results2 = hbContext.sql( s"""SELECT sum(col2) as col2sum, col4, col1, col3, col2 FROM $TabName
-    WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50
-    group by col1, col2, col4, col3
-    """.stripMargin)
-
   }
-
   def createTableTest2() {
     ctxSetup()
     // Following fails with Unresolved:
@@ -258,11 +306,10 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
 
     val localData = myRows.collect
 
-    //    hbContext.sql(
-    //      s"""insert into $TabName select * from $TempTabName""".stripMargin)
+    hbContext.sql(
+      s"""insert into $TabName select * from $TempTabName""".stripMargin)
 
     val hbRelation = catalog.lookupRelation(Some(DbName), TabName).asInstanceOf[HBaseRelation]
-
 
     val hbasePlanner = new SparkPlanner with HBaseStrategies {
       @transient override val hbaseContext: HBaseSQLContext = hbContext
@@ -275,7 +322,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     var rowKeysWithRows = myRowsSchemaRdd.zip(
       HBaseStrategies.rowKeysFromRows(myRowsSchemaRdd, hbRelation))
     //    var keysCollect = rowKeysWithRows.collect
-    HBaseStrategies.putToHBaseLocal(myRows.schema, hbRelation, hbContext, rowKeysWithRows)
+    HBaseStrategies.putToHBase(myRows.schema, hbRelation, hbContext, rowKeysWithRows)
 
 
     val preparedInsertRdd = insertPlan.execute
@@ -284,7 +331,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     val rowsRdd = myRowsSchemaRdd
     val rowKeysWithRows2 = rowsRdd.zip(
       HBaseStrategies.rowKeysFromRows(rowsRdd, hbRelation))
-    HBaseStrategies.putToHBaseLocal(rowsRdd.schema, hbRelation, hbContext, rowKeysWithRows2)
+    HBaseStrategies.putToHBase(rowsRdd.schema, hbRelation, hbContext, rowKeysWithRows2)
 
 
     cluster.shutdown
@@ -347,6 +394,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
   }
 
   def main(args: Array[String]) = {
+//    testInsertIntoTable
     testQuery
   }
 

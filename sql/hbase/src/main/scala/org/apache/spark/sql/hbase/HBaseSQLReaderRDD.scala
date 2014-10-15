@@ -21,6 +21,7 @@ import org.apache.hadoop.hbase.client.{HTable, Result, Scan}
 import org.apache.hadoop.hbase.filter.FilterList
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.catalyst.expressions.{NamedExpression, Expression}
 import org.apache.spark.{Partition, TaskContext}
 
 import scala.collection.mutable
@@ -32,7 +33,7 @@ import scala.collection.mutable
 class HBaseSQLReaderRDD(tableName: SerializableTableName,
                         externalResource: Option[HBaseExternalResource],
                         hbaseRelation: HBaseRelation,
-                        projList: Seq[ColumnName],
+                        projList: Seq[NamedExpression],
                         //      rowKeyPredicates : Option[Seq[ColumnPredicate]],
                         //      colPredicates : Option[Seq[ColumnPredicate]],
                         partitions: Seq[HBasePartition],
@@ -104,7 +105,7 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
     }
   }
 
-  def toRow(result: Result, projList: Seq[ColumnName]): Row = {
+  def toRow(result: Result, projList: Seq[NamedExpression]): Row = {
     // TODO(sboesch): analyze if can be multiple Cells in the result
     // Also, consider if we should go lower level to the cellScanner()
     val row = result.getRow
@@ -126,25 +127,21 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
     val rowArr = projList.zipWithIndex.
       foldLeft(new Array[Any](projList.size)) {
       case (arr, (cname, ix)) =>
-        if (rmap.get(cname.qualifier) != null) {
-          arr(ix) = rmap.get(cname.qualifier)
+        if (rmap.get(cname.name)isDefined) {
+          arr(ix) = rmap.get(cname.name).get.asInstanceOf[Tuple2[_,_]]._2
         } else {
-          val dataType = hbaseRelation.catalogTable.columns.getColumn(projList(ix)
-            .qualifier).get.dataType
-          arr(ix) = DataTypeUtils.hbaseFieldToRowField(vmap.get(s2b(projList(ix).family
-            .getOrElse(""))).get(s2b(projList(ix).qualifier )),dataType)
+          val col = hbaseRelation.catalogTable.columns.findBySqlName(projList(ix).name).getOrElse{
+            throw new IllegalArgumentException(s"Column ${projList(ix).name} not found")
+          }
+          val dataType =col.dataType
+          val qual =s2b(col.qualifier)
+          val fam = s2b(col.family)
+          arr(ix) = DataTypeUtils.hbaseFieldToRowField(
+              vmap.get(fam).get(qual)
+            ,dataType)
         }
         arr
     }
     Row(rowArr: _*)
   }
-
-  /**
-   * Compute an RDD partition or read it from a checkpoint if the RDD is checkpointing.
-   */
-  override private[spark] def computeOrReadCheckpoint(split: Partition,
-                                                      context: TaskContext): Iterator[Row]
-  = super.computeOrReadCheckpoint(split, context)
-
-
 }

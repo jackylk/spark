@@ -76,6 +76,8 @@ object DataTypeUtils {
         new String(bytes, HBaseByteEncoding)
       } else if (dataType == BinaryType) {
         bytes(0)
+      } else if (dataType == ByteType) {
+          bytes(0)
       } else {
         val bis = new ByteArrayInputStream(bytes)
         val dis = new DataInputStream(bis)
@@ -83,6 +85,7 @@ object DataTypeUtils {
           case ShortType => dis.readShort
           case IntegerType => dis.readInt
           case LongType => dis.readLong
+          case FloatType => dis.readFloat
           case DoubleType => dis.readDouble
           case _ => throw new UnsupportedOperationException(s"Unsupported type ${dataType}")
         }
