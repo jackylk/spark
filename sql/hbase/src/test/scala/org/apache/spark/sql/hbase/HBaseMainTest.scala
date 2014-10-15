@@ -6,6 +6,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase._
 import org.apache.hadoop.hbase.client._
 import org.apache.log4j.Logger
+import org.apache.spark
 import org.apache.spark.sql.SchemaRDD
 import org.apache.spark.sql.catalyst.types.{DoubleType, ShortType, StringType}
 import org.apache.spark.sql.hbase.DataTypeUtils._
@@ -14,6 +15,7 @@ import org.apache.spark.sql.test.TestSQLContext
 import org.apache.spark.sql.test.TestSQLContext._
 import org.apache.spark.{Logging, SparkConf, sql}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import spark.sql.Row
 
 /**
  * HBaseIntegrationTest
@@ -67,6 +69,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     config.set("ipc.client.connect.timeout", "240000")
     config.set("dfs.namenode.stale.datanode.interva", "240000")
     config.set("hbase.rpc.shortoperation.timeout", "240000")
+    config.set("hbase.regionserver.lease.period", "240000")
 
     if (useMiniCluster) {
       cluster = testUtil.startMiniCluster(NMasters, NRegionServers)
@@ -76,7 +79,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     @transient val conf = new SparkConf
     val SparkPort = 11223
     conf.set("spark.ui.port", SparkPort.toString)
-//    @transient val sc = new SparkContext(s"local[$NWorkers]", "HBaseTestsSparkContext", conf)
+    //    @transient val sc = new SparkContext(s"local[$NWorkers]", "HBaseTestsSparkContext", conf)
     hbContext = new HBaseSQLContext(TestSQLContext.sparkContext, config)
 
     catalog = hbContext.catalog
@@ -147,7 +150,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     assert(relation.childrenResolved)
   }
 
-  def checkHBaseTableExists(hbaseTable : String) = {
+  def checkHBaseTableExists(hbaseTable: String) = {
     hbaseAdmin.listTableNames.foreach { t => println(s"table: $t")}
     val tname = TableName.valueOf(hbaseTable)
     hbaseAdmin.tableExists(tname)
@@ -159,10 +162,10 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     }
     val htable = new HTable(config, HbaseTabName)
 
-    var put = new Put(makeRowKey(12345.0, "Col1Value12345", 12345))
+    var put = new Put(makeRowKey(12345.0, "Michigan", 12345))
     addRowVals(put, (123).toByte, 12345678, 12345678901234L, 1234.5678F)
     htable.put(put)
-    put = new Put(makeRowKey(456789.0, "Col1Value45678", 4567))
+    put = new Put(makeRowKey(456789.0, "Michigan", 4567))
     addRowVals(put, (456).toByte, 456789012, 4567890123446789L, 456.78901F)
     htable.put(put)
     htable.close
@@ -174,8 +177,8 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
   def testQuery() {
     ctxSetup()
     createTable()
-//    testInsertIntoTable
-//    testHBaseScanner
+    //    testInsertIntoTable
+    //    testHBaseScanner
 
     if (!checkHBaseTableExists(HbaseTabName)) {
       throw new IllegalStateException(s"Unable to find table ${HbaseTabName}")
@@ -183,32 +186,33 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
 
     insertTestData
 
-    var results : SchemaRDD = null
-    var data : Array[sql.Row] = null
+    var results: SchemaRDD = null
+    var data: Array[sql.Row] = null
 
-    results  = hbContext.sql( s"""SELECT * FROM $TabName """.stripMargin)
-    printResults("Star* operator", results)
-    data = results.collect
-    assert(data.size == 2)
+      results = hbContext.sql( s"""SELECT * FROM $TabName """.stripMargin)
+      printResults("Star* operator", results)
+      data = results.collect
+      assert(data.size >= 2)
 
-    results = hbContext.sql(
-      s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
-           """.stripMargin)
-    printResults("Limit Op",results)
-    assert(data.size == 2)
+      results = hbContext.sql(
+        s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
+             """.stripMargin)
+      printResults("Limit Op", results)
+      data = results.collect
+      assert(data.size == 1)
 
-    results = hbContext.sql(
-      s"""SELECT col3, col2, col1, col4, col7 FROM $TabName order by col7 desc
-           """.stripMargin)
-    printResults("Ordering with nonkey columns",results)
-    assert(data.size == 2)
+      results = hbContext.sql(
+        s"""SELECT col3, col2, col1, col4, col7 FROM $TabName order by col7 desc
+             """.stripMargin)
+      printResults("Ordering with nonkey columns", results)
+      data = results.collect
+      assert(data.size >= 2)
 
-    if (false) {
       try {
         results = hbContext.sql(
           s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
-           """.stripMargin)
-        printResults("Limit Op",results)
+             """.stripMargin)
+        printResults("Limit Op", results)
       } catch {
         case e: Exception => "Query with Limit failed"
           e.printStackTrace
@@ -218,40 +222,53 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
       """.stripMargin)
       printResults("Order by", results)
 
-      if (runMultiTests) {
-        results = hbContext.sql( s"""SELECT col3, col1, col7 FROM $TabName
-        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50
-        """.stripMargin)
-        printResults("Where/filter on rowkeys",results)
+    if (runMultiTests) {
+      results = hbContext.sql( s"""SELECT col3, col2, col1, col7, col4 FROM $TabName
+          WHERE col1 ='Michigan'
+          """.stripMargin)
+      printResults("Where/filter on rowkey", results)
+      data = results.collect
+      assert(data.size >= 1)
 
-        results = hbContext.sql( s"""SELECT col1, col3, col7 FROM $TabName
-        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col3 != 7.0
-        """.stripMargin)
-        printResults("Where with notequal", results)
+      results = hbContext.sql( s"""SELECT col7, col3, col2, col1, col4 FROM $TabName
+          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 3500 and col3 <= 5000
+          """.stripMargin)
+      printResults("Where/filter on rowkeys change", results)
 
-        results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
+      results = hbContext.sql( s"""SELECT col3, col2, col1, col7, col4 FROM $TabName
+          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 3500 and col3 <= 5000
+          """.stripMargin)
+      printResults("Where/filter on rowkeys", results)
+
+
+      results = hbContext.sql( s"""SELECT col1, col3, col7 FROM $TabName
+          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col3 != 7.0
+          """.stripMargin)
+      printResults("Where with notequal", results)
+
+      results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
+          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and cast(col2 as double) != 7.0
+          """.stripMargin)
+      printResults("Include non-rowkey cols in project", results)
+    }
+    if (runMultiTests) {
+      results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
         WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
         """.stripMargin)
-        printResults("Include non-rowkey cols in project",results)
+      printResults("Include non-rowkey cols in filter", results)
 
-        results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
-        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
-        """.stripMargin)
-        printResults("Include non-rowkey cols in filter",results)
-
-        results = hbContext.sql( s"""SELECT sum(col3) as col3sum, col1, col3 FROM $TabName
+      results = hbContext.sql( s"""SELECT sum(col3) as col3sum, col1, col3 FROM $TabName
         WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
         group by col1,  col3
         """.stripMargin)
-        printResults("Aggregates on rowkeys", results)
+      printResults("Aggregates on rowkeys", results)
 
 
-        results= hbContext.sql( s"""SELECT sum(col2) as col2sum, col4, col1, col3, col2 FROM $TabName
+      results = hbContext.sql( s"""SELECT sum(col2) as col2sum, col4, col1, col3, col2 FROM $TabName
         WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50
         group by col1, col2, col4, col3
         """.stripMargin)
-        printResults("Aggregates on non-rowkeys", results)
-      }
+      printResults("Aggregates on non-rowkeys", results)
     }
   }
 
@@ -259,16 +276,17 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     if (results.isInstanceOf[TestingSchemaRDD]) {
       val data = results.asInstanceOf[TestingSchemaRDD].collectPartitions
       println(s"For test [$msg]: Received data length=${data(0).length}: ${
-        data(0).mkString("RDD results: {","],[","}")
+        data(0).mkString("RDD results: {", "],[", "}")
       }")
     } else {
       val data = results.collect
       println(s"For test [$msg]: Received data length=${data.length}: ${
-        data.mkString("RDD results: {","],[","}")
+        data.mkString("RDD results: {", "],[", "}")
       }")
     }
 
   }
+
   def createTableTest2() {
     ctxSetup()
     // Following fails with Unresolved:
@@ -295,9 +313,9 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     logger.info("Insert data into the test table using applySchema")
     ctxSetup()
     tableSetup()
-//    import hbContext.createSchemaRDD
+    //    import hbContext.createSchemaRDD
     val myRows = hbContext.sparkContext.parallelize(Range(1, 21).map { ix =>
-      MyTable(s"col1$ix", ix.toByte, (ix.toByte * 256).asInstanceOf[Short], ix.toByte * 65536, ix.toByte * 65563L * 65536L,
+      MyTable(s"Michigan", ix.toByte, (ix.toByte * 256).asInstanceOf[Short], ix.toByte * 65536, ix.toByte * 65563L * 65536L,
         (ix.toByte * 65536.0).asInstanceOf[Float], ix.toByte * 65536.0D * 65563.0D)
     })
 
@@ -397,7 +415,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
   }
 
   def main(args: Array[String]) = {
-//    testInsertIntoTable
+    //    testInsertIntoTable
     testQuery
   }
 

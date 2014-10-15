@@ -63,9 +63,16 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
       case PhysicalOperation(projectList, inPredicates, relation: HBaseRelation) =>
 
-        val predicates = inPredicates.asInstanceOf[Seq[BinaryExpression]]
+        val predicates = inPredicates.filter(_.isInstanceOf[BinaryExpression])
+          .map(_.asInstanceOf[BinaryExpression])
 
-        // TODO(sboesch) find all attributes referenced in the predicates
+        // Ensure the outputs from the relation match the expected columns of the query
+//        relation.outputs = {
+//          val outs = projectList.map(_.toAttribute).toSeq
+//          outs
+//        }
+
+//        // TODO(sboesch) find all attributes referenced in the predicates
         val predAttributes = AttributeSet(predicates.flatMap(_.references))
         val projectSet = AttributeSet(projectList.flatMap(_.references))
         //        @tailrec
