@@ -36,7 +36,7 @@ class FIMWithFPGrowthSuite  extends FunSuite with LocalSparkContext {
     assert(rdd.count() == 6)
 
     //check frenquent item set length
-    val fimWithFPGrowth = new FIMWithFPGrowth()
+    val fimWithFPGrowth = new FPGrowth()
     println(fimWithFPGrowth.FPGrowth(rdd,0.1,sc).length)
 
     assert(fimWithFPGrowth.FPGrowth(rdd,0.9,sc).length == 0)

@@ -36,7 +36,7 @@ class FIMWithAprioriSuite extends FunSuite with LocalSparkContext {
     assert(rdd.count() == 6)
 
     //check frenquent item set length
-    val fimWithApriori = new FIMWithApriori()
+    val fimWithApriori = new Apriori()
 
     assert(fimWithApriori.apriori(rdd,0.9,sc).length == 0)
 

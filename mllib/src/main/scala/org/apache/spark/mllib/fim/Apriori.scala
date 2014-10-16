@@ -17,10 +17,10 @@
 package org.apache.spark.mllib.fim
 
 
-import org.apache.spark.{Logging, SparkContext}
 import org.apache.spark.SparkContext._
-import org.apache.spark.rdd.RDD
 import org.apache.spark.broadcast._
+import org.apache.spark.rdd.RDD
+import org.apache.spark.{Logging, SparkContext}
 
 /**
  * Created by z00143870 on 2014/7/30.
@@ -29,16 +29,16 @@ import org.apache.spark.broadcast._
  * step one is scaning data db to get L1 by minSuppprt
  * step two is scan data db multiple to get Lk
  */
-class FIMWithApriori  extends Logging with Serializable{
+class Apriori extends Logging with Serializable {
 
 
   /**
-   * create C1 which contains all of items in data Set.
+   * Create C1 which contains all of single item in data Set.
+   *
    * @param dataSet For mining frequent itemsets dataset
    * @return all of items in data Set
    */
-  def createC1(dataSet: RDD[Array[String]]): Array[Array[String]] =
-  {
+  def createC1(dataSet: RDD[Array[String]]): Array[Array[String]] = {
     //get the items array from data set
     val itemsCollection = dataSet.flatMap(line => line).collect().distinct
     logDebug("itemsCollection:" + itemsCollection)
@@ -46,8 +46,7 @@ class FIMWithApriori  extends Logging with Serializable{
     val itemArrCollection = collection.mutable.ArrayBuffer[Array[String]]()
 
     //change the itemsCollection into itemArrCollection
-    for (item <- itemsCollection)
-    {
+    for (item <- itemsCollection) {
       itemArrCollection += Array[String](item)
     }
 
@@ -64,27 +63,25 @@ class FIMWithApriori  extends Logging with Serializable{
    * @return Lk
    */
   def scanD(dataSet: RDD[Array[String]],
-            dataSetLen:Long,
+            dataSetLen: Long,
             Ck: Array[Array[String]],
             minSupport: Double,
-            sc: SparkContext): Array[(Array[String], Int)] =
-  {
+            sc: SparkContext): Array[(Array[String], Int)] = {
     //broadcast Ck
     val broadcastCk = sc.broadcast(Ck)
     //val broadcastCkList: Array[Array[String]] = broadcastCk.value
 
     val Lk = dataSet.flatMap(line => containCk(line, broadcastCk))
       .filter(_.length > 0)
-      .map(v => (v,1))
-      .reduceByKey(_+_)
+      .map(v => (v, 1))
+      .reduceByKey(_ + _)
       .filter(_._2 >= (minSupport * dataSetLen))
-      .map(v => (v._1.split(" "),v._2))
+      .map(v => (v._1.split(" "), v._2))
       .collect()
 
     return Lk
 
   }
-
 
 
   /**
@@ -94,8 +91,7 @@ class FIMWithApriori  extends Logging with Serializable{
    * @return get Ck array
    */
   def containCk(line: Array[String],
-                broadcastCk: Broadcast[Array[Array[String]]]): Array[String] =
-  {
+                broadcastCk: Broadcast[Array[Array[String]]]): Array[String] = {
 
     // Ck broadcast value
     val broadcastCkList: Array[Array[String]] = broadcastCk.value
@@ -104,21 +100,18 @@ class FIMWithApriori  extends Logging with Serializable{
     // the count number
     var k: Int = 0
 
-    for (broadcastCk <- broadcastCkList)
-    {
+    for (broadcastCk <- broadcastCkList) {
       val bdArray: Array[String] = broadcastCk.sortWith((s, t) => s.compareTo(t) < 0).array
 
-      if (bdArray.toSet subsetOf (line.toSet))
-      {
-        val bdString:String = bdArray.mkString(" ")
+      if (bdArray.toSet subsetOf (line.toSet)) {
+        val bdString: String = bdArray.mkString(" ")
         dbLineArrayBuffer ++= Array[(String)](bdString)
         k = k + 1
       }
 
     }
 
-    if (k == 0)
-    {
+    if (k == 0) {
       dbLineArrayBuffer ++= Array[(String)]("")
     }
 
@@ -133,16 +126,14 @@ class FIMWithApriori  extends Logging with Serializable{
    * @return Ck
    */
   def aprioriGen(Lk: Array[(Array[String], Int)],
-                 k: Int): Array[Array[String]] =
-  {
+                 k: Int): Array[Array[String]] = {
 
     val LkLen = Lk.length
     val CkBuffer = collection.mutable.ArrayBuffer[Array[String]]()
 
     //get Ck from Lk
     for (i <- 0 to LkLen - 1)
-      for (j <- i + 1 to LkLen - 1)
-      {
+      for (j <- i + 1 to LkLen - 1) {
         // get Lk：k-2 before k-2 item
         val L1: Array[String] =
           Lk(i)._1.take(k - 2).sortWith((s, t) => s.compareTo(t) < 0)
@@ -150,20 +141,17 @@ class FIMWithApriori  extends Logging with Serializable{
           Lk(j)._1.take(k - 2).sortWith((s, t) => s.compareTo(t) < 0)
 
         // merge set while the two set L1 and L2 equals
-        if (L1.mkString.equals(L2.mkString))
-        {
+        if (L1.mkString.equals(L2.mkString)) {
           CkBuffer.append((Lk(i)._1.toSet ++ Lk(j)._1.toSet).toArray)
         }
 
       }
 
 
-    if (CkBuffer.length > 0)
-    {
+    if (CkBuffer.length > 0) {
       return CkBuffer.toArray.array
     }
-    else
-    {
+    else {
       return null
     }
 
@@ -176,8 +164,7 @@ class FIMWithApriori  extends Logging with Serializable{
    * @return L1
    */
   def aprioriStepOne(dataSet: RDD[Array[String]],
-                     minCount: Double): Array[(Array[String], Int)] =
-  {
+                     minCount: Double): Array[(Array[String], Int)] = {
     dataSet.flatMap(line => line)
       .map(v => (v, 1))
       .reduceByKey(_ + _)
@@ -191,10 +178,9 @@ class FIMWithApriori  extends Logging with Serializable{
    * @param line line type (String,Int)
    * @return line tpye (Array[String],Int)
    */
-  def line2Array(line:(String,Int)):(Array[String],Int) =
-  {
+  def line2Array(line: (String, Int)): (Array[String], Int) = {
     val arr = Array[String](line._1)
-    return (arr,line._2)
+    return (arr, line._2)
   }
 
   /**
@@ -209,55 +195,49 @@ class FIMWithApriori  extends Logging with Serializable{
    */
   def apriori(dataSet: RDD[Array[String]],
               minSupport: Double,
-              sc: SparkContext): Array[(String,Int)] = {
+              sc: SparkContext): Array[(String, Int)] = {
 
-    if (dataSet == null)
-    {
+    if (dataSet == null) {
       logWarning("dadaSet can not be null.")
       return null
     }
 
-    if (sc == null)
-    {
+    if (sc == null) {
       logWarning("sc can not be null.")
       return null
     }
     logDebug("minSupport:" + minSupport)
     //dataSet length
-    val dataSetLen:Long = dataSet.count()
+    val dataSetLen: Long = dataSet.count()
     //the count line for minSupport
     val minCount = minSupport * dataSetLen
     logDebug("minCount:" + minCount)
     //definite L collection that using save all of frequent item set
     val L = collection.mutable.ArrayBuffer[Array[(Array[String], Int)]]()
-    val FIS = collection.mutable.ArrayBuffer[(String,Int)]()
+    val FIS = collection.mutable.ArrayBuffer[(String, Int)]()
 
     //call aprioriStepOne method to get L1
-    val L1: Array[(Array[String], Int)] = aprioriStepOne(dataSet,minCount)
+    val L1: Array[(Array[String], Int)] = aprioriStepOne(dataSet, minCount)
     logDebug("L1 length:" + L1.length)
     logDebug("L1:" + L1)
 
     // L1 assignment to L
-    if (L1.length > 0)
-    {
+    if (L1.length > 0) {
       L += L1
 
-      for (arr <- L1)
-      {
-        FIS += ((arr._1.mkString(" "),arr._2))
+      for (arr <- L1) {
+        FIS += ((arr._1.mkString(" "), arr._2))
       }
 
       // step counter
       var k: Int = 2
       // do the loop while the k > 0 and L length > 1
-      while ((k > 0) && ((L(k - 2).length) > 1)  )
-      {
+      while ((k > 0) && ((L(k - 2).length) > 1)) {
         logDebug("print k:" + k)
         //call createCk method to get Ck
-        val Ck: Array[Array[String]] = aprioriGen(L(k-2), k)
+        val Ck: Array[Array[String]] = aprioriGen(L(k - 2), k)
 
-        if (Ck != null)
-        {
+        if (Ck != null) {
           //call createLk method to get Lk
           val Lk: Array[(Array[String], Int)] =
             scanD(
@@ -269,16 +249,14 @@ class FIMWithApriori  extends Logging with Serializable{
           // Lk assignment to L
           L += Lk
 
-          for (arr <- Lk)
-          {
-            FIS += ((arr._1.mkString(" "),arr._2))
+          for (arr <- Lk) {
+            FIS += ((arr._1.mkString(" "), arr._2))
           }
 
           k = k + 1
 
         }
-        else
-        {
+        else {
           k = -1
         }
       }
@@ -286,10 +264,9 @@ class FIMWithApriori  extends Logging with Serializable{
       //return L.toArray.array
       return FIS.toArray.array
     }
-    else
-    {
+    else {
       //return Array[Array[(Array[String], Int)]]()
-      return Array[(String,Int)]()
+      return Array[(String, Int)]()
     }
 
   }

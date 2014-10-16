@@ -30,7 +30,7 @@ import org.apache.spark.broadcast._
  * step one is scaning data db to get L1 by minSuppprt
  * step two is scan data db once to get Lk
  */
-class FIMWithFPGrowth extends Logging with Serializable{
+class FPGrowth extends Logging with Serializable{
 
   /**
    * FPGrowth algorithm：
