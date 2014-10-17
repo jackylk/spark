@@ -24,11 +24,11 @@ import org.apache.spark.mllib.util.LocalSparkContext
  * using Practical Machine Learning Book data test the FPGrowth algorithm result by minSupport from 0.9 to 0.1
  * Created by z00143870 on 2014/8/26.
  */
-class FIMWithFPGrowthSuite  extends FunSuite with LocalSparkContext {
+class FPGrowthSuite  extends FunSuite with LocalSparkContext {
 
   test("test FIM with FPGrowth")
   {
-    val arr = FIMWithAprioriSuite.createFIMDataSet()
+    val arr = AprioriSuite.createFIMDataSet()
     assert(arr.length === 6)
     val dataSet = sc.parallelize(arr)
     assert(dataSet.count() == 6)
@@ -63,7 +63,7 @@ class FIMWithFPGrowthSuite  extends FunSuite with LocalSparkContext {
 /**
  * create dataset
  */
-object FIMWithFPGrowthSuite
+object FPGrowthSuite
 {
   /**
    * create dataset using Practical Machine Learning Book data

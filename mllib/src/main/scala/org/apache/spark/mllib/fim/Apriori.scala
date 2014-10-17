@@ -29,24 +29,24 @@ import org.apache.spark.{Logging, SparkContext}
  * step one is scaning data db to get L1 by minSuppprt
  * step two is scan data db multiple to get Lk
  */
-class Apriori extends Logging with Serializable {
+object Apriori extends Logging with Serializable {
 
 
   /**
    * Create C1 which contains all of single item in data Set.
    *
    * @param dataSet For mining frequent itemsets dataset
-   * @return all of items in data Set
+   * @return single item in data Set
    */
   def createC1(dataSet: RDD[Array[String]]): Array[Array[String]] = {
-    //get the items array from data set
-    val itemsCollection = dataSet.flatMap(line => line).collect().distinct
-    logDebug("itemsCollection:" + itemsCollection)
-    //definition new array which item is an array form
+    //get all distinct item in the RDD
+    val itemCollection = dataSet.flatMap(line => line).distinct().collect()
+
+    //define new array which item is an array form
     val itemArrCollection = collection.mutable.ArrayBuffer[Array[String]]()
 
     //change the itemsCollection into itemArrCollection
-    for (item <- itemsCollection) {
+    for (item <- itemCollection) {
       itemArrCollection += Array[String](item)
     }
 
@@ -150,8 +150,7 @@ class Apriori extends Logging with Serializable {
 
     if (CkBuffer.length > 0) {
       return CkBuffer.toArray.array
-    }
-    else {
+    } else {
       return null
     }
 
@@ -197,16 +196,6 @@ class Apriori extends Logging with Serializable {
               minSupport: Double,
               sc: SparkContext): Array[(String, Int)] = {
 
-    if (dataSet == null) {
-      logWarning("dadaSet can not be null.")
-      return null
-    }
-
-    if (sc == null) {
-      logWarning("sc can not be null.")
-      return null
-    }
-    logDebug("minSupport:" + minSupport)
     //dataSet length
     val dataSetLen: Long = dataSet.count()
     //the count line for minSupport
@@ -270,6 +259,4 @@ class Apriori extends Logging with Serializable {
     }
 
   }
-
 }
-
