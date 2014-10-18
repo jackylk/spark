@@ -86,7 +86,8 @@ private[hbase] case class HBaseRelation(
       // TODO: rewrite the predicates based on Catalyst Expressions
 
       // TODO: Do column pruning based on only the required colFamilies
-      val filters: HBaseSQLFilters = new HBaseSQLFilters(colFamilies, rowKeyPredicates, colPredicates)
+      val filters: HBaseSQLFilters = new HBaseSQLFilters(colFamilies,
+        rowKeyPredicates, colPredicates)
       val colFilters = filters.createColumnFilters
 
       // TODO: Perform Partition pruning based on the rowKeyPredicates
@@ -192,8 +193,10 @@ private[hbase] case class HBaseRelation(
     @transient val logger = Logger.getLogger(getClass.getName)
 
     def createColumnFilters(): Option[FilterList] = {
-      val colFilters: FilterList = new FilterList(FilterList.Operator.MUST_PASS_ALL)
-      //      colFilters.addFilter(new HBaseRowFilter(colFamilies, catalogTable.rowKeyColumns.columns,
+      val colFilters: FilterList =
+        new FilterList(FilterList.Operator.MUST_PASS_ALL)
+      //      colFilters.addFilter(new HBaseRowFilter(colFamilies,
+      //          catalogTable.rowKeyColumns.columns,
       //        rowKeyPreds.orNull))
       opreds.foreach {
         case preds: Seq[Expression] =>
@@ -340,11 +343,12 @@ private[hbase] case class HBaseRelation(
      * <16> = offset of Dimension3  <in 16-bits integer binary>
      * 3 = DimensionCountByte
      *
-     * The rationale for putting the dimension values BEFORE the offsets and DimensionCountByte is to
+     * The rationale for putting the dimension values BEFORE the offsets and DimensionCountByte
+     * is to
      * facilitate RangeScan's for sequential dimension values.  We need the PREFIX of the key to be
      * consistent on the  initial bytes to enable the higher performance sequential scanning.
-     * Therefore the variable parts - which include the dimension offsets and DimensionCountByte - are
-     * placed at the end of the RowKey.
+     * Therefore the variable parts - which include the dimension offsets and DimensionCountByte
+     * - are placed at the end of the RowKey.
      *
      * We are assuming that a byte array representing the RowKey is completely filled by the key.
      * That is required for us to determine the length of the key and retrieve the important

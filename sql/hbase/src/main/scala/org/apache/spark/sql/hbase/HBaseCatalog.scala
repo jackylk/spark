@@ -446,7 +446,8 @@ object HBaseCatalog {
   case object RawBytesRowKey extends RowKey
 
   // Convenience method to aid in validation/testing
-  private[hbase] def getKeysFromAllMetaTableRows(configuration: Configuration): Seq[HBaseRawType] = {
+  private[hbase] def getKeysFromAllMetaTableRows(configuration: Configuration)
+      : Seq[HBaseRawType] = {
     val htable = new HTable(configuration, MetaData)
     val scan = new Scan
     scan.setFilter(new FirstKeyOnlyFilter())

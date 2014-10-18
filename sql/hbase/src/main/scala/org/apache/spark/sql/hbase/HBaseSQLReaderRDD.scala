@@ -80,7 +80,8 @@ class HBaseSQLReaderRDD(relation: HBaseRelation,
 
   override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
 
-    relation.configuration = HBaseSQLContext.createConfigurationFromSerializedFields(serializedConfig)
+    relation.configuration = HBaseSQLContext
+      .createConfigurationFromSerializedFields(serializedConfig)
 
     val scan = relation.getScanner(split)
     if (applyFilters) {
