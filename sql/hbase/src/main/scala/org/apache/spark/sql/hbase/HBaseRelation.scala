@@ -40,14 +40,6 @@ import scala.collection.immutable.TreeMap
  *
  * Created by stephen.boesch@huawei.com on 9/8/14
  */
-
-
-//case class HBaseRelation (sqlTableName: String,
-//      hbaseTableName: String,
-//      schema Schema,
-//      key_mapping,
-//      column_mapping)
-
 private[hbase] case class HBaseRelation(
                                          @transient var configuration: Configuration,
                                          @transient var hbaseContext: HBaseSQLContext,
@@ -133,9 +125,6 @@ private[hbase] case class HBaseRelation(
     p
   }
 
-  // The SerializedContext will contain the necessary instructions
-  // for all Workers to know how to connect to HBase
-  // For now just hardcode the Config/connection logic
   @transient lazy val connection = getHBaseConnection(configuration)
 
   lazy val hbPartitions = HBaseRelation
@@ -153,10 +142,8 @@ private[hbase] case class HBaseRelation(
 
   def getRowPrefixPredicates(predicates: Seq[Expression]) = {
 
-    //    def binPredicates = predicates.filter(_.isInstanceOf[BinaryExpression])
     // Filter out all predicates that only deal with partition keys, these are given to the
     // hive table scan operator to be used for partition pruning.
-
     val partitionKeys = catalogTable.rowKey.asAttributes()
 
     val partitionKeyIds = AttributeSet(partitionKeys)
@@ -201,12 +188,7 @@ private[hbase] case class HBaseRelation(
       opreds.foreach {
         case preds: Seq[Expression] =>
           // TODO; re-do the predicates logic using expressions
-          //
           //          new SingleColumnValueFilter(s2b(col.colName.family.get),
-          //            s2b(col.colName.qualifier),
-          //            p.op.toHBase,
-          //            new BinaryComparator(s2b(colval.litval.toString)))
-          //        }.foreach { f =>
           //          colFilters.addFilter(f)
           //        }
           colFilters
@@ -241,22 +223,11 @@ private[hbase] case class HBaseRelation(
         val rowPrefixPreds = getRowPrefixPredicates(rowKeyPreds
           .asInstanceOf[Seq[BinaryExpression]])
         // TODO: fix sorting of rowprefix preds
-//        val sortedRowPrefixPredicates = rowPrefixPreds.toList.sortWith { (a, b) =>
-//          if (!a.isInstanceOf[BinaryExpression] || !b.isInstanceOf[BinaryExpression]) {
-//            throw new UnsupportedOperationException(
-//              s"Only binary expressions supported for sorting ${a.toString} ${b.toString}")
-//          } else {
-//            val rowKeyColsMap = rowKeyParser.parseRowKeyWithMetaData(rkCols, rowKey)
-//            val result = rowKeyPreds.forall{p =>
-//              p.eval(Row(rowKeyColsMap.values.map{_._2}).asInstanceOf[Boolean]
-//            }
-//              // TODO: re-do predicates using Expressions
-//          }
-//          result
-//        }
         val rowKeyColsMap = rowKeyParser.parseRowKeyWithMetaData(rkCols, rowKey)
-        val result = rowKeyPreds.forall{p =>
-          p.eval(Row(rowKeyColsMap.values.map{_._2})).asInstanceOf[Boolean]
+        val result = rowKeyPreds.forall { p =>
+          p.eval(Row(rowKeyColsMap.values.map {
+            _._2
+          })).asInstanceOf[Boolean]
         }
         result
       }
@@ -269,218 +240,177 @@ private[hbase] case class HBaseRelation(
     def rowKeyOrdinal(name: ColumnName) = catalogTable.rowKey(name).ordinal
 
   }
+
 }
 
+object HBaseRelation {
+  @transient private lazy val lazyConfig = HBaseConfiguration.create()
+
+  def configuration() = lazyConfig
+
+  def getHBaseConnection(configuration: Configuration) = {
+    val connection = HConnectionManager.createConnection(configuration)
+    connection
+  }
+
+  def getPartitions(tableName: TableName,
+                    config: Configuration) = {
+    import scala.collection.JavaConverters._
+    val hConnection = getHBaseConnection(config)
+    val regionLocations = hConnection.locateRegions(tableName)
+    case class BoundsAndServers(startKey: HBaseRawType, endKey: HBaseRawType,
+                                servers: Seq[String])
+    val regionBoundsAndServers = regionLocations.asScala.map { hregionLocation =>
+      val regionInfo = hregionLocation.getRegionInfo
+      BoundsAndServers(regionInfo.getStartKey, regionInfo.getEndKey,
+        Seq(hregionLocation.getServerName.getHostname))
+    }
+    val partSeq = regionBoundsAndServers.zipWithIndex.map { case (rb, ix) =>
+      new HBasePartition(ix, HBasePartitionBounds(Some(rb.startKey), Some(rb.endKey)),
+        Some(rb.servers(0)))
+    }
+    partSeq.toIndexedSeq
+  }
+
+  def rowKeysFromRows(schemaRdd: SchemaRDD, relation: HBaseRelation) = {
+    assert(schemaRdd != null)
+    assert(relation != null)
+    assert(relation.rowKeyParser != null)
+    schemaRdd.map { r: Row =>
+      relation.rowKeyParser.createKeyFromCatalystRow(
+        schemaRdd.schema,
+        relation.catalogTable.rowKeyColumns,
+        r)
+    }
+  }
 
 
-  object HBaseRelation {
-    @transient private lazy val lazyConfig = HBaseConfiguration.create()
+  /**
+   * Trait for RowKeyParser's that convert a raw array of bytes into their constituent
+   * logical column values
+   *
+   */
+  trait AbstractRowKeyParser {
 
-    def configuration() = lazyConfig
+    def createKey(rawBytes: HBaseRawRowSeq, version: Byte): HBaseRawType
 
-    def getHBaseConnection(configuration: Configuration) = {
-      val connection = HConnectionManager.createConnection(configuration)
-      connection
+    def parseRowKey(rowKey: HBaseRawType): HBaseRawRowSeq // .NavigableMap[String, HBaseRawType]
+
+    def parseRowKeyWithMetaData(rkCols: Seq[Column], rowKey: HBaseRawType)
+    : SortedMap[ColumnName, (Column, Any)]
+  }
+
+  case class RowKeySpec(offsets: Seq[Int], version: Byte = RowKeyParser.Version1)
+
+  // TODO(Bo): replace the implementation with the null-byte terminated string logic
+  object RowKeyParser extends AbstractRowKeyParser with Serializable {
+
+
+    val Version1 = 1.toByte
+
+    val VersionFieldLen = 1
+    // Length in bytes of the RowKey version field
+    val DimensionCountLen = 1
+    // One byte for the number of key dimensions
+    val MaxDimensions = 255
+    val OffsetFieldLen = 2
+
+    // Two bytes for the value of each dimension offset.
+    // Therefore max size of rowkey is 65535.  Note: if longer rowkeys desired in future
+    // then simply define a new RowKey version to support it. Otherwise would be wasteful
+    // to define as 4 bytes now.
+    def computeLength(keys: HBaseRawRowSeq) = {
+      VersionFieldLen + keys.map {
+        _.length
+      }.sum + OffsetFieldLen * keys.size + DimensionCountLen
     }
 
-    def getPartitions(tableName: TableName,
-                      config: Configuration) = {
-      import scala.collection.JavaConverters._
-      val hConnection = getHBaseConnection(config)
-      val regionLocations = hConnection.locateRegions(tableName)
-      case class BoundsAndServers(startKey: HBaseRawType, endKey: HBaseRawType,
-                                  servers: Seq[String])
-      val regionBoundsAndServers = regionLocations.asScala.map { hregionLocation =>
-        val regionInfo = hregionLocation.getRegionInfo
-        BoundsAndServers(regionInfo.getStartKey, regionInfo.getEndKey,
-          Seq(hregionLocation.getServerName.getHostname))
+    override def createKey(keys: HBaseRawRowSeq, version: Byte = Version1): HBaseRawType = {
+      var barr = new Array[Byte](computeLength(keys))
+      val arrayx = new AtomicInteger(0)
+      barr(arrayx.getAndAdd(VersionFieldLen)) = version // VersionByte
+
+      // Remember the starting offset of first data value
+      val valuesStartIndex = new AtomicInteger(arrayx.get)
+
+      // copy each of the dimension values in turn
+      keys.foreach { k => copyToArr(barr, k, arrayx.getAndAdd(k.length))}
+
+      // Copy the offsets of each dim value
+      // The valuesStartIndex is the location of the first data value and thus the first
+      // value included in the Offsets sequence
+      keys.foreach { k =>
+        copyToArr(barr,
+          short2b(valuesStartIndex.getAndAdd(k.length).toShort),
+          arrayx.getAndAdd(OffsetFieldLen))
       }
-      val partSeq = regionBoundsAndServers.zipWithIndex.map { case (rb, ix) =>
-        new HBasePartition(ix, HBasePartitionBounds(Some(rb.startKey), Some(rb.endKey)),
-          Some(rb.servers(0)))
-      }
-      partSeq.toIndexedSeq
+      barr(arrayx.get) = keys.length.toByte // DimensionCountByte
+      barr
     }
 
-    def rowKeysFromRows(schemaRdd: SchemaRDD, relation: HBaseRelation) = {
-      assert(schemaRdd != null)
-      assert(relation != null)
-      assert(relation.rowKeyParser != null)
-      schemaRdd.map { r: Row =>
-        relation.rowKeyParser.createKeyFromCatalystRow(
-          schemaRdd.schema,
-          relation.catalogTable.rowKeyColumns,
-          r)
-      }
+    def copyToArr[T](a: Array[T], b: Array[T], aoffset: Int) = {
+      b.copyToArray(a, aoffset)
     }
 
-
-    /**
-     * Trait for RowKeyParser's that convert a raw array of bytes into their constituent
-     * logical column values
-     *
-     * Format of a RowKey is:
-     * <version#><dim1-value><dim2-value>..<dimN-value>[offset1,offset2,..offset N]<# dimensions>
-     * where:
-     * #dimensions is an integer value represented in one byte. Max value = 255
-     * each offset is represented by a short value in 2 bytes
-     * each dimension value is contiguous, i.e there are no delimiters
-     *
-     * In short:
-     * First: the VersionByte
-     * Next: All of the Dimension Values (no delimiters between them)
-     * Dimension Offsets: 16 bit values starting with 1 (the first byte after the VersionByte)
-     * Last: DimensionCountByte
-     *
-     * example: 1HelloThere9999abcde<1><12><16>3
-     * where
-     * 1 = VersionByte
-     * HelloThere = Dimension1
-     * 9999 = Dimension2
-     * abcde = Dimension3
-     * <1> = offset of Dimension1   <in 16-bits integer binary>
-     * <12> = offset of Dimension2   <in 16-bits integer binary>
-     * <16> = offset of Dimension3  <in 16-bits integer binary>
-     * 3 = DimensionCountByte
-     *
-     * The rationale for putting the dimension values BEFORE the offsets and DimensionCountByte
-     * is to
-     * facilitate RangeScan's for sequential dimension values.  We need the PREFIX of the key to be
-     * consistent on the  initial bytes to enable the higher performance sequential scanning.
-     * Therefore the variable parts - which include the dimension offsets and DimensionCountByte
-     * - are placed at the end of the RowKey.
-     *
-     * We are assuming that a byte array representing the RowKey is completely filled by the key.
-     * That is required for us to determine the length of the key and retrieve the important
-     * DimensionCountByte.
-     *
-     * With the DimnensionCountByte the offsets can then be located and the values
-     * of the Dimensions computed.
-     *
-     */
-    trait AbstractRowKeyParser {
-
-      def createKey(rawBytes: HBaseRawRowSeq, version: Byte): HBaseRawType
-
-      def parseRowKey(rowKey: HBaseRawType): HBaseRawRowSeq // .NavigableMap[String, HBaseRawType]
-
-      def parseRowKeyWithMetaData(rkCols: Seq[Column], rowKey: HBaseRawType)
-      : SortedMap[ColumnName, (Column, Any)]
+    def short2b(sh: Short): Array[Byte] = {
+      val barr = Array.ofDim[Byte](2)
+      barr(0) = ((sh >> 8) & 0xff).toByte
+      barr(1) = (sh & 0xff).toByte
+      barr
     }
 
-    case class RowKeySpec(offsets: Seq[Int], version: Byte = RowKeyParser.Version1)
-
-    object RowKeyParser extends AbstractRowKeyParser with Serializable {
-
-
-      val Version1 = 1.toByte
-
-      val VersionFieldLen = 1
-      // Length in bytes of the RowKey version field
-      val DimensionCountLen = 1
-      // One byte for the number of key dimensions
-      val MaxDimensions = 255
-      val OffsetFieldLen = 2
-
-      // Two bytes for the value of each dimension offset.
-      // Therefore max size of rowkey is 65535.  Note: if longer rowkeys desired in future
-      // then simply define a new RowKey version to support it. Otherwise would be wasteful
-      // to define as 4 bytes now.
-      def computeLength(keys: HBaseRawRowSeq) = {
-        VersionFieldLen + keys.map {
-          _.length
-        }.sum + OffsetFieldLen * keys.size + DimensionCountLen
-      }
-
-      override def createKey(keys: HBaseRawRowSeq, version: Byte = Version1): HBaseRawType = {
-        var barr = new Array[Byte](computeLength(keys))
-        val arrayx = new AtomicInteger(0)
-        barr(arrayx.getAndAdd(VersionFieldLen)) = version // VersionByte
-
-        // Remember the starting offset of first data value
-        val valuesStartIndex = new AtomicInteger(arrayx.get)
-
-        // copy each of the dimension values in turn
-        keys.foreach { k => copyToArr(barr, k, arrayx.getAndAdd(k.length))}
-
-        // Copy the offsets of each dim value
-        // The valuesStartIndex is the location of the first data value and thus the first
-        // value included in the Offsets sequence
-        keys.foreach { k =>
-          copyToArr(barr,
-            short2b(valuesStartIndex.getAndAdd(k.length).toShort),
-            arrayx.getAndAdd(OffsetFieldLen))
-        }
-        barr(arrayx.get) = keys.length.toByte // DimensionCountByte
-        barr
-      }
-
-      def copyToArr[T](a: Array[T], b: Array[T], aoffset: Int) = {
-        b.copyToArray(a, aoffset)
-      }
-
-      def short2b(sh: Short): Array[Byte] = {
-        val barr = Array.ofDim[Byte](2)
-        barr(0) = ((sh >> 8) & 0xff).toByte
-        barr(1) = (sh & 0xff).toByte
-        barr
-      }
-
-      def b2Short(barr: Array[Byte]) = {
-        val out = (barr(0).toShort << 8) | barr(1).toShort
-        out
-      }
-
-      def createKeyFromCatalystRow(schema: StructType, keyCols: Columns, row: Row) = {
-        val rawKeyCols = DataTypeUtils.catalystRowToHBaseRawVals(schema, row, keyCols)
-        createKey(rawKeyCols)
-      }
-
-      def getMinimumRowKeyLength = VersionFieldLen + DimensionCountLen
-
-      override def parseRowKey(rowKey: HBaseRawType): HBaseRawRowSeq = {
-
-        assert(rowKey.length >= getMinimumRowKeyLength,
-          s"RowKey is invalid format - less than minlen . Actual length=${rowKey.length}")
-        assert(rowKey(0) == Version1, s"Only Version1 supported. Actual=${rowKey(0)}")
-        val ndims: Int = rowKey(rowKey.length - 1).toInt
-        val offsetsStart = rowKey.length - DimensionCountLen - ndims * OffsetFieldLen
-        val rowKeySpec = RowKeySpec(
-          for (dx <- 0 to ndims - 1)
-          yield b2Short(rowKey.slice(offsetsStart + dx * OffsetFieldLen,
-            offsetsStart + (dx + 1) * OffsetFieldLen))
-        )
-
-        val endOffsets = rowKeySpec.offsets.tail :+ (rowKey.length - DimensionCountLen - 1)
-        val colsList = rowKeySpec.offsets.zipWithIndex.map { case (off, ix) =>
-          rowKey.slice(off, endOffsets(ix))
-        }
-        colsList
-      }
-
-      override def parseRowKeyWithMetaData(rkCols: Seq[Column], rowKey: HBaseRawType):
-      SortedMap[ColumnName, (Column, Any)] = {
-        import scala.collection.mutable.HashMap
-
-        val rowKeyVals = parseRowKey(rowKey)
-        val rmap = rowKeyVals.zipWithIndex.foldLeft(new HashMap[ColumnName, (Column, Any)]()) {
-          case (m, (cval, ix)) =>
-            m.update(rkCols(ix).toColumnName, (rkCols(ix),
-              hbaseFieldToRowField(cval, rkCols(ix).dataType)))
-            m
-        }
-//        val umap =  rmap.toMap[ColumnName, (Column, Any)]
-
-        TreeMap(rmap.toArray:_*) (Ordering.by{cn :ColumnName => rmap(cn)._1.ordinal})
-          .asInstanceOf[SortedMap[ColumnName, (Column, Any)]]
-      }
-
-      def show(bytes: Array[Byte]) = {
-        val len = bytes.length
-        val out = s"Version=${bytes(0).toInt} NumDims=${bytes(len - 1)} "
-      }
-
+    def b2Short(barr: Array[Byte]) = {
+      val out = (barr(0).toShort << 8) | barr(1).toShort
+      out
     }
 
+    def createKeyFromCatalystRow(schema: StructType, keyCols: Columns, row: Row) = {
+      val rawKeyCols = DataTypeUtils.catalystRowToHBaseRawVals(schema, row, keyCols)
+      createKey(rawKeyCols)
+    }
+
+    def getMinimumRowKeyLength = VersionFieldLen + DimensionCountLen
+
+    override def parseRowKey(rowKey: HBaseRawType): HBaseRawRowSeq = {
+
+      assert(rowKey.length >= getMinimumRowKeyLength,
+        s"RowKey is invalid format - less than minlen . Actual length=${rowKey.length}")
+      assert(rowKey(0) == Version1, s"Only Version1 supported. Actual=${rowKey(0)}")
+      val ndims: Int = rowKey(rowKey.length - 1).toInt
+      val offsetsStart = rowKey.length - DimensionCountLen - ndims * OffsetFieldLen
+      val rowKeySpec = RowKeySpec(
+        for (dx <- 0 to ndims - 1)
+        yield b2Short(rowKey.slice(offsetsStart + dx * OffsetFieldLen,
+          offsetsStart + (dx + 1) * OffsetFieldLen))
+      )
+
+      val endOffsets = rowKeySpec.offsets.tail :+ (rowKey.length - DimensionCountLen - 1)
+      val colsList = rowKeySpec.offsets.zipWithIndex.map { case (off, ix) =>
+        rowKey.slice(off, endOffsets(ix))
+      }
+      colsList
+    }
+
+    override def parseRowKeyWithMetaData(rkCols: Seq[Column], rowKey: HBaseRawType):
+    SortedMap[ColumnName, (Column, Any)] = {
+      import scala.collection.mutable.HashMap
+
+      val rowKeyVals = parseRowKey(rowKey)
+      val rmap = rowKeyVals.zipWithIndex.foldLeft(new HashMap[ColumnName, (Column, Any)]()) {
+        case (m, (cval, ix)) =>
+          m.update(rkCols(ix).toColumnName, (rkCols(ix),
+            hbaseFieldToRowField(cval, rkCols(ix).dataType)))
+          m
+      }
+      TreeMap(rmap.toArray: _*)(Ordering.by { cn: ColumnName => rmap(cn)._1.ordinal})
+        .asInstanceOf[SortedMap[ColumnName, (Column, Any)]]
+    }
+
+    def show(bytes: Array[Byte]) = {
+      val len = bytes.length
+      val out = s"Version=${bytes(0).toInt} NumDims=${bytes(len - 1)} "
+    }
 
   }
+
+}

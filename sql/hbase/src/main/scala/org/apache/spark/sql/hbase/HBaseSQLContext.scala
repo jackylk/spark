@@ -17,18 +17,15 @@
 
 package org.apache.spark.sql.hbase
 
-import java.io.{DataInputStream, ByteArrayInputStream, ByteArrayOutputStream, DataOutputStream}
-import java.util.Properties
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, DataOutputStream}
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase._
-import org.apache.hadoop.hbase.client.HConnectionManager
 import org.apache.spark.SparkContext
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.analysis.Analyzer
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Column, Columns}
+import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns, KeyColumn}
 
 /**
  * An instance of the Spark SQL execution engine that integrates with data stored in Hive.
@@ -46,15 +43,12 @@ class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf:
 
   @transient val hBasePlanner = new SparkPlanner with HBaseStrategies {
 
-    //    self: SQLContext#SparkPlanner =>
-
     val hbaseContext = self
     SparkPlan.currentContext.set(self)
 
     override val strategies: Seq[Strategy] = Seq(
       CommandStrategy(self),
       TakeOrdered,
-      //      ParquetOperations,
       InMemoryScans,
       HBaseTableScans,
       HashAggregation,

@@ -17,35 +17,19 @@
 
 package org.apache.spark.sql.hbase
 
-import java.io._
-import java.util.concurrent.atomic.AtomicLong
-
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.HBaseConfiguration
-import org.apache.hadoop.hbase.client.{Get, HConnectionManager, HTable}
+import org.apache.hadoop.hbase.client.HTable
 import org.apache.hadoop.hbase.filter.{Filter => HFilter}
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.planning.{QueryPlanner, PhysicalOperation}
+import org.apache.spark.sql.catalyst.planning.{PhysicalOperation, QueryPlanner}
 import org.apache.spark.sql.catalyst.plans.logical
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, Join, LogicalPlan}
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.hbase.HBaseCatalog.Columns
-import org.apache.spark.sql.{SQLContext, SchemaRDD, StructType}
-
-import scala.annotation.tailrec
+import org.apache.spark.sql.{SQLContext, SchemaRDD}
 
 /**
  * HBaseStrategies
  * Created by sboesch on 8/22/14.
- */
-
-/**
- *
- *
-private[sql] abstract class SparkStrategies extends QueryPlanner[SparkPlan] {
-  self: SQLContext#SparkPlanner =>
-
  */
 private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
   self: SQLContext#SparkPlanner =>
@@ -97,7 +81,7 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
           }.toSeq,
           relation,
           projectList,
-          otherPredicates, // Assume otherPreds == columnPruningPredicates ?
+          otherPredicates,
           rowKeyPreds,
           rowKeyPreds,
           None // coprocSubPlan

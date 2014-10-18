@@ -16,8 +16,6 @@
  */
 package org.apache.spark.sql.hbase
 
-import java.math.BigDecimal
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter
@@ -55,7 +53,6 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext,
 
   override def lookupRelation(nameSpace: Option[String], sqlTableName: String,
                               alias: Option[String]): LogicalPlan = {
-    // val ns = nameSpace.getOrElse("")
     val itableName = processTableName(sqlTableName)
     val catalogTable = getTable(sqlTableName)
     if (catalogTable.isEmpty) {
@@ -427,8 +424,6 @@ object HBaseCatalog {
                                rowKey: Columns,    // Should do RowKey for geneeralization
                                colFamilies: Seq[String],
                                columns: Columns) {
-
-    val rowKeyParser = RowKeyParser
 
     val rowKeyColumns = rowKey
 

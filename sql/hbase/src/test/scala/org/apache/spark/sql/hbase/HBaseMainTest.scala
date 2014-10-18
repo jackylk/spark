@@ -190,38 +190,38 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     var results: SchemaRDD = null
     var data: Array[sql.Row] = null
 
-      results = hbContext.sql( s"""SELECT * FROM $TabName """.stripMargin)
-      printResults("Star* operator", results)
-      data = results.collect
-      assert(data.size >= 2)
+    results = hbContext.sql( s"""SELECT * FROM $TabName """.stripMargin)
+    printResults("Star* operator", results)
+    data = results.collect
+    assert(data.size >= 2)
 
+    results = hbContext.sql(
+      s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
+             """.stripMargin)
+    printResults("Limit Op", results)
+    data = results.collect
+    assert(data.size == 1)
+
+    results = hbContext.sql(
+      s"""SELECT col3, col2, col1, col4, col7 FROM $TabName order by col7 desc
+             """.stripMargin)
+    printResults("Ordering with nonkey columns", results)
+    data = results.collect
+    assert(data.size >= 2)
+
+    try {
       results = hbContext.sql(
         s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
              """.stripMargin)
       printResults("Limit Op", results)
-      data = results.collect
-      assert(data.size == 1)
+    } catch {
+      case e: Exception => "Query with Limit failed"
+        e.printStackTrace
+    }
 
-      results = hbContext.sql(
-        s"""SELECT col3, col2, col1, col4, col7 FROM $TabName order by col7 desc
-             """.stripMargin)
-      printResults("Ordering with nonkey columns", results)
-      data = results.collect
-      assert(data.size >= 2)
-
-      try {
-        results = hbContext.sql(
-          s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
-             """.stripMargin)
-        printResults("Limit Op", results)
-      } catch {
-        case e: Exception => "Query with Limit failed"
-          e.printStackTrace
-      }
-
-      results = hbContext.sql( s"""SELECT col3, col1, col7 FROM $TabName ORDER  by col7 DESC
+    results = hbContext.sql( s"""SELECT col3, col1, col7 FROM $TabName ORDER  by col7 DESC
       """.stripMargin)
-      printResults("Order by", results)
+    printResults("Order by", results)
 
     if (runMultiTests) {
       results = hbContext.sql( s"""SELECT col3, col2, col1, col7, col4 FROM $TabName
@@ -358,14 +358,15 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     cluster.shutdown
   }
 
-  import org.apache.spark.sql.hbase.RowKeyParser._
+  import org.apache.spark.sql.hbase.HBaseRelation.RowKeyParser
 
   def makeRowKey(col7: Double, col1: String, col3: Short) = {
-    val size = 1 + sizeOf(col7) + sizeOf(col1) + sizeOf(col3) + 3 * 2 + DimensionCountLen
+    val size = 1 + sizeOf(col7) + sizeOf(col1) + sizeOf(col3) + 3 * 2
+          + RowKeyParser.DimensionCountLen
     //      val barr = new Array[Byte](size)
     val bos = new ByteArrayOutputStream(size)
     val dos = new DataOutputStream(bos)
-    dos.writeByte(RowKeyParser.Version1)
+    dos.writeByte(HBaseRelation.RowKeyParser.Version1)
     dos.writeDouble(col7)
     dos.writeBytes(col1)
     dos.writeShort(col3)

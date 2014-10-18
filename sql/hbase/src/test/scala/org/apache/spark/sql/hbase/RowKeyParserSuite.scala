@@ -1,15 +1,13 @@
 package org.apache.spark.sql.hbase
 
-import java.io.{DataOutputStream, ByteArrayOutputStream}
+import java.io.{ByteArrayOutputStream, DataOutputStream}
 
 import org.apache.log4j.Logger
-import org.apache.spark.sql.StructField
 import org.apache.spark.sql.catalyst.expressions.Row
 import org.apache.spark.sql.catalyst.types._
-import org.apache.spark.sql.hbase.HBaseCatalog.{Columns, Column}
-import org.apache.spark.sql.hbase.RowKeyParser._
-import org.scalatest.{ShouldMatchers, FunSuite}
-import DataTypeUtils._
+import org.apache.spark.sql.hbase.DataTypeUtils._
+import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns}
+import org.scalatest.{FunSuite, ShouldMatchers}
 
 /**
  * CompositeRowKeyParserTest
@@ -21,8 +19,11 @@ case class TestCall(callId: Int, userId: String, duration: Double)
 class RowKeyParserSuite extends FunSuite with ShouldMatchers {
   @transient val logger = Logger.getLogger(getClass.getName)
 
+  import org.apache.spark.sql.hbase.HBaseRelation.RowKeyParser
+
   def makeRowKey(col7: Double, col1: String, col3: Short) = {
-    val size = 1 + sizeOf(col7) + sizeOf(col1) + sizeOf(col3) + 3 * 2 + DimensionCountLen
+    val size = 1 + sizeOf(col7) + sizeOf(col1) + sizeOf(col3) + 3 * 2 +
+      RowKeyParser.DimensionCountLen
     //      val barr = new Array[Byte](size)
     val bos = new ByteArrayOutputStream(size)
     val dos = new DataOutputStream(bos)
@@ -53,7 +54,7 @@ class RowKeyParserSuite extends FunSuite with ShouldMatchers {
     val pat = makeRowKey(12345.6789, "Column1-val", 12345)
     val parsedKeyMap = RowKeyParser.parseRowKeyWithMetaData(cols, pat)
     println(s"parsedKeyWithMetaData: ${parsedKeyMap.toString}")
-//    assert(parsedKeyMap === Map("col7" ->(12345.6789, "col1" -> "Column1-val", "col3" -> 12345)))
+    //    assert(parsedKeyMap === Map("col7" ->(12345.6789, "col1" -> "Column1-val", "col3" -> 12345)))
     //    assert(parsedKeyMap.values.toList.sorted === List(12345.6789, "Column1-val",12345))
 
     val parsedKey = RowKeyParser.parseRowKey(pat)
@@ -87,7 +88,7 @@ class RowKeyParserSuite extends FunSuite with ShouldMatchers {
     assert(key.length == 29)
     val parsedKey = RowKeyParser.parseRowKey(key)
     assert(parsedKey.length == 3)
-    import DataTypeUtils.cast
+    import org.apache.spark.sql.hbase.DataTypeUtils.cast
     assert(cast(parsedKey(0), StringType) == "myUserId1")
     assert(cast(parsedKey(1), IntegerType) == 12345678)
     assert(cast(parsedKey(2), LongType) == 111223445L)

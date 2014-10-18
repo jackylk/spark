@@ -16,16 +16,14 @@
  */
 package org.apache.spark.sql.hbase
 
-import org.apache.hadoop.hbase.HBaseConfiguration
-import org.apache.hadoop.hbase.client.{HTable, Result, Scan}
-import org.apache.hadoop.hbase.filter.FilterList
+import org.apache.hadoop.hbase.client.Result
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.{Expression, NamedExpression}
 import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.{SparkContext, Partition, TaskContext}
+import org.apache.spark.{Partition, TaskContext}
 
 import scala.collection.mutable
 
@@ -33,7 +31,6 @@ import scala.collection.mutable
  * HBaseSQLReaderRDD
  * Created by sboesch on 9/16/14.
  */
-
 class HBaseSQLReaderRDD(relation: HBaseRelation,
                         projList: Seq[NamedExpression],
                         columnPruningPred: Seq[Expression],
@@ -42,18 +39,6 @@ class HBaseSQLReaderRDD(relation: HBaseRelation,
                         coprocSubPlan: Option[SparkPlan],
                         @transient hbaseContext: HBaseSQLContext)
   extends RDD[Row](hbaseContext.sparkContext, Nil) {
-
-//class HBaseSQLReaderRDD(
-//                        externalResource: Option[HBaseExternalResource],
-//                        relation: relation,
-//                        projList: Seq[NamedExpression],
-//                        //      rowKeyPredicates : Option[Seq[ColumnPredicate]],
-//                        //      colPredicates : Option[Seq[ColumnPredicate]],
-//                        colPreds: Seq[Expression],
-//                        partitions: Seq[HBasePartition],
-//                        colFamilies: Seq[String],
-//                        @transient hbaseContext: HBaseSQLContext)
-//  extends HBaseSQLRDD(externalResource, partitions, hbaseContext) {
 
 
   @transient val logger = Logger.getLogger(getClass.getName)
@@ -85,7 +70,7 @@ class HBaseSQLReaderRDD(relation: HBaseRelation,
 
     val scan = relation.getScanner(split)
     if (applyFilters) {
-      val colFilters = relation.buildFilters(rowKeyFilterPred,columnPruningPred)
+      val colFilters = relation.buildFilters(rowKeyFilterPred, columnPruningPred)
     }
 
     @transient val htable = relation.getHTable()
@@ -135,7 +120,7 @@ class HBaseSQLReaderRDD(relation: HBaseRelation,
     // Also, consider if we should go lower level to the cellScanner()
     val row = result.getRow
     val rkCols = relation.catalogTable.rowKeyColumns
-    val rowKeyMap = RowKeyParser.parseRowKeyWithMetaData(rkCols.columns, row)
+    val rowKeyMap = relation.rowKeyParser.parseRowKeyWithMetaData(rkCols.columns, row)
     var rmap = new mutable.HashMap[String, Any]()
 
     rkCols.columns.foreach { rkcol =>
@@ -143,26 +128,26 @@ class HBaseSQLReaderRDD(relation: HBaseRelation,
     }
 
     val jmap = new java.util.TreeMap[Array[Byte], Array[Byte]](Bytes.BYTES_COMPARATOR)
-//    rmap.foreach { case (k, v) =>
-//      jmap.put(s2b(k), CatalystToHBase.toByteus(v))
-//    }
+    //    rmap.foreach { case (k, v) =>
+    //      jmap.put(s2b(k), CatalystToHBase.toByteus(v))
+    //    }
     val vmap = result.getNoVersionMap
     vmap.put(s2b(""), jmap)
     val rowArr = projList.zipWithIndex.
       foldLeft(new Array[Any](projList.size)) {
       case (arr, (cname, ix)) =>
-        if (rmap.get(cname.name)isDefined) {
-          arr(ix) = rmap.get(cname.name).get.asInstanceOf[Tuple2[_,_]]._2
+        if (rmap.get(cname.name) isDefined) {
+          arr(ix) = rmap.get(cname.name).get.asInstanceOf[Tuple2[_, _]]._2
         } else {
-          val col = relation.catalogTable.columns.findBySqlName(projList(ix).name).getOrElse{
+          val col = relation.catalogTable.columns.findBySqlName(projList(ix).name).getOrElse {
             throw new IllegalArgumentException(s"Column ${projList(ix).name} not found")
           }
-          val dataType =col.dataType
-          val qual =s2b(col.qualifier)
+          val dataType = col.dataType
+          val qual = s2b(col.qualifier)
           val fam = s2b(col.family)
           arr(ix) = DataTypeUtils.hbaseFieldToRowField(
-              vmap.get(fam).get(qual)
-            ,dataType)
+            vmap.get(fam).get(qual)
+            , dataType)
         }
         arr
     }
