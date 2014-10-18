@@ -88,8 +88,8 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     assert(result.columns.columns.size === 2)
 
     // check the data type
-    assert(result.rowKey.columns.columns(0).dataType === StringType)
-    assert(result.rowKey.columns.columns(1).dataType === IntegerType)
+    assert(result.rowKey.columns(0).dataType === StringType)
+    assert(result.rowKey.columns(1).dataType === IntegerType)
     assert(result.columns.columns(0).dataType === BooleanType)
     assert(result.columns.columns(1).dataType === FloatType)
 

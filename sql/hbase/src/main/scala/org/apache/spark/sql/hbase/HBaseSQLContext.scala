@@ -17,7 +17,8 @@
 
 package org.apache.spark.sql.hbase
 
-import java.io.{ByteArrayOutputStream, DataOutputStream}
+import java.io.{DataInputStream, ByteArrayInputStream, ByteArrayOutputStream, DataOutputStream}
+import java.util.Properties
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase._
@@ -34,17 +35,11 @@ import org.apache.spark.sql.hbase.HBaseCatalog.{KeyColumn, Column, Columns}
  * Configuration for Hive is read from hive-site.xml on the classpath.
  */
 class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf: Configuration
-= HBaseConfiguration.create())
+    = HBaseConfiguration.create())
   extends SQLContext(sc) with Serializable {
   self =>
 
   @transient val configuration = hbaseConf
-
-  def serializeProps = {
-    val bos = new ByteArrayOutputStream
-    val props = hbaseConf.write(new DataOutputStream(bos))
-    bos.toByteArray
-  }
 
   @transient
   override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this, configuration)
@@ -74,9 +69,6 @@ class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf:
 
   @transient
   override protected[sql] val planner = hBasePlanner
-
-  @transient
-  private[hbase] val hconnection = HConnectionManager.createConnection(hbaseConf)
 
   override private[spark] val dialect: String = "hbaseql"
 
@@ -128,11 +120,20 @@ class HBaseSQLContext(@transient val sc: SparkContext, @transient val hbaseConf:
     catalog.deleteTable(tableName)
   }
 
-  def stop() = {
-    hconnection.close
-    sparkContext.stop()
-  }
 }
 
 object HBaseSQLContext {
+  def createConfigurationFromSerializedFields(serializedProps: Array[Byte]) = {
+    val conf = HBaseConfiguration.create
+    val bis = new ByteArrayInputStream(serializedProps)
+    conf.readFields(new DataInputStream(bis))
+    conf
+  }
+
+  def serializeConfiguration(configuration: Configuration) = {
+    val bos = new ByteArrayOutputStream
+    val props = configuration.write(new DataOutputStream(bos))
+    bos.toByteArray
+  }
+
 }

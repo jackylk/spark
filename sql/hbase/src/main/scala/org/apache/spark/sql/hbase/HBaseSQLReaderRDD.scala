@@ -16,12 +16,16 @@
  */
 package org.apache.spark.sql.hbase
 
+import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.client.{HTable, Result, Scan}
 import org.apache.hadoop.hbase.filter.FilterList
 import org.apache.hadoop.hbase.util.Bytes
+import org.apache.log4j.Logger
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.expressions.NamedExpression
-import org.apache.spark.{Partition, TaskContext}
+import org.apache.spark.sql.catalyst.expressions.{Expression, NamedExpression}
+import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.{SparkContext, Partition, TaskContext}
 
 import scala.collection.mutable
 
@@ -29,41 +33,62 @@ import scala.collection.mutable
  * HBaseSQLReaderRDD
  * Created by sboesch on 9/16/14.
  */
-class HBaseSQLReaderRDD(tableName: SerializableTableName,
-                        externalResource: Option[HBaseExternalResource],
-                        hbaseRelation: HBaseRelation,
-                        projList: Seq[NamedExpression],
-                        //      rowKeyPredicates : Option[Seq[ColumnPredicate]],
-                        //      colPredicates : Option[Seq[ColumnPredicate]],
-                        partitions: Seq[HBasePartition],
-                        colFamilies: Seq[String],
-                        colFilters: Option[FilterList],
-                        @transient hbaseContext: HBaseSQLContext)
-  extends HBaseSQLRDD(tableName, externalResource, partitions, hbaseContext) {
 
-  val applyFilters = false
+class HBaseSQLReaderRDD(relation: HBaseRelation,
+                        projList: Seq[NamedExpression],
+                        columnPruningPred: Seq[Expression],
+                        rowKeyFilterPred: Seq[Expression],
+                        partitionPred: Seq[Expression],
+                        coprocSubPlan: Option[SparkPlan],
+                        @transient hbaseContext: HBaseSQLContext)
+  extends RDD[Row](hbaseContext.sparkContext, Nil) {
+
+//class HBaseSQLReaderRDD(
+//                        externalResource: Option[HBaseExternalResource],
+//                        relation: relation,
+//                        projList: Seq[NamedExpression],
+//                        //      rowKeyPredicates : Option[Seq[ColumnPredicate]],
+//                        //      colPredicates : Option[Seq[ColumnPredicate]],
+//                        colPreds: Seq[Expression],
+//                        partitions: Seq[HBasePartition],
+//                        colFamilies: Seq[String],
+//                        @transient hbaseContext: HBaseSQLContext)
+//  extends HBaseSQLRDD(externalResource, partitions, hbaseContext) {
+
+
+  @transient val logger = Logger.getLogger(getClass.getName)
+
+  // The SerializedContext will contain the necessary instructions
+  // for all Workers to know how to connect to HBase
+  // For now just hardcode the Config/connection logic
+  @transient lazy val configuration = relation.configuration
+  @transient lazy val connection = relation.connection
+
+  override def getPartitions: Array[Partition] = relation.getPartitions()
+
+  /**
+   * Optionally overridden by subclasses to specify placement preferences.
+   */
+  override protected def getPreferredLocations(split: Partition): Seq[String] = {
+    split.asInstanceOf[HBasePartition].server.map {
+      identity
+    }.toSeq
+  }
+
+  val applyFilters: Boolean = false
+  val serializedConfig = HBaseSQLContext.serializeConfiguration(configuration)
 
   override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
 
-    val hbPartition = split.asInstanceOf[HBasePartition]
-    val scan = if (applyFilters) {
-      new Scan(hbPartition.bounds.start.get,
-        hbPartition.bounds.end.get)
-    } else {
-      new Scan
-    }
+    relation.configuration = HBaseSQLContext.createConfigurationFromSerializedFields(serializedConfig)
+
+    val scan = relation.getScanner(split)
     if (applyFilters) {
-      colFamilies.foreach { cf =>
-        scan.addFamily(s2b(cf))
-      }
-
-      colFilters.map { flist => scan.setFilter(flist)}
+      val colFilters = relation.buildFilters(rowKeyFilterPred,columnPruningPred)
     }
-    // scan.setMaxVersions(1)
 
-    @transient val htable = new HTable(configuration, tableName.tableName)
+    @transient val htable = relation.getHTable()
     @transient val scanner = htable.getScanner(scan)
-    //      @transient val scanner = htable.getScanner(scan)
     new Iterator[Row] {
 
       import scala.collection.mutable
@@ -108,7 +133,7 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
     // TODO(sboesch): analyze if can be multiple Cells in the result
     // Also, consider if we should go lower level to the cellScanner()
     val row = result.getRow
-    val rkCols = hbaseRelation.catalogTable.rowKeyColumns
+    val rkCols = relation.catalogTable.rowKeyColumns
     val rowKeyMap = RowKeyParser.parseRowKeyWithMetaData(rkCols.columns, row)
     var rmap = new mutable.HashMap[String, Any]()
 
@@ -128,7 +153,7 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
         if (rmap.get(cname.name)isDefined) {
           arr(ix) = rmap.get(cname.name).get.asInstanceOf[Tuple2[_,_]]._2
         } else {
-          val col = hbaseRelation.catalogTable.columns.findBySqlName(projList(ix).name).getOrElse{
+          val col = relation.catalogTable.columns.findBySqlName(projList(ix).name).getOrElse{
             throw new IllegalArgumentException(s"Column ${projList(ix).name} not found")
           }
           val dataType =col.dataType
@@ -142,4 +167,6 @@ class HBaseSQLReaderRDD(tableName: SerializableTableName,
     }
     Row(rowArr: _*)
   }
+
+
 }

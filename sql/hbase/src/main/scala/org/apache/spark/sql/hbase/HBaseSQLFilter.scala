@@ -24,6 +24,7 @@ import org.apache.hadoop.hbase.filter.Filter.ReturnCode
 import org.apache.hadoop.hbase.filter._
 import org.apache.log4j.Logger
 import DataTypeUtils._
+import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.hbase.HBaseCatalog.Column
 
 /**
@@ -32,88 +33,3 @@ import org.apache.spark.sql.hbase.HBaseCatalog.Column
  *
  * Created by sboesch on 9/22/14.
  */
-class HBaseSQLFilters(colFamilies: Seq[String],
-                      columns: Seq[Column],
-                      rowKeyPreds: Option[Seq[ColumnPredicate]],
-                      opreds: Option[Seq[ColumnPredicate]])
-  extends FilterBase {
-  @transient val logger = Logger.getLogger(getClass.getName)
-
-  def createColumnFilters(): Option[FilterList] = {
-    val colFilters: FilterList = new FilterList(FilterList.Operator.MUST_PASS_ALL)
-    colFilters.addFilter(new HBaseRowFilter(colFamilies, columns, rowKeyPreds.orNull))
-    val filters = opreds.map {
-      case preds: Seq[ColumnPredicate] =>
-        preds.filter { p: ColumnPredicate =>
-          // TODO(sboesch): the second condition is not compiling
-          (p.right.isInstanceOf[HLiteral] || p.left.isInstanceOf[HLiteral])
-          /* && (p.right.isInstanceOf[HColumn] || p.left.isInstanceOf[HColumn]) */
-        }.map { p =>
-          var col: HColumn = null
-          var colval: HLiteral = null
-
-          if (p.right.isInstanceOf[HLiteral]) {
-            col = p.left.asInstanceOf[HColumn]
-            colval = p.right.asInstanceOf[HLiteral]
-          } else {
-            col = p.right.asInstanceOf[HColumn]
-            colval = p.left.asInstanceOf[HLiteral]
-          }
-          new SingleColumnValueFilter(s2b(col.colName.family.get),
-            s2b(col.colName.qualifier),
-            p.op.toHBase,
-            new BinaryComparator(s2b(colval.litval.toString)))
-        }.foreach { f =>
-          colFilters.addFilter(f)
-        }
-        colFilters
-    }
-    filters
-  }
-}
-
-/**
- * Presently only a sequence of AND predicates supported. TODO(sboesch): support simple tree
- * of AND/OR predicates
- */
-class HBaseRowFilter(colFamilies: Seq[String],
-                     rkCols: Seq[Column],
-                     rowKeyPreds: Seq[ColumnPredicate]
-                      ) extends FilterBase {
-  @transient val logger = Logger.getLogger(getClass.getName)
-
-  override def filterRowKey(rowKey: Array[Byte], offset: Int, length: Int): Boolean = {
-    val rowKeyColsMap = RowKeyParser.parseRowKeyWithMetaData(rkCols,
-      rowKey.slice(offset, offset + length))
-    val result = rowKeyPreds.forall { p =>
-      var col: HColumn = null
-      var colval: HLiteral = null
-
-      val passFilter = p.right match {
-        case a: HLiteral => {
-          col = p.left.asInstanceOf[HColumn]
-          colval = p.right.asInstanceOf[HLiteral]
-          p.op.cmp(rowKeyColsMap(col.colName)._2, colval.litval)
-        }
-        case _ => {
-          col = p.right.asInstanceOf[HColumn]
-          colval = p.left.asInstanceOf[HLiteral]
-          p.op.cmp(colval.litval.toString.getBytes, rowKeyColsMap(col.colName))
-        }
-      }
-      passFilter
-    }
-    result
-  }
-
-  override def filterKeyValue(ignored: Cell): ReturnCode = {
-    null
-  }
-
-  override def isFamilyEssential(name: Array[Byte]): Boolean = {
-    colFamilies.contains(new String(name, HBaseByteEncoding).toLowerCase())
-  }
-
-  override def filterRowCells(ignored: util.List[Cell]): Unit = super.filterRowCells(ignored)
-
-}

@@ -17,7 +17,9 @@
 package org.apache.spark.sql.hbase
 
 import java.io.{DataOutputStream, ByteArrayOutputStream, DataInputStream, ByteArrayInputStream}
+import java.math.BigDecimal
 
+import org.apache.hadoop.hbase.util.Bytes
 import org.apache.log4j.Logger
 import org.apache.spark.sql
 import org.apache.spark.sql.catalyst.expressions.Row
@@ -179,7 +181,7 @@ object DataTypeUtils {
 
   import reflect.runtime.universe._
 
-  def compare[T: WeakTypeTag](col1: T, col2: T): Int = weakTypeOf[T] match {
+  def compare[T: TypeTag](col1: T, col2: T): Int = weakTypeOf[T] match {
     case dt if dt == weakTypeOf[Array[_]] =>
       compareRaw(col1.asInstanceOf[HBaseRawType], col2.asInstanceOf[HBaseRawType])
     case dt if dt == weakTypeOf[String] =>
@@ -223,7 +225,7 @@ object DataTypeUtils {
 
   import reflect.runtime.universe._
 
-  def sizeOf[T: WeakTypeTag](t: T) = weakTypeOf[T] match {
+  def sizeOf[T: TypeTag](t: T) = weakTypeOf[T] match {
     case dt if dt == weakTypeOf[Byte] => 1
     case dt if dt == weakTypeOf[Short] => 2
     case dt if dt == weakTypeOf[Int] => Integer.SIZE
@@ -232,7 +234,6 @@ object DataTypeUtils {
     case dt if dt == weakTypeOf[Double] => 8
     case dt if dt == weakTypeOf[String] => t.asInstanceOf[String].length
   }
-
 
   def schemaIndex(schema: StructType, sqlName: String) = {
     schema.fieldNames.zipWithIndex.find { case (name: String, ix: Int) => name == sqlName}
@@ -269,4 +270,22 @@ object DataTypeUtils {
     }
     rawCols.map(toBytes(_))
   }
+
+  def convertToBytes(dataType: DataType, data: Any): Array[Byte] = {
+    dataType match {
+      case StringType => Bytes.toBytes(data.asInstanceOf[String])
+      case FloatType => Bytes.toBytes(data.asInstanceOf[Float])
+      case IntegerType => Bytes.toBytes(data.asInstanceOf[Int])
+      case ByteType => Array(data.asInstanceOf[Byte])
+      case ShortType => Bytes.toBytes(data.asInstanceOf[Short])
+      case DoubleType => Bytes.toBytes(data.asInstanceOf[Double])
+      case LongType => Bytes.toBytes(data.asInstanceOf[Long])
+      case BinaryType => Bytes.toBytesBinary(data.asInstanceOf[String])
+      case BooleanType => Bytes.toBytes(data.asInstanceOf[Boolean])
+      case DecimalType => Bytes.toBytes(data.asInstanceOf[BigDecimal])
+      case TimestampType => throw new Exception("not supported")
+      case _ => throw new Exception("not supported")
+    }
+  }
+
 }

@@ -211,7 +211,6 @@ class HBaseIntegrationTest extends FunSuite with BeforeAndAfterAll with Logging 
 
     override def afterAll() = {
     cluster.shutdown
-    hbContext.stop
   }
 
 }

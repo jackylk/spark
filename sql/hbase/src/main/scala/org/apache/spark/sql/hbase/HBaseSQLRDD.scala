@@ -40,16 +40,15 @@ abstract class HBaseSQLRDD(
   // The SerializedContext will contain the necessary instructions
   // for all Workers to know how to connect to HBase
   // For now just hardcode the Config/connection logic
-  @transient lazy val configuration = HBaseUtils.configuration
-  @transient lazy val connection = HBaseUtils.getHBaseConnection(configuration)
+//  @transient lazy val configuration = HBaseUtils.configuration
+//  @transient lazy val connection = HBaseUtils.getHBaseConnection(configuration)
 
-  lazy val hbPartitions = HBaseUtils.getPartitions(tableName.tableName,
-      hbaseContext.configuration).toArray
+//  lazy val hbPartitions = HBaseUtils.getPartitions(tableName.tableName,
+//      hbaseContext.configuration).toArray
+//
+//  override def getPartitions: Array[Partition] = hbPartitions.asInstanceOf[Array[Partition]]
 
-  override def getPartitions: Array[Partition] = hbPartitions.asInstanceOf[Array[Partition]]
-
-
-  override val partitioner = Some(new HBasePartitioner(hbPartitions))
+//  override val partitioner = Some(new HBasePartitioner(hbPartitions))
 
   /**
    * Optionally overridden by subclasses to specify placement preferences.
@@ -59,4 +58,6 @@ abstract class HBaseSQLRDD(
       identity
     }.toSeq
   }
+
+
 }

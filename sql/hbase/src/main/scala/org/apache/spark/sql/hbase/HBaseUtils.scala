@@ -31,33 +31,5 @@ object HBaseUtils extends Serializable {
 
   @transient val logger = Logger.getLogger(getClass.getName)
 
-  @transient private lazy val lazyConfig = HBaseConfiguration.create()
-
-  def configuration() = lazyConfig
-
-  def getHBaseConnection(configuration: Configuration) = {
-    val connection = HConnectionManager.createConnection(configuration)
-    connection
-  }
-
-  def getPartitions(tableName: TableName,
-                    config: Configuration) = {
-    import scala.collection.JavaConverters._
-    val hConnection = getHBaseConnection(config)
-    val regionLocations = hConnection.locateRegions(tableName)
-    case class BoundsAndServers(startKey: HBaseRawType, endKey: HBaseRawType,
-                                servers: Seq[String])
-    val regionBoundsAndServers = regionLocations.asScala.map { hregionLocation =>
-      val regionInfo = hregionLocation.getRegionInfo
-      BoundsAndServers(regionInfo.getStartKey, regionInfo.getEndKey,
-        Seq(hregionLocation.getServerName.getHostname))
-    }
-    val partSeq = regionBoundsAndServers.zipWithIndex.map { case (rb, ix) =>
-      new HBasePartition(ix, HBasePartitionBounds(Some(rb.startKey), Some(rb.endKey)),
-        Some(rb.servers(0)))
-    }
-    partSeq.toIndexedSeq
-  }
-
 
 }

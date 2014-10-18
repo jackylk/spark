@@ -1,6 +1,6 @@
 package org.apache.spark.sql.hbase
 
-import java.io.{ByteArrayOutputStream, DataOutputStream}
+import java.io.{ObjectOutputStream, ByteArrayOutputStream, DataOutputStream}
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase._
@@ -8,6 +8,7 @@ import org.apache.hadoop.hbase.client._
 import org.apache.log4j.Logger
 import org.apache.spark
 import org.apache.spark.sql.SchemaRDD
+import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.types.{DoubleType, ShortType, StringType}
 import org.apache.spark.sql.hbase.DataTypeUtils._
 import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns}
@@ -341,22 +342,20 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
       myRowsSchemaRdd)(hbContext)
 
     var rowKeysWithRows = myRowsSchemaRdd.zip(
-      HBaseStrategies.rowKeysFromRows(myRowsSchemaRdd, hbRelation))
+      HBaseRelation.rowKeysFromRows(myRowsSchemaRdd, hbRelation))
     //    var keysCollect = rowKeysWithRows.collect
-    HBaseStrategies.putToHBase(myRows.schema, hbRelation, hbContext, rowKeysWithRows)
-
+    HBaseStrategies.putToHBase(myRows, hbRelation, hbContext)
 
     val preparedInsertRdd = insertPlan.execute
     val executedInsertRdd = preparedInsertRdd.collect
 
     val rowsRdd = myRowsSchemaRdd
     val rowKeysWithRows2 = rowsRdd.zip(
-      HBaseStrategies.rowKeysFromRows(rowsRdd, hbRelation))
-    HBaseStrategies.putToHBase(rowsRdd.schema, hbRelation, hbContext, rowKeysWithRows2)
+      HBaseRelation.rowKeysFromRows(rowsRdd, hbRelation))
+    HBaseStrategies.putToHBase(rowsRdd, hbRelation, hbContext)
 
 
     cluster.shutdown
-    hbContext.stop
   }
 
   import org.apache.spark.sql.hbase.RowKeyParser._

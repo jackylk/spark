@@ -18,6 +18,7 @@ package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.hbase.TableName
 import org.apache.log4j.Logger
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 import org.apache.spark.{TaskContext, Partition}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
@@ -26,13 +27,17 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
  * HBaseSQLReaderRDD
  * Created by sboesch on 9/16/14.
  */
-class HBaseSQLWriterRDD(tableName : SerializableTableName,
-    externalResource: Option[HBaseExternalResource],
+class HBaseSQLWriterRDD(
+    relation: HBaseRelation,
     partitions: Seq[HBasePartition],
-    @transient hbaseContext: HBaseSQLContext)
-  extends HBaseSQLRDD(tableName, externalResource, partitions, hbaseContext) {
+    @transient hbaseContext: HBaseSQLContext) extends RDD[Row](hbaseContext.sparkContext,Nil) {
 
-  @transient override val logger = Logger.getLogger(getClass.getName)
+
+  /**
+   * Implemented by subclasses to return the set of partitions in this RDD. This method will only
+   * be called once, so it is safe to implement a time-consuming computation in it.
+   */
+  override protected def getPartitions: Array[Partition] = ???
 
   /**
    * :: DeveloperApi ::
