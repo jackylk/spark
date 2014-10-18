@@ -16,7 +16,9 @@
  */
 package org.apache.spark.mllib.fim
 
+import org.apache.spark.SparkContext
 import org.apache.spark.mllib.util.LocalSparkContext
+import org.apache.spark.rdd.RDD
 import org.scalatest.FunSuite
 
 /**
@@ -26,40 +28,52 @@ import org.scalatest.FunSuite
  */
 class AprioriSuite extends FunSuite with LocalSparkContext {
 
-  test("test FIM with Apriori")
+  test("test FIM with Apriori dataset 1")
   {
-    val arr = AprioriSuite.createFIMDataSet()
-    assert(arr.length === 6)
+    val arr = AprioriSuite.createFIMDataSet1()
+    //val target: (RDD[Array[String]], Double, SparkContext) => Array[(String, Int)]= AprioriArray.apriori
+    val target: (RDD[Array[String]], Double, SparkContext) => Array[(Set[String], Int)]= AprioriCartesian.apriori
+
     val dataSet = sc.parallelize(arr)
-    assert(dataSet.count() == 6)
     val rdd = dataSet.map(line => line.split(" "))
-    assert(rdd.count() == 6)
 
     for (i <- 1 to 9){
       println(s"frequent item set with support ${i/10d}")
-      Apriori.apriori(rdd, i/10d, sc).foreach(x => print("(" + x._1 + "), "))
+      target(rdd, i/10d, sc).foreach(x => print("(" + x._1 + "), "))
       println()
     }
 
-    assert(Apriori.apriori(rdd,0.9,sc).length == 0)
+    
+  }
+  test("test FIM with Apriori dataset 2")
+  {
+    val arr = AprioriSuite.createFIMDataSet2()
+    //val target: (RDD[Array[String]], Double, SparkContext) => Array[(String, Int)]= AprioriArray.apriori
+    val target: (RDD[Array[String]], Double, SparkContext) => Array[(Set[String], Int)]= AprioriCartesian.apriori
 
-    assert(Apriori.apriori(rdd,0.8,sc).length == 1)
+    val dataSet = sc.parallelize(arr)
+    val rdd = dataSet.map(line => line.split(" "))
 
-    assert(Apriori.apriori(rdd,0.7,sc).length == 1)
+    assert(target(rdd,0.9,sc).length == 0)
 
-    assert(Apriori.apriori(rdd,0.6,sc).length == 2)
+    assert(target(rdd,0.8,sc).length == 1)
 
-    assert(Apriori.apriori(rdd,0.5,sc).length == 18)
+    assert(target(rdd,0.7,sc).length == 1)
 
-    assert(Apriori.apriori(rdd,0.4,sc).length == 18)
+    assert(target(rdd,0.6,sc).length == 2)
 
-    assert(Apriori.apriori(rdd,0.3,sc).length == 54)
+    assert(target(rdd,0.5,sc).length == 18)
 
-    assert(Apriori.apriori(rdd,0.2,sc).length == 54)
+    assert(target(rdd,0.4,sc).length == 18)
 
-    assert(Apriori.apriori(rdd,0.1,sc).length == 625)
+    assert(target(rdd,0.3,sc).length == 54)
+
+    assert(target(rdd,0.2,sc).length == 54)
+
+    assert(target(rdd,0.1,sc).length == 625)
 
   }
+
 }
 
 /**
@@ -71,15 +85,16 @@ object AprioriSuite
    * create dataset using Practical Machine Learning Book data
    * @return dataset
    */
-  def createFIMDataSet():Array[String] =
-  {
+  def createFIMDataSet1():Array[String] = {
     val arr = Array[String](
-    "1 3 4",
-    "2 3 5",
-    "1 2 3 5",
-    "2 5")
+      "1 3 4",
+      "2 3 5",
+      "1 2 3 5",
+      "2 5")
+    arr
+  }
 
-    /*
+  def createFIMDataSet2():Array[String] = {
     val arr = Array[String](
       "r z h j p",
       "z y x w v u t s",
@@ -87,8 +102,7 @@ object AprioriSuite
       "r x n o s",
       "y r x z q t p",
       "y z x e q s t m")
-      */
-    return arr
+    arr
   }
 }
 

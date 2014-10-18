@@ -28,7 +28,8 @@ class FPGrowthSuite  extends FunSuite with LocalSparkContext {
 
   test("test FIM with FPGrowth")
   {
-    val arr = AprioriSuite.createFIMDataSet()
+    val arr = AprioriSuite.createFIMDataSet2()
+
     assert(arr.length === 6)
     val dataSet = sc.parallelize(arr)
     assert(dataSet.count() == 6)

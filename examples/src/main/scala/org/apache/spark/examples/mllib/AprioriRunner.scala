@@ -42,27 +42,27 @@ class AprioriSuite extends FunSuite with LocalSparkContext {
 
     for (i <- 1 to 9){
       println(s"frequent item set with support ${i/10d}")
-      Apriori.apriori(rdd, i/10d, sc).foreach(x => print("(" + x._1 + "), "))
+      AprioriArray.apriori(rdd, i/10d, sc).foreach(x => print("(" + x._1 + "), "))
       println()
     }
 
-    assert(Apriori.apriori(rdd,0.9,sc).length == 0)
+    assert(AprioriArray.apriori(rdd,0.9,sc).length == 0)
 
-    assert(Apriori.apriori(rdd,0.8,sc).length == 1)
+    assert(AprioriArray.apriori(rdd,0.8,sc).length == 1)
 
-    assert(Apriori.apriori(rdd,0.7,sc).length == 1)
+    assert(AprioriArray.apriori(rdd,0.7,sc).length == 1)
 
-    assert(Apriori.apriori(rdd,0.6,sc).length == 2)
+    assert(AprioriArray.apriori(rdd,0.6,sc).length == 2)
 
-    assert(Apriori.apriori(rdd,0.5,sc).length == 18)
+    assert(AprioriArray.apriori(rdd,0.5,sc).length == 18)
 
-    assert(Apriori.apriori(rdd,0.4,sc).length == 18)
+    assert(AprioriArray.apriori(rdd,0.4,sc).length == 18)
 
-    assert(Apriori.apriori(rdd,0.3,sc).length == 54)
+    assert(AprioriArray.apriori(rdd,0.3,sc).length == 54)
 
-    assert(Apriori.apriori(rdd,0.2,sc).length == 54)
+    assert(AprioriArray.apriori(rdd,0.2,sc).length == 54)
 
-    assert(Apriori.apriori(rdd,0.1,sc).length == 625)
+    assert(AprioriArray.apriori(rdd,0.1,sc).length == 625)
 
   }
 }
