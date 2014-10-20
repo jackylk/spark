@@ -121,6 +121,7 @@ class SqlParser extends AbstractSparkSQLParser {
       .map(_.invoke(this).asInstanceOf[Keyword].str)
 
   override val lexical = new SqlLexical(reservedWords)
+  println(reservedWords)
 
   protected def assignAliases(exprs: Seq[Expression]): Seq[NamedExpression] = {
     exprs.zipWithIndex.map {
