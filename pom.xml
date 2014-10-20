@@ -1284,7 +1284,7 @@
       </properties>
     </profile>
 
-      <profile>
+    <profile>
       <id>hadoop-2.4</id>
       <properties>
         <hadoop.version>2.4.0</hadoop.version>

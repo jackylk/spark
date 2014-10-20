@@ -120,7 +120,6 @@ if [ -n "$datanucleus_jars" ]; then
   fi
 fi
 
-
 # Add test classes if we're running from SBT or Maven with SPARK_TESTING set to 1
 if [[ $SPARK_TESTING == 1 ]]; then
   CLASSPATH="$CLASSPATH:$FWDIR/core/target/scala-$SPARK_SCALA_VERSION/test-classes"
@@ -144,5 +143,5 @@ fi
 if [ -n "$YARN_CONF_DIR" ]; then
   CLASSPATH="$CLASSPATH:$YARN_CONF_DIR"
 fi
-echo "$CLASSPATH"
 
+echo "$CLASSPATH"
