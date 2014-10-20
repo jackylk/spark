@@ -56,6 +56,13 @@ class HBaseSQLParser extends SqlParser {
       | insert | cache | create | drop | alter
     )
 
+  override protected lazy val insert: Parser[LogicalPlan] =
+    INSERT ~> inTo ~ select <~ opt(";") ^^ {
+      case r ~ s =>
+        InsertIntoTable(
+          r, Map[String, Option[String]](), s, false)
+    }
+
   protected lazy val create: Parser[LogicalPlan] =
     CREATE ~> TABLE ~> ident ~
       ("(" ~> tableCols <~ ")") ~
@@ -88,13 +95,13 @@ class HBaseSQLParser extends SqlParser {
           case (name, _) =>
             keySeq.contains(name)
         }
-        val keyColDataTypes = keySeq.toList.map{ orderedKeyCol =>
-          partitionResultOfTableColumns._1.find{ allCol =>
-            allCol._1 ==  orderedKeyCol
+        val keyColDataTypes = keySeq.toList.map { orderedKeyCol =>
+          partitionResultOfTableColumns._1.find { allCol =>
+            allCol._1 == orderedKeyCol
           }.get._2
         }
         val keyColsWithDataTypes = keySeq.zip(keyColDataTypes)
-//          zip(partitionResultOfTableColumns._1.map{_._2})
+        //          zip(partitionResultOfTableColumns._1.map{_._2})
         val nonKeyCols = partitionResultOfTableColumns._2.map {
           case (name, typeOfData) =>
             val infoElem = infoMap.get(name).get
