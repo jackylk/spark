@@ -20,7 +20,6 @@ import java.io.{DataOutputStream, ByteArrayOutputStream, DataInputStream, ByteAr
 import java.math.BigDecimal
 
 import org.apache.hadoop.hbase.util.Bytes
-import org.apache.log4j.Logger
 import org.apache.spark.sql
 import org.apache.spark.sql.catalyst.expressions.Row
 import org.apache.spark.sql.catalyst.types._
@@ -30,14 +29,13 @@ import org.apache.spark.sql.catalyst.types._
  * Created by sboesch on 10/9/14.
  */
 object DataTypeUtils {
-  val logger = Logger.getLogger(getClass.getName)
 
   def cmp(str1: Option[HBaseRawType], str2: Option[HBaseRawType]) = {
     if (str1.isEmpty && str2.isEmpty) 0
     else if (str1.isEmpty) -2
     else if (str2.isEmpty) 2
     else {
-      var ix = 0
+      val ix = 0
       val s1arr = str1.get
       val s2arr = str2.get
       var retval: Option[Int] = None

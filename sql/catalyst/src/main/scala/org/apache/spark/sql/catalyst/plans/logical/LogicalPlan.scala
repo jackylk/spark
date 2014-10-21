@@ -139,21 +139,12 @@ abstract class LogicalPlan extends QueryPlan[LogicalPlan] with Logging {
     // struct fields.
     val options = input.flatMap { option =>
       // If the first part of the desired name matches a qualifier for this possible match, drop it.
-      val remainingParts = {
-        if (option==null) {
-          throw new IllegalStateException(
-            "Null member of input attributes found when resolving %s from inputs %s"
-              .format(name, input.mkString("[",",","]")))
-        }
-//        assert(option != null)
-        assert(option.qualifiers != null)
-        assert(parts != null)
+      val remainingParts =
         if (option.qualifiers.find(resolver(_, parts.head)).nonEmpty && parts.size > 1) {
           parts.drop(1)
         } else {
           parts
         }
-      }
 
       if (resolver(option.name, remainingParts.head)) {
         // Preserve the case of the user's attribute reference.
