@@ -53,8 +53,8 @@ case class HBaseCatalogTable(tableName: String, hbaseNamespace: String,
 private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
   extends SimpleCatalog(false) with Logging with Serializable {
   lazy val configuration = HBaseConfiguration.create()
-  lazy val catalogMapCache = new HashMap[String, HBaseCatalogTable] with SynchronizedMap[String, HBaseCatalogTable]
-  ()
+  lazy val catalogMapCache = new HashMap[String, HBaseCatalogTable]
+    with SynchronizedMap[String, HBaseCatalogTable]
 
   def createTable(hbaseCatalogTable: HBaseCatalogTable): Unit = {
     if (checkLogicalTableExist(hbaseCatalogTable.tableName)) {
@@ -209,8 +209,10 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
             nonKeyColumnList = nonKeyColumnList :+ column
           }
 
-          result = Some(HBaseCatalogTable(tableName, hbaseTableName, hbaseNamespace,
-            allColumnList, keyColumnList, nonKeyColumnList))
+          val hbaseCatalogTable = HBaseCatalogTable(tableName, hbaseTableName, hbaseNamespace,
+            allColumnList, keyColumnList, nonKeyColumnList)
+          catalogMapCache.put(tableName, hbaseCatalogTable)
+          result = Some(hbaseCatalogTable)
         }
       }
     }
