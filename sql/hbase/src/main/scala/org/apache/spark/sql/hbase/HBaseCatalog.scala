@@ -18,11 +18,12 @@ package org.apache.spark.sql.hbase
 
 import java.io.Serializable
 
-import org.apache.hadoop.hbase.client.{Get, HBaseAdmin, HTable, Put}
+import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.analysis.SimpleCatalog
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.hbase.HBaseCatalog._
 
@@ -55,6 +56,14 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
   lazy val configuration = HBaseConfiguration.create()
   lazy val catalogMapCache = new HashMap[String, HBaseCatalogTable]
     with SynchronizedMap[String, HBaseCatalogTable]
+
+  private def processTableName(tableName: String): String = {
+    if (!caseSensitive) {
+      tableName.toLowerCase
+    } else {
+      tableName
+    }
+  }
 
   def createTable(hbaseCatalogTable: HBaseCatalogTable): Unit = {
     if (checkLogicalTableExist(hbaseCatalogTable.tableName)) {
@@ -140,12 +149,12 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       table.put(put)
       table.flushCommits()
 
-      catalogMapCache.put(hbaseCatalogTable.tableName, hbaseCatalogTable)
+      catalogMapCache.put(processTableName(hbaseCatalogTable.tableName), hbaseCatalogTable)
     }
   }
 
   def getTable(tableName: String): Option[HBaseCatalogTable] = {
-    var result = catalogMapCache.get(tableName)
+    var result = catalogMapCache.get(processTableName(tableName))
     if (result.isEmpty) {
       val table = new HTable(configuration, MetaData)
 
@@ -211,12 +220,35 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
           val hbaseCatalogTable = HBaseCatalogTable(tableName, hbaseTableName, hbaseNamespace,
             allColumnList, keyColumnList, nonKeyColumnList)
-          catalogMapCache.put(tableName, hbaseCatalogTable)
+          catalogMapCache.put(processTableName(tableName), hbaseCatalogTable)
           result = Some(hbaseCatalogTable)
         }
       }
     }
     result
+  }
+
+  override def lookupRelation(namespace: Option[String],
+                              tableName: String,
+                              alias: Option[String] = None): LogicalPlan = {
+    val catalogTable = getTable(tableName)
+    if (catalogTable.isEmpty) {
+      throw new IllegalArgumentException(
+        s"Table $namespace:$tableName does not exist in the catalog")
+    }
+    new HBaseRelation(configuration, hbaseContext, catalogTable.get)
+  }
+
+  def deleteTable(tableName: String): Unit = {
+    if (!checkLogicalTableExist(tableName)) {
+      throw new Exception(s"The logical table $tableName does not exist")
+    }
+    val table = new HTable(configuration, MetaData)
+
+    val delete = new Delete((Bytes.toBytes(tableName)))
+    table.delete(delete)
+
+    table.close()
   }
 
   def createMetadataTable(admin: HBaseAdmin) = {
