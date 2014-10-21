@@ -46,18 +46,18 @@ class HBaseSQLParser extends SqlParser {
 
   override val lexical = new SqlLexical(newReservedWords)
 
-  override protected lazy val query: Parser[LogicalPlan] = (
-    select * (
-      UNION ~ ALL ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Union(q1, q2)} |
-        INTERSECT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Intersect(q1, q2)} |
-        EXCEPT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)} |
-        UNION ~ opt(DISTINCT) ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2))}
+  override protected lazy val start: Parser[LogicalPlan] =
+    (select *
+      (UNION ~ ALL ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Union(q1, q2)}
+        | INTERSECT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Intersect(q1, q2)}
+        | EXCEPT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)}
+        | UNION ~ DISTINCT.? ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2))}
+        )
+      | insert | create | drop | alter
       )
-      | insert | cache | create | drop | alter
-    )
 
   override protected lazy val insert: Parser[LogicalPlan] =
-    INSERT ~> inTo ~ select <~ opt(";") ^^ {
+    INSERT ~> INTO ~> relation ~ select <~ opt(";") ^^ {
       case r ~ s =>
         InsertIntoTable(
           r, Map[String, Option[String]](), s, false)

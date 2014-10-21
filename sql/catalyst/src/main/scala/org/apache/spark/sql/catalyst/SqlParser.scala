@@ -109,9 +109,15 @@ class SqlParser extends AbstractSparkSQLParser {
   protected val WHERE = Keyword("WHERE")
 
   // Use reflection to find the reserved words defined in this class.
+<<<<<<< HEAD
   /* TODO: It will cause the null exception for the subClass of SqlParser. 
    * Temporary solution: Add one more filter to restrain the class must be SqlParser 
    */ 
+=======
+  /* TODO: It will cause the null exception for the subClass of SqlParser.
+   * Temporary solution: Add one more filter to restrain the class must be SqlParser
+   */
+>>>>>>> Make it compatible with updated Apache Spark Code
   protected val reservedWords =
     this
       .getClass
