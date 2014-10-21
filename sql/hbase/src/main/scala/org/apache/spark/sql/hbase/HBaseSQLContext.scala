@@ -25,7 +25,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.hbase.HBaseCatalog.{Column, Columns, KeyColumn}
+import org.apache.spark.sql.hbase.HBaseCatalog._
 
 /**
  * An instance of the Spark SQL execution engine that integrates with data stored in Hive.

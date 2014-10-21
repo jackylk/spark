@@ -61,12 +61,12 @@ class HBaseSQLReaderRDD(relation: HBaseRelation,
   }
 
   val applyFilters: Boolean = false
-  val serializedConfig = HBaseSQLContext.serializeConfiguration(configuration)
+//  val serializedConfig = HBaseSQLContext.serializeConfiguration(configuration)
 
   override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
 
-    relation.configuration = HBaseSQLContext
-      .createConfigurationFromSerializedFields(serializedConfig)
+//    relation.configuration = HBaseSQLContext
+//      .createConfigurationFromSerializedFields(serializedConfig)
 
     val scan = relation.getScanner(split)
     if (applyFilters) {

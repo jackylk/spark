@@ -77,7 +77,7 @@ object DataTypeUtils {
       } else if (dataType == BinaryType) {
         bytes(0)
       } else if (dataType == ByteType) {
-          bytes(0)
+        bytes(0)
       } else {
         val bis = new ByteArrayInputStream(bytes)
         val dis = new DataInputStream(bis)
@@ -107,8 +107,8 @@ object DataTypeUtils {
         dos.writeInt(a.asInstanceOf[Integer])
         dos.size
       case _ => {
-        throw new UnsupportedOperationException
-        ("What type are you interested in {$a.getClas.getName} for its length?")
+        throw new UnsupportedOperationException(
+          "What type are you interested in {$a.getClas.getName} for its length?")
         -1 // why does compiler want this after an exception ??
       }
     }

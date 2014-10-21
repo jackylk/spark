@@ -178,30 +178,28 @@ object HBaseStrategies {
   def putToHBase(schemaRdd: SchemaRDD,
                  relation: HBaseRelation,
                  @transient hbContext: HBaseSQLContext) {
-
-    val schema = schemaRdd.schema
-    val serializedProps = HBaseSQLContext.serializeConfiguration(hbContext.configuration)
-    schemaRdd.mapPartitions { partition =>
-      if (!partition.isEmpty) {
-        println("we are running the putToHBase..")
-        val configuration = HBaseSQLContext.createConfigurationFromSerializedFields(serializedProps)
-        val tableIf = relation.getHTable
-        partition.map { case row =>
-          val put = relation.buildPut(schema, row)
-          tableIf.put(put)
-          if (!partition.hasNext) {
-            relation.closeHTable
-          }
-          row
-        }
-      } else {
-        new Iterator[(Row, HBaseRawType)]() {
-          override def hasNext: Boolean = false
-
-          override def next(): (Row, HBaseRawType) = null
-        }
-      }
-    }
+//    val schema = schemaRdd.schema
+//    val serializedProps = HBaseSQLContext.serializeConfiguration(hbContext.configuration)
+//    schemaRdd.mapPartitions { partition =>
+//      if (!partition.isEmpty) {
+//        println("we are running the putToHBase..")
+//        val configuration = HBaseSQLContext.createConfigurationFromSerializedFields(serializedProps)
+//        val tableIf = relation.getHTable
+//        partition.map { case row =>
+//          val put = relation.buildPut(schema, row)
+//          tableIf.put(put)
+//          if (!partition.hasNext) {
+//            relation.closeHTable
+//          }
+//          row
+//        }
+//      } else {
+//        new Iterator[(Row, HBaseRawType)]() {
+//          override def hasNext: Boolean = false
+//
+//          override def next(): (Row, HBaseRawType) = null
+//        }
+//      }
+//    }
   }
-
 }

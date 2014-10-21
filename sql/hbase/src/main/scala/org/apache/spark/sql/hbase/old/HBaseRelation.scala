@@ -17,7 +17,6 @@
 
 package org.apache.spark.sql.hbase
 
-import java.util
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 
 import org.apache.hadoop.conf.Configuration
@@ -29,7 +28,6 @@ import org.apache.spark.Partition
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
 import org.apache.spark.sql.hbase.DataTypeUtils._
-import org.apache.spark.sql.hbase.HBaseCatalog._
 import org.apache.spark.sql.{SchemaRDD, StructType}
 
 import scala.collection.SortedMap
