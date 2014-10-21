@@ -23,13 +23,25 @@ import org.apache.spark.sql.execution.{Command, LeafNode}
 case class CreateHBaseTableCommand(tableName: String,
                                    nameSpace: String,
                                    hbaseTable: String,
+                                   colsSeq: Seq[String],
                                    keyCols: Seq[(String, String)],
                                    nonKeyCols: Seq[(String, String, String, String)])
                                   (@transient context: HBaseSQLContext)
   extends LeafNode with Command {
 
   override protected[sql] lazy val sideEffectResult = {
-    context.createHbaseTable(nameSpace, tableName, hbaseTable, keyCols, nonKeyCols)
+    val catalog = context.catalog
+    import org.apache.spark.sql.hbase.HBaseCatalog._
+
+    val keyColumns = keyCols.map { case (name, typeOfData) =>
+      KeyColumn(name, catalog.getDataType(typeOfData.toLowerCase))
+    }
+    val nonKeyColumns = new Columns(nonKeyCols.map {
+      case (name, typeOfData, family, qualifier) =>
+        Column(name, family, qualifier, catalog.getDataType(typeOfData))
+    })
+
+//    catalog.createTable(nameSpace, tableName, hbaseTable, colSeq, keyColumns, nonKeyColumns)
     Seq.empty[Row]
   }
 
@@ -41,7 +53,7 @@ case class DropHbaseTableCommand(tableName: String)
   extends LeafNode with Command {
 
   override protected[sql] lazy val sideEffectResult = {
-    context.dropHbaseTable(tableName)
+    context.catalog.deleteTable(tableName)
     Seq.empty[Row]
   }
 

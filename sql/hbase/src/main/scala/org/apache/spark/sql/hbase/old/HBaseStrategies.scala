@@ -75,7 +75,7 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
         }
 
         val scanBuilder: (Seq[Attribute] => SparkPlan) = HBaseSQLTableScan(
-          _,   // TODO: this first parameter is not used but can not compile without it
+          _, // TODO: this first parameter is not used but can not compile without it
           attributes.map {
             _.toAttribute
           }.toSeq,
@@ -154,8 +154,10 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
 
   object HBaseOperations extends Strategy {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-      case CreateHBaseTablePlan(tableName, nameSpace, hbaseTableName, keyCols, nonKeyCols) =>
-        Seq(CreateHBaseTableCommand(tableName, nameSpace, hbaseTableName, keyCols, nonKeyCols)
+      case CreateHBaseTablePlan(tableName, nameSpace, hbaseTableName,
+      colsSeq, keyCols, nonKeyCols) =>
+        Seq(CreateHBaseTableCommand(tableName, nameSpace, hbaseTableName,
+          colsSeq, keyCols, nonKeyCols)
           (hbaseContext))
       case logical.InsertIntoTable(table: HBaseRelation, partition, child, overwrite) =>
         new InsertIntoHBaseTable(table, planLater(child), overwrite)(hbaseContext) :: Nil

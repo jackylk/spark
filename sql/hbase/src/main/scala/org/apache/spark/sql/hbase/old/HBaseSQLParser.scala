@@ -82,33 +82,45 @@ class HBaseSQLParser extends SqlParser {
             e1.toString.substring(1) ->(info(0), info(1))
           }.toMap
 
+
+        //Check whether the column info are correct or not
         val tableColSet = tableColumns.unzip._1.toSet
         val keySet = keySeq.toSet
         if (tableColSet.size != tableColumns.length ||
           keySet.size != keySeq.length ||
-          !(keySet union infoMap.keySet).equals(tableColSet)) {
-          throw new Exception("\nSyntx Error of Create Table")
+          !(keySet union infoMap.keySet).equals(tableColSet) ||
+          !(keySet intersect infoMap.keySet).isEmpty
+        ) {
+          throw new Exception(
+            "The Column Info of Create Table are not correct")
         }
 
         val customizedNameSpace = tableNameSpace.getOrElse("")
-        val partitionResultOfTableColumns = tableColumns.partition {
+
+        val devideTableColsByKeyOrNonkey = tableColumns.partition {
           case (name, _) =>
             keySeq.contains(name)
         }
-        val keyColDataTypes = keySeq.toList.map { orderedKeyCol =>
-          partitionResultOfTableColumns._1.find { allCol =>
-            allCol._1 == orderedKeyCol
-          }.get._2
+        val dataTypeOfKeyCols = devideTableColsByKeyOrNonkey._1
+        val dataTypeOfNonkeyCols = devideTableColsByKeyOrNonkey._2
+
+        //Get Key Info
+        val keyColsWithDataType = keySeq.map {
+          key => {
+            val typeOfKey = dataTypeOfKeyCols.find(_._1 == key).get._2
+            (key, typeOfKey)
+          }
         }
-        val keyColsWithDataTypes = keySeq.zip(keyColDataTypes)
-        //          zip(partitionResultOfTableColumns._1.map{_._2})
-        val nonKeyCols = partitionResultOfTableColumns._2.map {
+
+        //Get Nonkey Info
+        val nonKeyCols = dataTypeOfNonkeyCols.map {
           case (name, typeOfData) =>
             val infoElem = infoMap.get(name).get
             (name, typeOfData, infoElem._1, infoElem._2)
         }
+
         CreateHBaseTablePlan(tableName, customizedNameSpace, hbaseTableName,
-          keyColsWithDataTypes, nonKeyCols)
+          tableColumns.unzip._1, keyColsWithDataType, nonKeyCols)
     }
 
   protected lazy val drop: Parser[LogicalPlan] =
@@ -137,12 +149,3 @@ class HBaseSQLParser extends SqlParser {
   protected lazy val expressions: Parser[Seq[Expression]] = repsep(expression, ",")
 
 }
-
-case class CreateHBaseTablePlan(tableName: String,
-                                nameSpace: String,
-                                hbaseTable: String,
-                                keyCols: Seq[(String, String)],
-                                nonKeyCols: Seq[(String, String, String, String)]
-                                 ) extends Command
-
-case class DropTablePlan(tableName: String) extends Command
