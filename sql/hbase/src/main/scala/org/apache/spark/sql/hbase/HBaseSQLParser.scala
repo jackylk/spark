@@ -16,9 +16,9 @@
  */
 package org.apache.spark.sql.hbase
 
-import org.apache.spark.sql.catalyst.{SqlLexical, SqlParser}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.{SqlLexical, SqlParser}
 
 class HBaseSQLParser extends SqlParser {
   protected val BULK = Keyword("BULK")
