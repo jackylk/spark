@@ -249,6 +249,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     table.delete(delete)
 
     table.close()
+
+    catalogMapCache.remove(processTableName(tableName))
   }
 
   def createMetadataTable(admin: HBaseAdmin) = {
