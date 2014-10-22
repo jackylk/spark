@@ -238,9 +238,9 @@ object DataTypeUtils {
       .getOrElse((null, -1))._2
   }
 
-  def catalystRowToHBaseRawVals(schema: StructType, row: Row, cols: HBaseCatalog.Columns):
-  HBaseRawRowSeq = {
-    val rawCols = cols.columns.zipWithIndex.map { case (col, ix) =>
+  def catalystRowToHBaseRawVals(schema: StructType, row: Row, cols: Seq[Column]):
+  Seq[HBaseRawType] = {
+    val rawCols = cols.zipWithIndex.map { case (col, ix) =>
       val rx = schemaIndex(schema, col.sqlName)
       val rType = schema(col.sqlName).dataType
       //      if (!kc.dataType == rx) {}
