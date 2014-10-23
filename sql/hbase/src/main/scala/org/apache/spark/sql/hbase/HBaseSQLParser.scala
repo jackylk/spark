@@ -19,6 +19,7 @@ package org.apache.spark.sql.hbase
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SqlLexical, SqlParser}
+import org.apache.spark.sql.catalyst.SparkSQLParser
 
 class HBaseSQLParser extends SqlParser {
   protected val BULK = Keyword("BULK")
@@ -149,3 +150,6 @@ class HBaseSQLParser extends SqlParser {
   protected lazy val expressions: Parser[Seq[Expression]] = repsep(expression, ",")
 
 }
+
+private[sql] class HBaseSparkSQLParser(fallback: String => LogicalPlan)
+  extends SparkSQLParser(fallback)

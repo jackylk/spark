@@ -39,6 +39,7 @@ class HBaseSQLContext(@transient val sc: SparkContext)
 
   @transient val hBasePlanner = new SparkPlanner with HBaseStrategies {
 
+    val hbaseSQLContext = self
     SparkPlan.currentContext.set(self)
 
     override val strategies: Seq[Strategy] = Seq(
@@ -72,15 +73,18 @@ class HBaseSQLContext(@transient val sc: SparkContext)
   }
 
   @transient
-  override protected[sql] val parser = new HBaseSQLParser
+  override val fallback = new HBaseSQLParser
+  override protected[sql] val sqlParser = {
+    new HBaseSparkSQLParser(fallback(_))
+  }
 
-  override def parseSql(sql: String): LogicalPlan = parser(sql)
+  override def parseSql(sql: String): LogicalPlan = sqlParser(sql)
 
   override def sql(sqlText: String): SchemaRDD = {
     if (dialect == "sql") {
       sys.error(s"SQL dialect in HBase context")
     } else if (dialect == "hbaseql") {
-      new SchemaRDD(this, parser(sqlText))
+      new SchemaRDD(this, sqlParser(sqlText))
     } else {
       sys.error(s"Unsupported SQL dialect: $dialect.  Try 'sql' or 'hbaseql'")
     }

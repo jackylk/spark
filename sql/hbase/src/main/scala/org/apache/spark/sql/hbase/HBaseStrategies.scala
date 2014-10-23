@@ -34,7 +34,7 @@ import org.apache.spark.sql.{SQLContext, SchemaRDD}
 private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
   self: SQLContext#SparkPlanner =>
 
-  val hbaseContext: HBaseSQLContext
+  val hbaseSQLContext: HBaseSQLContext
 
 
   /**
@@ -63,7 +63,8 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
 
         def projectionToHBaseColumn(expr: NamedExpression,
                                     hbaseRelation: HBaseRelation): ColumnName = {
-          hbaseRelation.catalogTable.allColumns.findBySqlName(expr.name).map(_.toColumnName).get
+          //hbaseRelation.catalogTable.allColumns.findBySqlName(expr.name).map(_.toColumnName).get
+          null
         }
 
         val rowKeyPreds: Seq[Expression] = if (!rowPrefixPredicates.isEmpty) {
@@ -73,7 +74,7 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
         }
 
         val scanBuilder: (Seq[Attribute] => SparkPlan) = HBaseSQLTableScan(
-          _,   // TODO: this first parameter is not used but can not compile without it
+          _, // TODO: this first parameter is not used but can not compile without it
           attributes.map {
             _.toAttribute
           }.toSeq,
@@ -83,7 +84,7 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
           rowKeyPreds,
           rowKeyPreds,
           None // coprocSubPlan
-        )(hbaseContext)
+        )(hbaseSQLContext)
 
         pruneFilterProject(
           projectList,
@@ -98,13 +99,18 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
 
   object HBaseOperations extends Strategy {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-      case CreateHBaseTablePlan(tableName, nameSpace, hbaseTableName, keyCols, nonKeyCols) =>
-        Seq(CreateHBaseTableCommand(tableName, nameSpace, hbaseTableName, keyCols, nonKeyCols)
-          (hbaseContext))
-      case logical.InsertIntoTable(table: HBaseRelation, partition, child) =>
-        new InsertIntoHBaseTable(table, planLater(child) )(hbaseContext) :: Nil
-      case DropTablePlan(tableName) => Seq(DropHbaseTableCommand(tableName)(hbaseContext))
+      case CreateHBaseTablePlan(
+      tableName, nameSpace, hbaseTableName,
+      colsSeq, keyCols, nonKeyCols) =>
+        Seq(CreateHBaseTableCommand(
+          tableName, nameSpace, hbaseTableName,
+          colsSeq, keyCols, nonKeyCols)
+          (hbaseSQLContext))
+      case logical.InsertIntoTable(table: HBaseRelation, partition, child, _) =>
+        new InsertIntoHBaseTable(table, planLater(child))(hbaseSQLContext) :: Nil
+      case DropTablePlan(tableName) => Seq(DropHbaseTableCommand(tableName)(hbaseSQLContext))
       case _ => Nil
     }
   }
+
 }

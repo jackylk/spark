@@ -14,22 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.spark.sql.hbase
 
-import java.util
+import org.apache.spark.sql.SQLConf
+import org.apache.spark.{SparkConf, SparkContext}
 
-import org.apache.hadoop.hbase.Cell
-import org.apache.hadoop.hbase.client.Scan
-import org.apache.hadoop.hbase.filter.Filter.ReturnCode
-import org.apache.hadoop.hbase.filter._
-import org.apache.log4j.Logger
-import DataTypeUtils._
-import org.apache.spark.sql.catalyst.expressions.Expression
-import org.apache.spark.sql.hbase.HBaseCatalog.Column
+/** A SQLContext that can be used for local testing. */
+object TestHbase
+  extends HBaseSQLContext(new SparkContext("local[2]", "TestSQLContext", new SparkConf())) {
 
-/**
- * HBaseSQLFilter: a set of PushDown filters for optimizing Column Pruning
- * and Row Filtering by using HBase Scan/Filter constructs
- *
- * Created by sboesch on 9/22/14.
- */
+  /** Fewer partitions to speed up testing. */
+  override private[spark] def numShufflePartitions: Int =
+    getConf(SQLConf.SHUFFLE_PARTITIONS, "5").toInt
+}

@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.spark.sql.hbase
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
@@ -10,19 +26,24 @@ import org.apache.log4j.Logger
 import org.apache.spark.Partition
 import org.apache.spark.sql.catalyst.expressions.{Row, _}
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
-import org.apache.spark.sql.hbase.DataTypeUtils._
+
+//import org.apache.spark.sql.hbase.DataTypeUtils._
+
 import org.apache.spark.sql.{SchemaRDD, StructType}
 
 import scala.collection.SortedMap
 import scala.collection.immutable.TreeMap
 
 private[hbase] case class HBaseRelation(
-                                         @transient configuration: Configuration, //HBaseConfig?
+                                         @transient configuration: Configuration,
                                          @transient hbaseContext: HBaseSQLContext,
                                          @transient connection: HConnection,
-                                         tableName: String, hbaseNamespace: String,
-                                         hbaseTableName: String, allColumns: Seq[Column],
-                                         keyColumns: Seq[Column], nonKeyColumns: Seq[NonKeyColumn]
+                                         tableName: String,
+                                         hbaseNamespace: String,
+                                         hbaseTableName: String,
+                                         allColumns: Seq[KeyColumn],
+                                         keyColumns: Seq[KeyColumn],
+                                         nonKeyColumns: Seq[NonKeyColumn]
                                          )
   extends LeafNode {
   self: Product =>
@@ -33,12 +54,12 @@ private[hbase] case class HBaseRelation(
   //  @transient lazy val connection = HConnectionManager.createConnection(configuration)
 
   lazy val partitionKeys = keyColumns.map {
-    case col: Column =>
+    case col: KeyColumn =>
       AttributeReference(col.sqlName, col.dataType, nullable = true)()
   } //catalogTable.rowKey.asAttributes
 
   lazy val attributes = nonKeyColumns.map {
-    case col: Column =>
+    case col: NonKeyColumn =>
       AttributeReference(col.sqlName, col.dataType, nullable = true)()
   } //catalogTable.columns.asAttributes
 
@@ -70,7 +91,7 @@ private[hbase] case class HBaseRelation(
     partSeq
   }
 
-  def getPrunedPartitions(partionPred: Option[Expression]): Option[Seq[HBasePartition]] = {
+  def getPrunedPartitions(partionPred: Option[Expression] = None): Option[Seq[HBasePartition]] = {
     //TODO-XY:Use the input parameter
     Option(partitions)
   }
@@ -156,14 +177,14 @@ private[hbase] case class HBaseRelation(
       //      colFilters.addFilter(new HBaseRowFilter(colFamilies,
       //          catalogTable.rowKeyColumns.columns,
       //        rowKeyPreds.orNull))
-      opreds.foreach {
-        case preds: Seq[Expression] =>
-          // TODO; re-do the predicates logic using expressions
-          //          new SingleColumnValueFilter(s2b(col.colName.family.get),
-          //          colFilters.addFilter(f)
-          //        }
-          colFilters
-      }
+      //      opreds.foreach {
+      //        case preds: Seq[Expression] =>
+      //          // TODO; re-do the predicates logic using expressions
+      //          //          new SingleColumnValueFilter(s2b(col.colName.family.get),
+      //          //          colFilters.addFilter(f)
+      //          //        }
+      //          colFilters
+      //      }
       Some(colFilters)
     }
   }
@@ -173,7 +194,7 @@ private[hbase] case class HBaseRelation(
    * of AND/OR predicates
    */
   class HBaseRowFilter(colFamilies: Seq[String],
-                       rkCols: Seq[Column],
+                       rkCols: Seq[KeyColumn],
                        rowKeyPreds: Seq[Expression]
                         ) extends FilterBase {
     @transient val logger = Logger.getLogger(getClass.getName)
@@ -183,14 +204,14 @@ private[hbase] case class HBaseRelation(
       if (!isOnlyBinaryComparisonPredicates(rowKeyPreds)) {
         false // Presently only simple binary comparisons supported
       } else {
-        //        def catalystToHBaseColumnName(catColName: String) = {
-        //          nonKeyColumns.find(_.sqlName == catColName)
-        //        }
-        //
-        //        def getName(expression: NamedExpression) = expression.asInstanceOf[NamedExpression].name
-        //
-        //        val rowPrefixPreds = getRowPrefixPredicates(rowKeyPreds
-        //          .asInstanceOf[Seq[BinaryExpression]])
+//        def catalystToHBaseColumnName(catColName: String) = {
+//          nonKeyColumns.find(_.sqlName == catColName)
+//        }
+//
+//        def getName(expression: NamedExpression) = expression.asInstanceOf[NamedExpression].name
+//
+//        val rowPrefixPreds = getRowPrefixPredicates(rowKeyPreds
+//          .asInstanceOf[Seq[BinaryExpression]])
         // TODO: fix sorting of rowprefix preds
         val rowKeyColsMap = RowKeyParser.parseRowKeyWithMetaData(rkCols, rowKey)
         val result = rowKeyPreds.forall { p =>
@@ -227,8 +248,8 @@ private[hbase] case class HBaseRelation(
 
     def parseRowKey(rowKey: HBaseRawType): Seq[HBaseRawType]
 
-    def parseRowKeyWithMetaData(rkCols: Seq[Column], rowKey: HBaseRawType)
-    : SortedMap[ColumnName, (Column, Any)]
+    def parseRowKeyWithMetaData(rkCols: Seq[KeyColumn], rowKey: HBaseRawType)
+    : SortedMap[ColumnName, (KeyColumn, Any)]
   }
 
   case class RowKeySpec(offsets: Seq[Int], version: Byte = RowKeyParser.Version1)
@@ -291,9 +312,10 @@ private[hbase] case class HBaseRelation(
       out
     }
 
-    def createKeyFromCatalystRow(schema: StructType, keyCols: Seq[Column], row: Row) = {
-      val rawKeyCols = DataTypeUtils.catalystRowToHBaseRawVals(schema, row, keyCols)
-      createKey(rawKeyCols)
+    def createKeyFromCatalystRow(schema: StructType, keyCols: Seq[KeyColumn], row: Row) = {
+      //      val rawKeyCols = DataTypeUtils.catalystRowToHBaseRawVals(schema, row, keyCols)
+      //      createKey(rawKeyCols)
+      null
     }
 
     def getMinimumRowKeyLength = VersionFieldLen + DimensionCountLen
@@ -318,8 +340,8 @@ private[hbase] case class HBaseRelation(
     }
 
     //TODO
-    override def parseRowKeyWithMetaData(rkCols: Seq[Column], rowKey: HBaseRawType):
-    SortedMap[ColumnName, (Column, Any)] = {
+    override def parseRowKeyWithMetaData(rkCols: Seq[KeyColumn], rowKey: HBaseRawType):
+    SortedMap[ColumnName, (KeyColumn, Any)] = {
       import scala.collection.mutable.HashMap
 
       //      val rowKeyVals = parseRowKey(rowKey)

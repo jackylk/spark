@@ -49,7 +49,9 @@ class HBaseSQLReaderRDD(relation: HBaseRelation,
   @transient lazy val configuration = relation.configuration
   @transient lazy val connection = relation.connection
 
-  override def getPartitions: Array[Partition] = relation.getPartitions()
+  override def getPartitions: Array[Partition] = {
+    relation.getPrunedPartitions().get.toArray
+  }
 
   /**
    * Optionally overridden by subclasses to specify placement preferences.
@@ -61,98 +63,103 @@ class HBaseSQLReaderRDD(relation: HBaseRelation,
   }
 
   val applyFilters: Boolean = false
-//  val serializedConfig = HBaseSQLContext.serializeConfiguration(configuration)
+  //  val serializedConfig = HBaseSQLContext.serializeConfiguration(configuration)
 
   override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
+    /*
 
-//    relation.configuration = HBaseSQLContext
-//      .createConfigurationFromSerializedFields(serializedConfig)
+    //    relation.configuration = HBaseSQLContext
+    //      .createConfigurationFromSerializedFields(serializedConfig)
 
-    val scan = relation.getScanner(split)
-    if (applyFilters) {
-      val colFilters = relation.buildFilters(rowKeyFilterPred, columnPruningPred)
-    }
-
-    @transient val htable = relation.getHTable()
-    @transient val scanner = htable.getScanner(scan)
-    new Iterator[Row] {
-
-      import scala.collection.mutable
-
-      val map = new mutable.HashMap[String, HBaseRawType]()
-
-      var onextVal: Row = _
-
-      def nextRow(): Row = {
-        val result = scanner.next
-        if (result != null) {
-          onextVal = toRow(result, projList)
-          onextVal
-        } else {
-          null
+        val scan = relation.getScanner(split)
+        if (applyFilters) {
+          val colFilters = relation.buildFilters(rowKeyFilterPred, columnPruningPred)
         }
-      }
 
-      val ix = new java.util.concurrent.atomic.AtomicInteger()
+        @transient val htable = relation.getHTable()
+        @transient val scanner = htable.getScanner(scan)
+        new Iterator[Row] {
 
-      override def hasNext: Boolean = {
-        if (onextVal != null) {
-          true
-        } else {
-          nextRow() != null
+          import scala.collection.mutable
+
+          val map = new mutable.HashMap[String, HBaseRawType]()
+
+          var onextVal: Row = _
+
+          def nextRow(): Row = {
+            val result = scanner.next
+            if (result != null) {
+              onextVal = toRow(result, projList)
+              onextVal
+            } else {
+              null
+            }
+          }
+
+          val ix = new java.util.concurrent.atomic.AtomicInteger()
+
+          override def hasNext: Boolean = {
+            if (onextVal != null) {
+              true
+            } else {
+              nextRow() != null
+            }
+          }
+
+          override def next(): Row = {
+            if (onextVal != null) {
+              val tmp = onextVal
+              onextVal = null
+              tmp
+            } else {
+              nextRow
+            }
+          }
         }
-      }
-
-      override def next(): Row = {
-        if (onextVal != null) {
-          val tmp = onextVal
-          onextVal = null
-          tmp
-        } else {
-          nextRow
-        }
-      }
-    }
+        */
+    null
   }
 
   def toRow(result: Result, projList: Seq[NamedExpression]): Row = {
-    // TODO(sboesch): analyze if can be multiple Cells in the result
-    // Also, consider if we should go lower level to the cellScanner()
-    val row = result.getRow
-    val rkCols = relation.catalogTable.rowKeyColumns
-    val rowKeyMap = relation.rowKeyParser.parseRowKeyWithMetaData(rkCols.columns, row)
-    var rmap = new mutable.HashMap[String, Any]()
+    /*
+      // TODO(sboesch): analyze if can be multiple Cells in the result
+      // Also, consider if we should go lower level to the cellScanner()
+      val row = result.getRow
+      val rkCols = relation.catalogTable.rowKeyColumns
+      val rowKeyMap = relation.rowKeyParser.parseRowKeyWithMetaData(rkCols.columns, row)
+      var rmap = new mutable.HashMap[String, Any]()
 
-    rkCols.columns.foreach { rkcol =>
-      rmap.update(rkcol.qualifier, rowKeyMap(rkcol.toColumnName))
-    }
+      rkCols.columns.foreach { rkcol =>
+        rmap.update(rkcol.qualifier, rowKeyMap(rkcol.toColumnName))
+      }
 
-    val jmap = new java.util.TreeMap[Array[Byte], Array[Byte]](Bytes.BYTES_COMPARATOR)
-    //    rmap.foreach { case (k, v) =>
-    //      jmap.put(s2b(k), CatalystToHBase.toByteus(v))
-    //    }
-    val vmap = result.getNoVersionMap
-    vmap.put(s2b(""), jmap)
-    val rowArr = projList.zipWithIndex.
-      foldLeft(new Array[Any](projList.size)) {
-      case (arr, (cname, ix)) =>
-        if (rmap.get(cname.name) isDefined) {
-          arr(ix) = rmap.get(cname.name).get.asInstanceOf[Tuple2[_, _]]._2
-        } else {
-          val col = relation.catalogTable.columns.findBySqlName(projList(ix).name).getOrElse {
-            throw new IllegalArgumentException(s"Column ${projList(ix).name} not found")
+      val jmap = new java.util.TreeMap[Array[Byte], Array[Byte]](Bytes.BYTES_COMPARATOR)
+      //    rmap.foreach { case (k, v) =>
+      //      jmap.put(s2b(k), CatalystToHBase.toByteus(v))
+      //    }
+      val vmap = result.getNoVersionMap
+      vmap.put(s2b(""), jmap)
+      val rowArr = projList.zipWithIndex.
+        foldLeft(new Array[Any](projList.size)) {
+        case (arr, (cname, ix)) =>
+          if (rmap.get(cname.name) isDefined) {
+            arr(ix) = rmap.get(cname.name).get.asInstanceOf[Tuple2[_, _]]._2
+          } else {
+            val col = relation.catalogTable.columns.findBySqlName(projList(ix).name).getOrElse {
+              throw new IllegalArgumentException(s"Column ${projList(ix).name} not found")
+            }
+            val dataType = col.dataType
+            val qual = s2b(col.qualifier)
+            val fam = s2b(col.family)
+            arr(ix) = DataTypeUtils.hbaseFieldToRowField(
+              vmap.get(fam).get(qual)
+              , dataType)
           }
-          val dataType = col.dataType
-          val qual = s2b(col.qualifier)
-          val fam = s2b(col.family)
-          arr(ix) = DataTypeUtils.hbaseFieldToRowField(
-            vmap.get(fam).get(qual)
-            , dataType)
-        }
-        arr
+          arr
+      }
+      Row(rowArr: _*)
     }
-    Row(rowArr: _*)
+     */
+    null
   }
-
-
 }

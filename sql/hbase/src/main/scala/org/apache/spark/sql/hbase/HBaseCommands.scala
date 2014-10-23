@@ -31,15 +31,14 @@ case class CreateHBaseTableCommand(tableName: String,
 
   override protected[sql] lazy val sideEffectResult = {
     val catalog = context.catalog
-    import org.apache.spark.sql.hbase.HBaseCatalog._
 
     val keyColumns = keyCols.map { case (name, typeOfData) =>
       KeyColumn(name, catalog.getDataType(typeOfData.toLowerCase))
     }
-    val nonKeyColumns = new Columns(nonKeyCols.map {
+    val nonKeyColumns = nonKeyCols.map {
       case (name, typeOfData, family, qualifier) =>
-        Column(name, family, qualifier, catalog.getDataType(typeOfData))
-    })
+        NonKeyColumn(name, catalog.getDataType(typeOfData), family, qualifier)
+    }
 
 //    catalog.createTable(nameSpace, tableName, hbaseTable, colSeq, keyColumns, nonKeyColumns)
     Seq.empty[Row]

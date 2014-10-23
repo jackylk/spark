@@ -55,15 +55,15 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     desc.addFamily(new HColumnDescriptor(family2))
     admin.createTable(desc)
 
-    var allColumns = List[Column]()
-    allColumns = allColumns :+ Column("column2", IntegerType)
-    allColumns = allColumns :+ Column("column1", StringType)
-    allColumns = allColumns :+ Column("column4", FloatType)
-    allColumns = allColumns :+ Column("column3", BooleanType)
+    var allColumns = List[KeyColumn]()
+    allColumns = allColumns :+ KeyColumn("column2", IntegerType)
+    allColumns = allColumns :+ KeyColumn("column1", StringType)
+    allColumns = allColumns :+ KeyColumn("column4", FloatType)
+    allColumns = allColumns :+ KeyColumn("column3", BooleanType)
 
-    val keyColumn1 = Column("column1", StringType)
-    val keyColumn2 = Column("column2", IntegerType)
-    var keyColumns = List[Column]()
+    val keyColumn1 = KeyColumn("column1", StringType)
+    val keyColumn2 = KeyColumn("column2", IntegerType)
+    var keyColumns = List[KeyColumn]()
     keyColumns = keyColumns :+ keyColumn1
     keyColumns = keyColumns :+ keyColumn2
 
@@ -73,10 +73,10 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     nonKeyColumns = nonKeyColumns :+ nonKeyColumn3
     nonKeyColumns = nonKeyColumns :+ nonKeyColumn4
 
-    val catalogTable = HBaseCatalogTable(tableName, namespace, hbaseTableName, allColumns,
-      keyColumns, nonKeyColumns)
-
-    catalog.createTable(catalogTable)
+//    val catalogTable = HBaseRelation(tableName, namespace, hbaseTableName, allColumns,
+//      keyColumns, nonKeyColumns)
+//
+//    catalog.createTable(catalogTable)
   }
 
   test("Get Table") {

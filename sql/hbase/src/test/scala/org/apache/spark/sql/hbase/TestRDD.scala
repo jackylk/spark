@@ -18,8 +18,8 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.log4j.Logger
-import org.apache.spark.{TaskContext, Partition, SparkContext}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.{Partition, SparkContext, TaskContext}
 
 class TestRDD(parent : RDD[String], happyFace : String, nPartitions: Int)
   extends RDD[String](parent) {

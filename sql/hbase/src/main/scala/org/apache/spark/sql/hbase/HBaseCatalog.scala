@@ -34,16 +34,19 @@ import scala.collection.mutable.{HashMap, SynchronizedMap}
  * @param sqlName the name of the column
  * @param dataType the data type of the column
  */
-case class Column(sqlName: String, dataType: DataType) {
+abstract class AbstractColumn(sqlName: String, dataType: DataType) {
   override def toString: String = {
     sqlName + "," + dataType.typeName
   }
 }
 
-case class NonKeyColumn(override val sqlName: String,
-                        override val dataType: DataType,
+case class KeyColumn(sqlName: String, dataType: DataType)
+  extends AbstractColumn(sqlName, dataType)
+
+case class NonKeyColumn(sqlName: String,
+                        dataType: DataType,
                         family: String, qualifier: String)
-  extends Column(sqlName, dataType) {
+  extends AbstractColumn(sqlName, dataType) {
   override def toString = {
     sqlName + "," + dataType.typeName + "," + family + ":" + qualifier
   }
@@ -174,12 +177,12 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
           allColumns = allColumns.substring(0, allColumns.length - 1)
         }
         val allColumnArray = allColumns.split(";")
-        var allColumnList = List[Column]()
+        var allColumnList = List[KeyColumn]()
         for (allColumn <- allColumnArray) {
           val index = allColumn.indexOf(",")
           val sqlName = allColumn.substring(0, index)
           val dataType = getDataType(allColumn.substring(index + 1))
-          val column = Column(sqlName, dataType)
+          val column = KeyColumn(sqlName, dataType)
           allColumnList = allColumnList :+ column
         }
 
@@ -189,12 +192,12 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
           keyColumns = keyColumns.substring(0, keyColumns.length - 1)
         }
         val keyColumnArray = keyColumns.split(";")
-        var keyColumnList = List[Column]()
+        var keyColumnList = List[KeyColumn]()
         for (keyColumn <- keyColumnArray) {
           val index = keyColumn.indexOf(",")
           val sqlName = keyColumn.substring(0, index)
           val dataType = getDataType(keyColumn.substring(index + 1))
-          val column = Column(sqlName, dataType)
+          val column = KeyColumn(sqlName, dataType)
           keyColumnList = keyColumnList :+ column
         }
 
