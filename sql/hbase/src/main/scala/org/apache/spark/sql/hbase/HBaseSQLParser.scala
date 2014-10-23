@@ -21,6 +21,13 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SqlLexical, SqlParser}
 
 class HBaseSQLParser extends SqlParser {
+
+  protected val DATA = Keyword("DATA")
+  protected val LOAD = Keyword("LOAD")
+  protected val LOCAL = Keyword("LOCAL")
+  protected val INPATH = Keyword("INPATH")
+  protected val INTO = Keyword("INTO")
+
   protected val BULK = Keyword("BULK")
   protected val CREATE = Keyword("CREATE")
   protected val DROP = Keyword("DROP")
@@ -133,6 +140,13 @@ class HBaseSQLParser extends SqlParser {
       case tn ~ op ~ col => null
     } | ALTER ~> TABLE ~> ident ~ ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> expressions <~ ")") ^^ {
       case tn ~ op ~ tc ~ cf => null
+    }
+
+  protected lazy val load: Parser[LogicalPlan] =
+    LOAD ~> DATA ~> opt(LOCAL) ~> INPATH ~> ident ~
+      opt(OVERWRITE) ~> INTO ~> TABLE ~> ident <~ opt(";") ^^ {
+      case filePath ~ tableName =>
+        LoadDataIntoTable(filePath, new UnresolvedRelation(None, tableName), true)
     }
 
   protected lazy val tableCol: Parser[(String, String)] =

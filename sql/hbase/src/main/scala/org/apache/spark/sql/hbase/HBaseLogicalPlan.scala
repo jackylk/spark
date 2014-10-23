@@ -21,7 +21,10 @@ case class BulkLoadIntoTable(
 
 }
 
-case class LoadDataIntoTable(path: String, table: String, isLocal: Boolean) extends LeafNode {
-  override def output = Seq.empty
+case class LoadDataIntoTable(path: String,
+                             child: LogicalPlan,
+                             isLocal: Boolean) extends LogicalPlan {
+
+  override def toString = s"LogicalPlan: LoadDataIntoTable(LOAD $path INTO $child)"
 }
 
