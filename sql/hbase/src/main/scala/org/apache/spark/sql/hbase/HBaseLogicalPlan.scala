@@ -13,7 +13,6 @@ case class CreateHBaseTablePlan(tableName: String,
 
 case class DropTablePlan(tableName: String) extends Command
 
-// todo: overwrite?
 case class BulkLoadIntoTable(
     table: HBaseRelation,
     path: String) extends LeafNode  {

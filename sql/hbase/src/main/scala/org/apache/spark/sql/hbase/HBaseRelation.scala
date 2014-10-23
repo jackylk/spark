@@ -60,6 +60,7 @@ private[hbase] case class HBaseRelation(
     def close = handle.close
   }
 
+  // need this in hbase?
   def isPartitioned = true
 
   def tableName = getTableName
