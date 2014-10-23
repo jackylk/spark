@@ -40,7 +40,15 @@ case class CreateHBaseTableCommand(tableName: String,
         NonKeyColumn(name, catalog.getDataType(typeOfData), family, qualifier)
     }
 
-//    catalog.createTable(nameSpace, tableName, hbaseTable, colSeq, keyColumns, nonKeyColumns)
+    val colWithTypeMap = (keyCols union nonKeyCols.map {
+      case (name, datatype, _, _) => (name, datatype)
+    }).toMap
+    val allColumns = colsSeq.map {
+      case name =>
+        KeyColumn(name, catalog.getDataType(colWithTypeMap.get(name).get))
+    }
+
+    catalog.createTable(nameSpace, tableName, hbaseTable, allColumns, keyColumns, nonKeyColumns)
     Seq.empty[Row]
   }
 
