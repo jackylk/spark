@@ -19,8 +19,7 @@ import scala.collection.immutable.TreeMap
 private[hbase] case class HBaseRelation(
                                          @transient configuration: Configuration, //HBaseConfig?
                                          @transient hbaseContext: HBaseSQLContext,
-                                         @transient connection: HConnection)
-                                       (
+                                         @transient connection: HConnection,
                                          tableName: String, hbaseNamespace: String,
                                          hbaseTableName: String, allColumns: Seq[Column],
                                          keyColumns: Seq[Column], nonKeyColumns: Seq[NonKeyColumn]

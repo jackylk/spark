@@ -40,22 +40,21 @@ case class Column(sqlName: String, dataType: DataType) {
   }
 }
 
-case class NonKeyColumn(override val sqlName: String, override val dataType: DataType,
-                        family: String, qualifier: String) {
+case class NonKeyColumn(override val sqlName: String,
+                        override val dataType: DataType,
+                        family: String, qualifier: String)
+  extends Column(sqlName, dataType) {
   override def toString = {
     sqlName + "," + dataType.typeName + "," + family + ":" + qualifier
   }
 }
 
-case class HBaseCatalogTable(tableName: String, hbaseNamespace: String,
-                             hbaseTableName: String, allColumns: Seq[Column],
-                             keyColumns: Seq[Column], nonKeyColumns: Seq[NonKeyColumn])
-
 private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
   extends SimpleCatalog(false) with Logging with Serializable {
   lazy val configuration = HBaseConfiguration.create()
-  lazy val catalogMapCache = new HashMap[String, HBaseCatalogTable]
-    with SynchronizedMap[String, HBaseCatalogTable]
+  lazy val relationMapCache = new HashMap[String, HBaseRelation]
+    with SynchronizedMap[String, HBaseRelation]
+  lazy val connection = HConnectionManager.createConnection(configuration)
 
   private def processTableName(tableName: String): String = {
     if (!caseSensitive) {
@@ -65,20 +64,20 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     }
   }
 
-  def createTable(hbaseCatalogTable: HBaseCatalogTable): Unit = {
-    if (checkLogicalTableExist(hbaseCatalogTable.tableName)) {
+  def createTable(hbaseRelation: HBaseRelation): Unit = {
+    if (checkLogicalTableExist(hbaseRelation.tableName)) {
       throw new Exception("The logical table:" +
-        hbaseCatalogTable.tableName + " already exists")
+        hbaseRelation.tableName + " already exists")
     }
 
-    if (!checkHBaseTableExists(hbaseCatalogTable.hbaseTableName)) {
+    if (!checkHBaseTableExists(hbaseRelation.hbaseTableName)) {
       throw new Exception("The HBase table " +
-        hbaseCatalogTable.hbaseTableName + " doesn't exist")
+        hbaseRelation.hbaseTableName + " doesn't exist")
     }
 
-    hbaseCatalogTable.nonKeyColumns.foreach {
+    hbaseRelation.nonKeyColumns.foreach {
       case NonKeyColumn(_, _, family, _) =>
-        if (!checkFamilyExists(hbaseCatalogTable.hbaseTableName, family)) {
+        if (!checkFamilyExists(hbaseRelation.hbaseTableName, family)) {
           throw new Exception(
             "The HBase table doesn't contain the Column Family: " +
               family)
@@ -95,7 +94,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
     val table = new HTable(configuration, MetaData)
     table.setAutoFlushTo(false)
-    val rowKey = hbaseCatalogTable.tableName
+    val rowKey = hbaseRelation.tableName
 
     val get = new Get(Bytes.toBytes(rowKey))
     if (table.exists(get)) {
@@ -106,7 +105,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
       // construct key columns
       val result = new StringBuilder()
-      for (column <- hbaseCatalogTable.keyColumns) {
+      for (column <- hbaseRelation.keyColumns) {
         result.append(column.sqlName)
         result.append(",")
         result.append(column.dataType.typeName)
@@ -116,7 +115,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
       // construct non-key columns
       result.clear()
-      for (column <- hbaseCatalogTable.nonKeyColumns) {
+      for (column <- hbaseRelation.nonKeyColumns) {
         result.append(column.sqlName)
         result.append(",")
         result.append(column.dataType.typeName)
@@ -130,7 +129,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
       // construct all columns
       result.clear()
-      for (column <- hbaseCatalogTable.allColumns) {
+      for (column <- hbaseRelation.allColumns) {
         result.append(column.sqlName)
         result.append(",")
         result.append(column.dataType.typeName)
@@ -140,21 +139,21 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
       // construct HBase table name and namespace
       result.clear()
-      result.append(hbaseCatalogTable.hbaseNamespace)
+      result.append(hbaseRelation.hbaseNamespace)
       result.append(",")
-      result.append(hbaseCatalogTable.hbaseTableName)
+      result.append(hbaseRelation.hbaseTableName)
       put.add(ColumnFamily, QualHbaseName, Bytes.toBytes(result.toString))
 
       // write to the metadata table
       table.put(put)
       table.flushCommits()
 
-      catalogMapCache.put(processTableName(hbaseCatalogTable.tableName), hbaseCatalogTable)
+      relationMapCache.put(processTableName(hbaseRelation.tableName), hbaseRelation)
     }
   }
 
-  def getTable(tableName: String): Option[HBaseCatalogTable] = {
-    var result = catalogMapCache.get(processTableName(tableName))
+  def getTable(tableName: String): Option[HBaseRelation] = {
+    var result = relationMapCache.get(processTableName(tableName))
     if (result.isEmpty) {
       val table = new HTable(configuration, MetaData)
 
@@ -218,10 +217,12 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
             nonKeyColumnList = nonKeyColumnList :+ column
           }
 
-          val hbaseCatalogTable = HBaseCatalogTable(tableName, hbaseTableName, hbaseNamespace,
+          val hbaseRelation = HBaseRelation(
+            configuration, hbaseContext, connection,
+            tableName, hbaseTableName, hbaseNamespace,
             allColumnList, keyColumnList, nonKeyColumnList)
-          catalogMapCache.put(processTableName(tableName), hbaseCatalogTable)
-          result = Some(hbaseCatalogTable)
+          relationMapCache.put(processTableName(tableName), hbaseRelation)
+          result = Some(hbaseRelation)
         }
       }
     }
@@ -231,12 +232,12 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
   override def lookupRelation(namespace: Option[String],
                               tableName: String,
                               alias: Option[String] = None): LogicalPlan = {
-    val catalogTable = getTable(tableName)
-    if (catalogTable.isEmpty) {
+    val hbaseRelation = getTable(tableName)
+    if (hbaseRelation.isEmpty) {
       throw new IllegalArgumentException(
         s"Table $namespace:$tableName does not exist in the catalog")
     }
-    new HBaseRelation(configuration, hbaseContext, catalogTable.get)
+    hbaseRelation.get
   }
 
   def deleteTable(tableName: String): Unit = {
@@ -250,7 +251,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
     table.close()
 
-    catalogMapCache.remove(processTableName(tableName))
+    relationMapCache.remove(processTableName(tableName))
   }
 
   def createMetadataTable(admin: HBaseAdmin) = {
