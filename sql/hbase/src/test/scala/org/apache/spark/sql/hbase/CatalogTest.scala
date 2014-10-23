@@ -17,11 +17,11 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.{HColumnDescriptor, TableName, HTableDescriptor}
 import org.apache.hadoop.hbase.client.HBaseAdmin
-import org.apache.spark.sql.catalyst.types.{FloatType, BooleanType, IntegerType, StringType}
+import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.spark._
-import org.scalatest.{Ignore, BeforeAndAfterAll, FunSuite}
+import org.apache.spark.sql.catalyst.types.{BooleanType, FloatType, IntegerType, StringType}
+import org.scalatest.{BeforeAndAfterAll, FunSuite, Ignore}
 
 /**
  * Created by mengbo on 10/2/14.
@@ -73,10 +73,7 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     nonKeyColumns = nonKeyColumns :+ nonKeyColumn3
     nonKeyColumns = nonKeyColumns :+ nonKeyColumn4
 
-//    val catalogTable = HBaseRelation(tableName, namespace, hbaseTableName, allColumns,
-//      keyColumns, nonKeyColumns)
-//
-//    catalog.createTable(catalogTable)
+    catalog.createTable(tableName, namespace, hbaseTableName, allColumns, keyColumns, nonKeyColumns)
   }
 
   test("Get Table") {
