@@ -22,7 +22,7 @@ import org.apache.spark.sql.catalyst.planning.{PhysicalOperation, QueryPlanner}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.hbase.execution.HBaseSQLTableScan
+//import org.apache.spark.sql.hbase.execution.HBaseSQLTableScan
 
 /**
  * HBaseStrategies
@@ -30,7 +30,7 @@ import org.apache.spark.sql.hbase.execution.HBaseSQLTableScan
  */
 private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
   self: SQLContext#SparkPlanner =>
-
+/*
   val hbaseContext: HBaseSQLContext
 
 
@@ -109,4 +109,5 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
       case _ => Nil
     }
   }
+  */
 }

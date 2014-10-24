@@ -25,7 +25,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.hbase.HBaseCatalog._
+//import org.apache.spark.sql.hbase.HBaseCatalog._
 
 /**
  * An instance of the Spark SQL execution engine that integrates with data stored in Hive.
@@ -35,7 +35,7 @@ class HBaseSQLContext(@transient val sc: SparkContext)
   extends SQLContext(sc) with Serializable {
   self =>
   // Todo: add analyzer (add a rule from LoadDataIntoTable to BulkLoadIntoTable)
-  override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this)
+//  override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this)
 
   @transient val hBasePlanner = new SparkPlanner with HBaseStrategies {
 
@@ -45,14 +45,14 @@ class HBaseSQLContext(@transient val sc: SparkContext)
       CommandStrategy(self),
       TakeOrdered,
       InMemoryScans,
-      HBaseTableScans,
+//      HBaseTableScans,
       HashAggregation,
       LeftSemiJoin,
       HashJoin,
       BasicOperators,
       CartesianProduct,
-      BroadcastNestedLoopJoin,
-      HBaseOperations
+      BroadcastNestedLoopJoin
+//      HBaseOperations
     )
   }
 
@@ -72,15 +72,15 @@ class HBaseSQLContext(@transient val sc: SparkContext)
   }
 
   @transient
-  override protected[sql] val parser = new HBaseSQLParser
+  protected[sql] val hbaseSqlParser = new HBaseSQLParser
 
-  override def parseSql(sql: String): LogicalPlan = parser(sql)
+  override def parseSql(sql: String): LogicalPlan = hbaseSqlParser(sql)
 
   override def sql(sqlText: String): SchemaRDD = {
     if (dialect == "sql") {
       sys.error(s"SQL dialect in HBase context")
     } else if (dialect == "hbaseql") {
-      new SchemaRDD(this, parser(sqlText))
+      new SchemaRDD(this, hbaseSqlParser(sqlText))
     } else {
       sys.error(s"Unsupported SQL dialect: $dialect.  Try 'sql' or 'hbaseql'")
     }

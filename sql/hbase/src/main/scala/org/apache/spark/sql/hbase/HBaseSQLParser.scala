@@ -19,6 +19,7 @@ package org.apache.spark.sql.hbase
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SqlLexical, SqlParser}
+import org.apache.spark.sql.hbase.logical._
 
 class HBaseSQLParser extends SqlParser {
 
@@ -26,7 +27,6 @@ class HBaseSQLParser extends SqlParser {
   protected val LOAD = Keyword("LOAD")
   protected val LOCAL = Keyword("LOCAL")
   protected val INPATH = Keyword("INPATH")
-  protected val INTO = Keyword("INTO")
 
   protected val BULK = Keyword("BULK")
   protected val CREATE = Keyword("CREATE")
@@ -60,9 +60,9 @@ class HBaseSQLParser extends SqlParser {
         | EXCEPT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)}
         | UNION ~ DISTINCT.? ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2))}
         )
-      | insert | create | drop | alter
+      | load
       )
-
+/*
   override protected lazy val insert: Parser[LogicalPlan] =
     INSERT ~> INTO ~> relation ~ select <~ opt(";") ^^ {
       case r ~ s =>
@@ -128,6 +128,7 @@ class HBaseSQLParser extends SqlParser {
 
         CreateHBaseTablePlan(tableName, customizedNameSpace, hbaseTableName,
           tableColumns.unzip._1, keyColsWithDataType, nonKeyCols)
+
     }
 
   protected lazy val drop: Parser[LogicalPlan] =
@@ -141,12 +142,11 @@ class HBaseSQLParser extends SqlParser {
     } | ALTER ~> TABLE ~> ident ~ ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> expressions <~ ")") ^^ {
       case tn ~ op ~ tc ~ cf => null
     }
-
+*/
   protected lazy val load: Parser[LogicalPlan] =
-    LOAD ~> DATA ~> opt(LOCAL) ~> INPATH ~> ident ~
-      opt(OVERWRITE) ~> INTO ~> TABLE ~> ident <~ opt(";") ^^ {
-      case filePath ~ tableName =>
-        LoadDataIntoTable(filePath, new UnresolvedRelation(None, tableName), true)
+  (LOAD ~> DATA ~> opt(LOCAL) ~> INPATH ~> ident) ~
+    (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ^^ {
+      case filePath ~ table => LoadDataIntoTable(filePath, table, true)
     }
 
   protected lazy val tableCol: Parser[(String, String)] =
