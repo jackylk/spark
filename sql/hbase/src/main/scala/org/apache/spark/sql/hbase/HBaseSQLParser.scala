@@ -60,8 +60,9 @@ class HBaseSQLParser extends SqlParser {
         | EXCEPT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)}
         | UNION ~ DISTINCT.? ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2))}
         )
-      | load
-      )
+      | load 
+      /* | insert | create | drop | alter */
+      ) 
 /*
   override protected lazy val insert: Parser[LogicalPlan] =
     INSERT ~> INTO ~> relation ~ select <~ opt(";") ^^ {
