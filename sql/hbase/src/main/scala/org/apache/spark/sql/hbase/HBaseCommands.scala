@@ -48,7 +48,7 @@ case class CreateHBaseTableCommand(tableName: String,
         KeyColumn(name, catalog.getDataType(colWithTypeMap.get(name).get))
     }
 
-    catalog.createTable(nameSpace, tableName, hbaseTable, allColumns, keyColumns, nonKeyColumns)
+    catalog.createTable(tableName, nameSpace, hbaseTable, allColumns, keyColumns, nonKeyColumns)
     Seq.empty[Row]
   }
 
