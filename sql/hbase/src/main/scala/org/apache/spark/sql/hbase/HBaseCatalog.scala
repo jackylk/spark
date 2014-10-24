@@ -226,7 +226,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
           val hbaseRelation = HBaseRelation(
             configuration, hbaseContext, connection,
-            tableName, hbaseTableName, hbaseNamespace,
+            tableName, hbaseNamespace, hbaseTableName,
             allColumnList, keyColumnList, nonKeyColumnList)
           relationMapCache.put(processTableName(tableName), hbaseRelation)
           result = Some(hbaseRelation)
