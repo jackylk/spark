@@ -16,7 +16,7 @@
  */
 package org.apache.spark.sql.hbase
 
-import java.io.Serializable
+import java.io._
 
 import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase.util.Bytes
@@ -34,19 +34,19 @@ import scala.collection.mutable.{HashMap, SynchronizedMap}
  * @param sqlName the name of the column
  * @param dataType the data type of the column
  */
-abstract class AbstractColumn(sqlName: String, dataType: DataType) {
+abstract class AbstractColumn {
+  val sqlName: String
+  val dataType: DataType
+
   override def toString: String = {
     sqlName + "," + dataType.typeName
   }
 }
 
-case class KeyColumn(sqlName: String, dataType: DataType)
-  extends AbstractColumn(sqlName, dataType)
+case class KeyColumn(sqlName: String, dataType: DataType) extends AbstractColumn
 
-case class NonKeyColumn(sqlName: String,
-                        dataType: DataType,
-                        family: String, qualifier: String)
-  extends AbstractColumn(sqlName, dataType) {
+case class NonKeyColumn(sqlName: String, dataType: DataType, family: String, qualifier: String)
+  extends AbstractColumn {
   override def toString = {
     sqlName + "," + dataType.typeName + "," + family + ":" + qualifier
   }
@@ -107,6 +107,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     else {
       val put = new Put(Bytes.toBytes(tableName))
 
+      /*
       // construct key columns
       val result = new StringBuilder()
       for (column <- keyColumns) {
@@ -147,13 +148,20 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       result.append(",")
       result.append(hbaseTableName)
       put.add(ColumnFamily, QualHbaseName, Bytes.toBytes(result.toString))
+      */
+
+      val hbaseRelation = HBaseRelation(configuration, hbaseContext, connection,
+        tableName, hbaseNamespace, hbaseTableName, allColumns, keyColumns, nonKeyColumns)
+
+      val bufout = new ByteArrayOutputStream()
+      val obout = new ObjectOutputStream(bufout)
+      obout.writeObject(hbaseRelation)
+
+      put.add(ColumnFamily, QualData, bufout.toByteArray)
 
       // write to the metadata table
       table.put(put)
       table.flushCommits()
-
-      val hbaseRelation = HBaseRelation(configuration, hbaseContext, connection,
-        tableName, hbaseNamespace, hbaseTableName, allColumns, keyColumns, nonKeyColumns)
 
       relationMapCache.put(processTableName(tableName), hbaseRelation)
     }
@@ -169,6 +177,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       if (values == null) {
         result = None
       } else {
+        /*
         // get HBase table name and namespace
         val hbaseName = Bytes.toString(values.getValue(ColumnFamily, QualHbaseName))
         val hbaseNameArray = hbaseName.split(",")
@@ -207,30 +216,33 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
         // get the non-key columns
         var nonKeyColumns = Bytes.toString(values.getValue(ColumnFamily, QualNonKeyColumns))
-        if (nonKeyColumns != null) {
-          if (nonKeyColumns.length > 0) {
-            nonKeyColumns = nonKeyColumns.substring(0, nonKeyColumns.length - 1)
-          }
-          var nonKeyColumnList = List[NonKeyColumn]()
-          val nonKeyColumnArray = nonKeyColumns.split(";")
-          for (nonKeyColumn <- nonKeyColumnArray) {
-            val nonKeyColumnInfo = nonKeyColumn.split(",")
-            val sqlName = nonKeyColumnInfo(0)
-            val dataType = getDataType(nonKeyColumnInfo(1))
-            val family = nonKeyColumnInfo(2)
-            val qualifier = nonKeyColumnInfo(3)
-
-            val column = NonKeyColumn(sqlName, dataType, family, qualifier)
-            nonKeyColumnList = nonKeyColumnList :+ column
-          }
-
-          val hbaseRelation = HBaseRelation(
-            configuration, hbaseContext, connection,
-            tableName, hbaseNamespace, hbaseTableName,
-            allColumnList, keyColumnList, nonKeyColumnList)
-          relationMapCache.put(processTableName(tableName), hbaseRelation)
-          result = Some(hbaseRelation)
+        if (nonKeyColumns.length > 0) {
+          nonKeyColumns = nonKeyColumns.substring(0, nonKeyColumns.length - 1)
         }
+        var nonKeyColumnList = List[NonKeyColumn]()
+        val nonKeyColumnArray = nonKeyColumns.split(";")
+        for (nonKeyColumn <- nonKeyColumnArray) {
+          val nonKeyColumnInfo = nonKeyColumn.split(",")
+          val sqlName = nonKeyColumnInfo(0)
+          val dataType = getDataType(nonKeyColumnInfo(1))
+          val family = nonKeyColumnInfo(2)
+          val qualifier = nonKeyColumnInfo(3)
+
+          val column = NonKeyColumn(sqlName, dataType, family, qualifier)
+          nonKeyColumnList = nonKeyColumnList :+ column
+        }
+        */
+        val data = values.getValue(ColumnFamily, QualData)
+        val bufin = new ByteArrayInputStream(data)
+        val obin = new ObjectInputStream(bufin)
+        val relation = obin.readObject().asInstanceOf[HBaseRelation]:HBaseRelation
+
+        val hbaseRelation = HBaseRelation(
+          configuration, hbaseContext, connection,
+          relation.tableName, relation.hbaseNamespace, relation.hbaseTableName,
+          relation.allColumns, relation.keyColumns, relation.nonKeyColumns)
+        relationMapCache.put(processTableName(tableName), hbaseRelation)
+        result = Some(hbaseRelation)
       }
     }
     result
@@ -323,4 +335,5 @@ object HBaseCatalog {
   private final val QualNonKeyColumns = Bytes.toBytes("nonKeyColumns")
   private final val QualHbaseName = Bytes.toBytes("hbaseName")
   private final val QualAllColumns = Bytes.toBytes("allColumns")
+  private final val QualData = Bytes.toBytes("data")
 }

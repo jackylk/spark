@@ -50,11 +50,13 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     val family1 = "family1"
     val family2 = "family2"
 
-    val admin = new HBaseAdmin(configuration)
-    val desc = new HTableDescriptor(TableName.valueOf(hbaseTableName))
-    desc.addFamily(new HColumnDescriptor(family1))
-    desc.addFamily(new HColumnDescriptor(family2))
-    admin.createTable(desc)
+    if (!catalog.checkHBaseTableExists(hbaseTableName)) {
+      val admin = new HBaseAdmin(configuration)
+      val desc = new HTableDescriptor(TableName.valueOf(hbaseTableName))
+      desc.addFamily(new HColumnDescriptor(family1))
+      desc.addFamily(new HColumnDescriptor(family2))
+      admin.createTable(desc)
+    }
 
     var allColumns = List[KeyColumn]()
     allColumns = allColumns :+ KeyColumn("column2", IntegerType)
