@@ -34,19 +34,21 @@ import scala.collection.mutable.{HashMap, SynchronizedMap}
  * @param sqlName the name of the column
  * @param dataType the data type of the column
  */
-abstract class AbstractColumn {
-  val sqlName: String
-  val dataType: DataType
-
+sealed abstract class AbstractColumn(val sqlName: String, val dataType: DataType) {
   override def toString: String = {
     sqlName + "," + dataType.typeName
   }
 }
 
-case class KeyColumn(sqlName: String, dataType: DataType) extends AbstractColumn
+case class KeyColumn(override val sqlName: String, override val dataType: DataType)
+  extends AbstractColumn(sqlName, dataType)
 
-case class NonKeyColumn(sqlName: String, dataType: DataType, family: String, qualifier: String)
-  extends AbstractColumn {
+case class NonKeyColumn(override val sqlName: String,
+                        override val dataType: DataType,
+                        family: String, qualifier: String)
+  extends AbstractColumn(sqlName, dataType) {
+  @transient lazy val familyRaw = Bytes.toBytes(family)
+  @transient lazy val qualifierRaw = Bytes.toBytes(qualifier)
   override def toString = {
     sqlName + "," + dataType.typeName + "," + family + ":" + qualifier
   }

@@ -54,35 +54,27 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
 
         // TODO: Ensure the outputs from the relation match the expected columns of the query
 
+        /*
         val predAttributes = AttributeSet(inPredicates.flatMap(_.references))
         val projectSet = AttributeSet(projectList.flatMap(_.references))
-
         val attributes = projectSet ++ predAttributes
 
         val rowPrefixPredicates = relation.getRowPrefixPredicates(rowKeyPredicates)
-
-        def projectionToHBaseColumn(expr: NamedExpression,
-                                    hbaseRelation: HBaseRelation): ColumnName = {
-          //hbaseRelation.catalogTable.allColumns.findBySqlName(expr.name).map(_.toColumnName).get
-          null
-        }
 
         val rowKeyPreds: Seq[Expression] = if (!rowPrefixPredicates.isEmpty) {
           Seq(rowPrefixPredicates.reduceLeft(And))
         } else {
           Nil
         }
+        */
 
+        // TODO: add pushdowns
         val scanBuilder: (Seq[Attribute] => SparkPlan) = HBaseSQLTableScan(
-          _, // TODO: this first parameter is not used but can not compile without it
-          attributes.map {
-            _.toAttribute
-          }.toSeq,
           relation,
-          projectList,
-          otherPredicates,
-          rowKeyPreds,
-          rowKeyPreds,
+          _,
+          None,  // row key predicate
+          None,  // value predicate
+          None,  // partition predicate
           None // coprocSubPlan
         )(hbaseSQLContext)
 

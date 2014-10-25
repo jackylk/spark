@@ -15,32 +15,10 @@
  * limitations under the License.
  */
 package org.apache.spark.sql.hbase
-
-import org.apache.log4j.Logger
 import org.apache.spark.Partition
-import org.apache.spark.sql.hbase._
 
-/**
- * HBasePartition
- * Created by sboesch on 9/9/14.
- */
-case class HBasePartitionBounds(start : Option[HBaseRawType], end: Option[HBaseRawType]) {
-
-//  def contains(rowKey: Optionable[HBaseRawType]) = {
-//    import DataTypeUtils.cmp
-//    !rowKey.opt.isEmpty && cmp(rowKey.opt, start) >= 0 && cmp(rowKey.opt, end) <= 0
-//  }
-}
-
-case class HBasePartition(idx : Int, bounds : HBasePartitionBounds,
-                          server: Option[String])  extends Partition {
-
-  /**
-   * Get the split's index within its parent RDD
-   */
+private[hbase] class HBasePartition(idx : Int, val lowerBound: Option[HBaseRawType],
+                          val upperBound: Option[HBaseRawType],
+                          val server: Option[String])  extends Partition {
   override def index: Int = idx
-
-}
-object HBasePartition {
-  val SinglePartition = new HBasePartition(1, HBasePartitionBounds(None, None), None)
 }

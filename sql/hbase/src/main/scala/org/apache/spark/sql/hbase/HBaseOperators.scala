@@ -28,13 +28,11 @@ import org.apache.spark.sql.execution.{LeafNode, UnaryNode, SparkPlan}
  */
 @DeveloperApi
 case class HBaseSQLTableScan(
-    otherAttributes: Seq[Attribute],
-    attributes: Seq[Attribute],
     relation: HBaseRelation,
-    projList: Seq[NamedExpression],
-    columnPruningPredicates: Seq[Expression],
-    rowKeyPredicates: Seq[Expression],
-    partitionPruningPredicates: Seq[Expression],
+    output: Seq[Attribute],
+    rowKeyPredicate: Option[Expression],
+    valuePredicate: Option[Expression],
+    partitionPredicate: Option[Expression],
     coProcessorPlan: Option[SparkPlan])
     (@transient context: HBaseSQLContext)
   extends LeafNode {
@@ -42,16 +40,14 @@ case class HBaseSQLTableScan(
   override def execute(): RDD[Row] = {
     new HBaseSQLReaderRDD(
       relation,
-      projList,
-      columnPruningPredicates, // TODO:convert to column pruning preds
-      rowKeyPredicates,
-      rowKeyPredicates, // PartitionPred : Option[Expression]
+      output,
+      rowKeyPredicate, // TODO:convert to column pruning preds
+      valuePredicate,
+      partitionPredicate, // PartitionPred : Option[Expression]
       None, // coprocSubPlan: SparkPlan
       context
     )
   }
-
-  override def output = attributes
 }
 
 @DeveloperApi
