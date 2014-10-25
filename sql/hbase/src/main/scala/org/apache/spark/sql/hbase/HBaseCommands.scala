@@ -33,7 +33,7 @@ case class CreateHBaseTableCommand(tableName: String,
     val catalog = context.catalog
 
     val keyColumns = keyCols.map { case (name, typeOfData) =>
-      KeyColumn(name, catalog.getDataType(typeOfData.toLowerCase))
+      KeyColumn(name, catalog.getDataType(typeOfData))
     }
     val nonKeyColumns = nonKeyCols.map {
       case (name, typeOfData, family, qualifier) =>
