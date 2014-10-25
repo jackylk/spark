@@ -60,9 +60,9 @@ class HBaseSQLParser extends SqlParser {
         | EXCEPT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)}
         | UNION ~ DISTINCT.? ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2))}
         )
-      | load 
-      /* | insert | create | drop | alter */
-      ) 
+      | load
+      /*  | insert | create | drop | alter */
+      )
 /*
   override protected lazy val insert: Parser[LogicalPlan] =
     INSERT ~> INTO ~> relation ~ select <~ opt(";") ^^ {
@@ -145,10 +145,16 @@ class HBaseSQLParser extends SqlParser {
     }
 */
   protected lazy val load: Parser[LogicalPlan] =
-  (LOAD ~> DATA ~> opt(LOCAL) ~> INPATH ~> ident) ~
+  (
+    (LOAD ~> DATA ~> INPATH ~> stringLit) ~
     (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ^^ {
+      case filePath ~ table => LoadDataIntoTable(filePath, table, false)
+    }
+  | (LOAD ~> DATA ~> LOCAL ~> INPATH ~> stringLit) ~
+      (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ^^ {
       case filePath ~ table => LoadDataIntoTable(filePath, table, true)
     }
+  )
 
   protected lazy val tableCol: Parser[(String, String)] =
     ident ~ (STRING | BYTE | SHORT | INTEGER | LONG | FLOAT | DOUBLE | BOOLEAN) ^^ {
