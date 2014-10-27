@@ -36,21 +36,18 @@ import scala.collection.mutable.{HashMap, SynchronizedMap}
  */
 sealed abstract class AbstractColumn(val sqlName: String, val dataType: DataType) {
   override def toString: String = {
-    sqlName + "," + dataType.typeName
+    s"$sqlName , $dataType.typeName"
   }
 }
 
-case class KeyColumn(override val sqlName: String, override val dataType: DataType)
-  extends AbstractColumn(sqlName, dataType)
+case class KeyColumn(sqlName: String, dataType: DataType) extends AbstractColumn
 
-case class NonKeyColumn(override val sqlName: String,
-                        override val dataType: DataType,
-                        family: String, qualifier: String)
-  extends AbstractColumn(sqlName, dataType) {
+case class NonKeyColumn(sqlName: String, dataType: DataType, family: String, qualifier: String)
+  extends AbstractColumn {
   @transient lazy val familyRaw = Bytes.toBytes(family)
   @transient lazy val qualifierRaw = Bytes.toBytes(qualifier)
   override def toString = {
-    sqlName + "," + dataType.typeName + "," + family + ":" + qualifier
+    s"$sqlName , $dataType.typeName , $family:$qualifier"
   }
 }
 
@@ -73,21 +70,17 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
                   allColumns: Seq[KeyColumn], keyColumns: Seq[KeyColumn],
                   nonKeyColumns: Seq[NonKeyColumn]): Unit = {
     if (checkLogicalTableExist(tableName)) {
-      throw new Exception("The logical table:" +
-        tableName + " already exists")
+      throw new Exception(s"The logical table: $tableName already exists")
     }
 
     if (!checkHBaseTableExists(hbaseTableName)) {
-      throw new Exception("The HBase table " +
-        hbaseTableName + " doesn't exist")
+      throw new Exception(s"The HBase table $hbaseTableName doesn't exist")
     }
 
     nonKeyColumns.foreach {
       case NonKeyColumn(_, _, family, _) =>
         if (!checkFamilyExists(hbaseTableName, family)) {
-          throw new Exception(
-            "The HBase table doesn't contain the Column Family: " +
-              family)
+          throw new Exception(s"The HBase table doesn't contain the Column Family: $family")
         }
     }
 
@@ -104,7 +97,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
     val get = new Get(Bytes.toBytes(tableName))
     if (table.exists(get)) {
-      throw new Exception("row key exists")
+      throw new Exception(s"row key $tableName exists")
     }
     else {
       val put = new Put(Bytes.toBytes(tableName))
@@ -234,10 +227,10 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
           nonKeyColumnList = nonKeyColumnList :+ column
         }
         */
-        val data = values.getValue(ColumnFamily, QualData)
-        val bufin = new ByteArrayInputStream(data)
-        val obin = new ObjectInputStream(bufin)
-        val relation = obin.readObject().asInstanceOf[HBaseRelation]:HBaseRelation
+        val value = values.getValue(ColumnFamily, QualData)
+        val bufferInput = new ByteArrayInputStream(value)
+        val objectInput = new ObjectInputStream(bufferInput)
+        val relation = objectInput.readObject().asInstanceOf[HBaseRelation]: HBaseRelation
 
         val hbaseRelation = HBaseRelation(
           configuration, hbaseContext, connection,
@@ -276,10 +269,10 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
   }
 
   def createMetadataTable(admin: HBaseAdmin) = {
-    val desc = new HTableDescriptor(TableName.valueOf(MetaData))
-    val coldef = new HColumnDescriptor(ColumnFamily)
-    desc.addFamily(coldef)
-    admin.createTable(desc)
+    val descriptor = new HTableDescriptor(TableName.valueOf(MetaData))
+    val columnDescriptor = new HColumnDescriptor(ColumnFamily)
+    descriptor.addFamily(columnDescriptor)
+    admin.createTable(descriptor)
   }
 
   def checkHBaseTableExists(hbaseTableName: String): Boolean = {
@@ -325,7 +318,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     } else if (dataType.equalsIgnoreCase(BooleanType.typeName)) {
       BooleanType
     } else {
-      throw new IllegalArgumentException(s"Unrecognized data type '${dataType}'")
+      throw new IllegalArgumentException(s"Unrecognized data type: $dataType")
     }
   }
 }
@@ -333,9 +326,9 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 object HBaseCatalog {
   private final val MetaData = "metadata"
   private final val ColumnFamily = Bytes.toBytes("colfam")
-  private final val QualKeyColumns = Bytes.toBytes("keyColumns")
-  private final val QualNonKeyColumns = Bytes.toBytes("nonKeyColumns")
-  private final val QualHbaseName = Bytes.toBytes("hbaseName")
-  private final val QualAllColumns = Bytes.toBytes("allColumns")
+  //  private final val QualKeyColumns = Bytes.toBytes("keyColumns")
+  //  private final val QualNonKeyColumns = Bytes.toBytes("nonKeyColumns")
+  //  private final val QualHbaseName = Bytes.toBytes("hbaseName")
+  //  private final val QualAllColumns = Bytes.toBytes("allColumns")
   private final val QualData = Bytes.toBytes("data")
 }
