@@ -49,15 +49,15 @@ private[hbase] case class HBaseRelation(
 
   @transient lazy val handle: HTable = new HTable(configuration, hbaseTableName)
   @transient lazy val logger = Logger.getLogger(getClass.getName)
-  @transient lazy val partitionKeys = keyColumns.map(col=>
-                          AttributeReference(col.sqlName, col.dataType, nullable = false)())
-  @transient lazy val columnMap = allColumns.map{
+  @transient lazy val partitionKeys = keyColumns.map(col =>
+    AttributeReference(col.sqlName, col.dataType, nullable = false)())
+  @transient lazy val columnMap = allColumns.map {
     case key: KeyColumn => (key.sqlName, keyColumns.indexOf(key))
     case nonKey: NonKeyColumn => (nonKey.sqlName, nonKey)
   }.toMap
 
-  lazy val attributes = nonKeyColumns.map(col=>
-                          AttributeReference(col.sqlName, col.dataType, nullable = true)())
+  lazy val attributes = nonKeyColumns.map(col =>
+    AttributeReference(col.sqlName, col.dataType, nullable = true)())
 
   //  lazy val colFamilies = nonKeyColumns.map(_.family).distinct
   //  lazy val applyFilters = false
@@ -66,8 +66,8 @@ private[hbase] case class HBaseRelation(
 
   override def output: Seq[Attribute] = {
     allColumns.map {
-      case colName =>
-        (partitionKeys union attributes).find(_.name == colName).get
+      case column =>
+        (partitionKeys union attributes).find(_.name == column.sqlName).get
     }
   }
 
@@ -89,41 +89,42 @@ private[hbase] case class HBaseRelation(
     Option(partitions)
   }
 
-    def buildFilter(projList: Seq[NamedExpression],
-                    rowKeyPredicate: Option[Expression],
-                    valuePredicate: Option[Expression]) = {
-      val filters = new ArrayList[Filter]
-      // TODO: add specific filters
-      Option(new FilterList(filters))
-    }
+  def buildFilter(projList: Seq[NamedExpression],
+                  rowKeyPredicate: Option[Expression],
+                  valuePredicate: Option[Expression]) = {
+    val filters = new ArrayList[Filter]
+    // TODO: add specific filters
+    Option(new FilterList(filters))
+  }
 
-    def buildPut(row: Row): Put = {
-      // TODO: revisit this using new KeyComposer
-      val rowKey : HBaseRawType =  null
-      new Put(rowKey)
-    }
+  def buildPut(row: Row): Put = {
+    // TODO: revisit this using new KeyComposer
+    val rowKey: HBaseRawType = null
+    new Put(rowKey)
+  }
 
-    def buildScan(split: Partition, filters: Option[FilterList],
-                  projList: Seq[NamedExpression]): Scan = {
-      val hbPartition = split.asInstanceOf[HBasePartition]
-      val scan = {
-        (hbPartition.lowerBound, hbPartition.upperBound) match {
-          case (Some(lb), Some(ub)) => new Scan(lb, ub)
-          case (Some(lb), None) => new Scan(lb)
-          case _ => new Scan
-        }
+  def buildScan(split: Partition, filters: Option[FilterList],
+                projList: Seq[NamedExpression]): Scan = {
+    val hbPartition = split.asInstanceOf[HBasePartition]
+    val scan = {
+      (hbPartition.lowerBound, hbPartition.upperBound) match {
+        case (Some(lb), Some(ub)) => new Scan(lb, ub)
+        case (Some(lb), None) => new Scan(lb)
+        case _ => new Scan
       }
-      if (filters.isDefined) {
-        scan.setFilter(filters.get)
-      }
-      // TODO: add add Family to SCAN from projections
-      scan
     }
+    if (filters.isDefined) {
+      scan.setFilter(filters.get)
+    }
+    // TODO: add add Family to SCAN from projections
+    scan
+  }
 
-    def buildGet(projList: Seq[NamedExpression], rowKey: HBaseRawType) {
-      new Get(rowKey)
-      // TODO: add columns to the Get
-    }
+  def buildGet(projList: Seq[NamedExpression], rowKey: HBaseRawType) {
+    new Get(rowKey)
+    // TODO: add columns to the Get
+  }
+
   /**
    * Trait for RowKeyParser's that convert a raw array of bytes into their constituent
    * logical column values
@@ -253,7 +254,7 @@ private[hbase] case class HBaseRelation(
     assert(projections.size == row.length, "Projection size and row size mismatched")
     // TODO: replaced with the new Key method
     val rowKeys = RowKeyParser.parseRowKey(result.getRow)
-    projections.foreach{p =>
+    projections.foreach { p =>
       columnMap.get(p._1.name).get match {
         case column: NonKeyColumn => {
           val colValue = result.getValue(column.familyRaw, column.qualifierRaw)
