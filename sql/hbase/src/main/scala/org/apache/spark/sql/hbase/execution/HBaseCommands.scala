@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.sql.hbase
+package org.apache.spark.sql.hbase.execution
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.{Command, LeafNode}
+import org.apache.spark.sql.hbase.{NonKeyColumn, KeyColumn, HBaseSQLContext}
 
 case class CreateHBaseTableCommand(tableName: String,
                                    nameSpace: String,

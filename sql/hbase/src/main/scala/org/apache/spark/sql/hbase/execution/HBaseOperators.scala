@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.hbase
+package org.apache.spark.sql.hbase.execution
 
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.execution.{LeafNode, UnaryNode, SparkPlan}
+import org.apache.spark.sql.hbase.{HBaseSQLReaderRDD, HBaseSQLContext, HBaseRelation}
 
 /**
  * :: DeveloperApi ::
