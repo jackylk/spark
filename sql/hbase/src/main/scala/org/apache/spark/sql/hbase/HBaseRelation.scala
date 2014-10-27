@@ -126,6 +126,58 @@ private[hbase] case class HBaseRelation(
   }
 
   /**
+   * create row key based on key columns information
+   * @param rawKeyColumns sequence of byte array representing the key columns
+   * @return array of bytes
+   */
+  def getRowKeyFromRawKeyColumns(rawKeyColumns: Seq[HBaseRawType]): HBaseRawType = {
+    var byteList = List[Byte]()
+    val delimiter: Byte = 0
+    var index = 0
+    for (rawKeyColumn <- rawKeyColumns) {
+      val keyColumn = keyColumns(index)
+      for (item <- rawKeyColumn) {
+        byteList = byteList :+ item
+      }
+      if (keyColumn.dataType == StringType) {
+        byteList = byteList :+ delimiter
+      }
+      index = index + 1
+    }
+    byteList.toArray
+  }
+
+  /**
+   * get the sequence of key columns from the byte array
+   * @param rowKey array of bytes
+   * @return sequence of byte array
+   */
+  def getRowKeyColumnsFromRowKey(rowKey: HBaseRawType): Seq[HBaseRawType] = {
+    var rowKeyList = List[HBaseRawType]()
+    val delimiter: Byte = 0
+    var index = 0
+    for (keyColumn <- keyColumns) {
+      var byteList = List[Byte]()
+      val dataType = keyColumn.dataType
+      if (dataType == StringType) {
+        while (index < rowKey.length && rowKey(index) != delimiter) {
+          byteList = byteList :+ rowKey(index)
+          index = index + 1
+        }
+      }
+      else {
+        val length = NativeType.defaultSizeOf(dataType.asInstanceOf[NativeType])
+        for (i <- 0 to (length - 1)) {
+          byteList = byteList :+ rowKey(index)
+          index = index + 1
+        }
+      }
+      rowKeyList = rowKeyList :+ byteList.toArray
+    }
+    rowKeyList
+  }
+
+  /**
    * Trait for RowKeyParser's that convert a raw array of bytes into their constituent
    * logical column values
    *
