@@ -41,15 +41,16 @@ private[hbase] case class HBaseRelation(
                                          tableName: String,
                                          hbaseNamespace: String,
                                          hbaseTableName: String,
-                                         allColumns: Seq[AbstractColumn],
-                                         keyColumns: Seq[KeyColumn],
-                                         nonKeyColumns: Seq[NonKeyColumn]
-                                         )
+                                         allColumns: Seq[AbstractColumn])
   extends LeafNode {
   self: Product =>
 
   @transient lazy val handle: HTable = new HTable(configuration, hbaseTableName)
   @transient lazy val logger = Logger.getLogger(getClass.getName)
+  @transient lazy val keyColumns = allColumns.filter(_.isInstanceOf[KeyColumn])
+    .asInstanceOf[Seq[KeyColumn]].sortBy(_.order)
+  @transient lazy val nonKeyColumns = allColumns.filter(_.isInstanceOf[NonKeyColumn])
+    .asInstanceOf[Seq[NonKeyColumn]]
   @transient lazy val partitionKeys = keyColumns.map(col =>
     AttributeReference(col.sqlName, col.dataType, nullable = false)())
   @transient lazy val columnMap = allColumns.map {
