@@ -17,7 +17,7 @@
 package org.apache.spark.sql.hbase
 
 import java.util.ArrayList
-import java.util.concurrent.atomic.{AtomicInteger}
+import java.util.concurrent.atomic.AtomicInteger
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client._
@@ -281,7 +281,6 @@ private[hbase] case class HBaseRelation(
     //TODO
     override def parseRowKeyWithMetaData(rkCols: Seq[KeyColumn], rowKey: HBaseRawType):
     SortedMap[TableName, (KeyColumn, Any)] = {
-      import scala.collection.mutable.HashMap
 
       //      val rowKeyVals = parseRowKey(rowKey)
       //    val rmap = rowKeyVals.zipWithIndex.foldLeft(new HashMap[ColumnName, (Column, Any)]()) {
