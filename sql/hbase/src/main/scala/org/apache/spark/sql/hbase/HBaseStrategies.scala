@@ -97,7 +97,8 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
           (hbaseSQLContext))
       case InsertIntoTable(table: HBaseRelation, partition, child, _) =>
         new InsertIntoHBaseTable(table, planLater(child))(hbaseSQLContext) :: Nil
-      case logical.DropTablePlan(tableName) => Seq(DropHbaseTableCommand(tableName)(hbaseSQLContext))
+      case logical.DropTablePlan(tableName) =>
+        Seq(DropHbaseTableCommand(tableName)(hbaseSQLContext))
       case _ => Nil
     }
   }

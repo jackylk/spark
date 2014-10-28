@@ -32,6 +32,7 @@ import org.apache.spark.sql.catalyst.types._
 import scala.collection.SortedMap
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
 
 private[hbase] case class HBaseRelation(
                                          @transient configuration: Configuration,
@@ -131,20 +132,18 @@ private[hbase] case class HBaseRelation(
    * @return array of bytes
    */
   def getRowKeyFromRawKeyColumns(rawKeyColumns: Seq[HBaseRawType]): HBaseRawType = {
-    var byteList = List[Byte]()
+    var buffer = ArrayBuffer[Byte]()
     val delimiter: Byte = 0
     var index = 0
     for (rawKeyColumn <- rawKeyColumns) {
       val keyColumn = keyColumns(index)
-      for (item <- rawKeyColumn) {
-        byteList = byteList :+ item
-      }
+      buffer = buffer ++ rawKeyColumn
       if (keyColumn.dataType == StringType) {
-        byteList = byteList :+ delimiter
+        buffer += delimiter
       }
       index = index + 1
     }
-    byteList.toArray
+    buffer.toArray
   }
 
   /**
@@ -157,22 +156,23 @@ private[hbase] case class HBaseRelation(
     val delimiter: Byte = 0
     var index = 0
     for (keyColumn <- keyColumns) {
-      var byteList = List[Byte]()
+      var buffer = ArrayBuffer[Byte]()
       val dataType = keyColumn.dataType
       if (dataType == StringType) {
         while (index < rowKey.length && rowKey(index) != delimiter) {
-          byteList = byteList :+ rowKey(index)
+          buffer += rowKey(index)
           index = index + 1
         }
+        index = index + 1
       }
       else {
         val length = NativeType.defaultSizeOf(dataType.asInstanceOf[NativeType])
         for (i <- 0 to (length - 1)) {
-          byteList = byteList :+ rowKey(index)
+          buffer += rowKey(index)
           index = index + 1
         }
       }
-      rowKeyList = rowKeyList :+ byteList.toArray
+      rowKeyList = rowKeyList :+ buffer.toArray
     }
     rowKeyList
   }
