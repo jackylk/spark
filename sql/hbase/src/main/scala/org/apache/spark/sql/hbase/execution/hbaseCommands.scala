@@ -33,23 +33,27 @@ case class CreateHBaseTableCommand(tableName: String,
   override protected[sql] lazy val sideEffectResult = {
     val catalog = context.catalog
 
-    val keyColumns = keyCols.map { case (name, typeOfData) =>
-      KeyColumn(name, catalog.getDataType(typeOfData))
-    }
-    val nonKeyColumns = nonKeyCols.map {
-      case (name, typeOfData, family, qualifier) =>
-        NonKeyColumn(name, catalog.getDataType(typeOfData), family, qualifier)
-    }
-
-    val colWithTypeMap = (keyCols union nonKeyCols.map {
-      case (name, datatype, _, _) => (name, datatype)
-    }).toMap
+    val keyMap = keyCols.toMap
     val allColumns = colsSeq.map {
-      case name =>
-        KeyColumn(name, catalog.getDataType(colWithTypeMap.get(name).get))
+      case name => {
+        if (keyMap.contains(name)) {
+          KeyColumn(
+            name,
+            catalog.getDataType(keyMap.get(name).get),
+            keyCols.indexWhere(_._1 == name))
+        } else {
+          val nonKeyCol = nonKeyCols.find(_._1 == name).get
+          NonKeyColumn(
+            name,
+            catalog.getDataType(nonKeyCol._2),
+            nonKeyCol._3,
+            nonKeyCol._4
+          )
+        }
+      }
     }
 
-    catalog.createTable(tableName, nameSpace, hbaseTable, allColumns, keyColumns, nonKeyColumns)
+    catalog.createTable(tableName, nameSpace, hbaseTable, allColumns)
     Seq.empty[Row]
   }
 
