@@ -26,7 +26,6 @@ import org.apache.spark.sql.hbase.TestHbase._
 
 @Ignore
 class HBaseBasicOperationSuite extends QueryTest {
-  TestData // Initialize TestData
 
   test("create table") {
     sql( """CREATE TABLE tableName (col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
