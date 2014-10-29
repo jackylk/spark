@@ -34,11 +34,13 @@ class HBaseSQLContext(@transient val sc: SparkContext)
 
   override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this)
 
+  // TODO: suggest to have our own planner that extends SparkPlanner, so we can reuse SparkPlanner's strategies
   @transient val hBasePlanner = new SparkPlanner with HBaseStrategies {
 
     val hbaseSQLContext = self
     SparkPlan.currentContext.set(self)
 
+    // TODO: suggest to append our strategies to parent's strategies using ::
     override val strategies: Seq[Strategy] = Seq(
       CommandStrategy(self),
       TakeOrdered,
@@ -69,6 +71,7 @@ class HBaseSQLContext(@transient val sc: SparkContext)
   protected[sql] abstract class QueryExecution extends super.QueryExecution {
   }
 
+  // TODO: can we use SparkSQLParser directly instead of HBaseSparkSQLParser?
   @transient
   override val fallback = new HBaseSQLParser
   override protected[sql] val sqlParser = {
