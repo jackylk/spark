@@ -17,13 +17,13 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.hbase.util.Bytes
+import org.apache.spark.sql.catalyst.expressions.{MutableRow, Row}
 import org.apache.spark.sql.catalyst.types._
 
-import org.apache.spark.sql.catalyst.expressions.MutableRow
 /**
-* Data Type conversion utilities
-*
-*/
+ * Data Type conversion utilities
+ *
+ */
 object DataTypeUtils {
   def setRowColumnFromHBaseRawType(row: MutableRow, index: Int, src: HBaseRawType,
                                    dt: DataType): Any = {
@@ -36,6 +36,21 @@ object DataTypeUtils {
       case FloatType => row.setFloat(index, Bytes.toFloat(src))
       case LongType => row.setLong(index, Bytes.toLong(src))
       case ShortType => row.setShort(index, Bytes.toShort(src))
+      case _ => throw new Exception("Unsupported HBase SQL Data Type")
+    }
+  }
+
+  def getRowColumnFromHBaseRawType(row: Row, index: Int,
+                                   dt: DataType): HBaseRawType = {
+    dt match {
+      case StringType => Bytes.toBytes(row.getString(index))
+      case IntegerType => Bytes.toBytes(row.getInt(index))
+      case BooleanType => Bytes.toBytes(row.getBoolean(index))
+      case ByteType => Bytes.toBytes(row.getByte(index))
+      case DoubleType => Bytes.toBytes(row.getDouble(index))
+      case FloatType => Bytes.toBytes(row.getFloat(index))
+      case LongType => Bytes.toBytes(row.getLong(index))
+      case ShortType => Bytes.toBytes(row.getShort(index))
       case _ => throw new Exception("Unsupported HBase SQL Data Type")
     }
   }
