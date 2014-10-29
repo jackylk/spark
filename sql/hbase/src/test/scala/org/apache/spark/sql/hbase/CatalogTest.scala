@@ -58,25 +58,13 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
       admin.createTable(desc)
     }
 
-    var allColumns = List[KeyColumn]()
-    allColumns = allColumns :+ KeyColumn("column2", IntegerType)
-    allColumns = allColumns :+ KeyColumn("column1", StringType)
-    allColumns = allColumns :+ KeyColumn("column4", FloatType)
-    allColumns = allColumns :+ KeyColumn("column3", BooleanType)
+    var allColumns = List[AbstractColumn]()
+    allColumns = allColumns :+ KeyColumn("column2", IntegerType, 1)
+    allColumns = allColumns :+ KeyColumn("column1", StringType, 0)
+    allColumns = allColumns :+ NonKeyColumn("column4", FloatType, family2, "qualifier2")
+    allColumns = allColumns :+ NonKeyColumn("column3", BooleanType, family1, "qualifier1")
 
-    val keyColumn1 = KeyColumn("column1", StringType)
-    val keyColumn2 = KeyColumn("column2", IntegerType)
-    var keyColumns = List[KeyColumn]()
-    keyColumns = keyColumns :+ keyColumn1
-    keyColumns = keyColumns :+ keyColumn2
-
-    val nonKeyColumn3 = NonKeyColumn("column3", BooleanType, family1, "qualifier1")
-    val nonKeyColumn4 = NonKeyColumn("column4", FloatType, family2, "qualifier2")
-    var nonKeyColumns = List[NonKeyColumn]()
-    nonKeyColumns = nonKeyColumns :+ nonKeyColumn3
-    nonKeyColumns = nonKeyColumns :+ nonKeyColumn4
-
-    catalog.createTable(tableName, namespace, hbaseTableName, allColumns, keyColumns, nonKeyColumns)
+    catalog.createTable(tableName, namespace, hbaseTableName, allColumns)
   }
 
   test("Get Table") {
@@ -98,13 +86,13 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     // check the data type
     assert(result.keyColumns(0).dataType === StringType)
     assert(result.keyColumns(1).dataType === IntegerType)
-    assert(result.nonKeyColumns(0).dataType === BooleanType)
-    assert(result.nonKeyColumns(1).dataType === FloatType)
+    assert(result.nonKeyColumns(0).dataType === FloatType)
+    assert(result.nonKeyColumns(1).dataType === BooleanType)
 
     val relation = catalog.lookupRelation(None, tableName)
     val hbRelation = relation.asInstanceOf[HBaseRelation]
-    assert(hbRelation.nonKeyColumns.map(_.family) == List("family1", "family2"))
-    val keyColumns = Seq(KeyColumn("column1", StringType), KeyColumn("column2", IntegerType))
+    assert(hbRelation.nonKeyColumns.map(_.family) == List("family2", "family1"))
+    val keyColumns = Seq(KeyColumn("column1", StringType, 0), KeyColumn("column2", IntegerType, 1))
     assert(hbRelation.keyColumns.equals(keyColumns))
     assert(relation.childrenResolved)
   }
