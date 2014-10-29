@@ -55,7 +55,8 @@ private[hbase] case class HBaseRelation( @transient configuration: Option[Config
     case nonKey: NonKeyColumn => (nonKey.sqlName, nonKey)
   }.toMap
 
-  @transient private lazy val configuration_ = configuration.getOrElse(HBaseConfiguration.create())
+  @transient private lazy val configuration_ = if (configuration != null) configuration.getOrElse(HBaseConfiguration.create())
+                                               else HBaseConfiguration.create()
 
   lazy val attributes = nonKeyColumns.map(col =>
     AttributeReference(col.sqlName, col.dataType, nullable = true)())
@@ -103,18 +104,20 @@ private[hbase] case class HBaseRelation( @transient configuration: Option[Config
   def buildScan(split: Partition, filters: Option[FilterList],
                 projList: Seq[NamedExpression]): Scan = {
     val hbPartition = split.asInstanceOf[HBasePartition]
-    val scan = {
-      (hbPartition.lowerBound, hbPartition.upperBound) match {
-        case (Some(lb), Some(ub)) => new Scan(lb, ub)
-        case (Some(lb), None) => new Scan(lb)
-        case _ => new Scan
-      }
-    }
-    if (filters.isDefined) {
-      scan.setFilter(filters.get)
-    }
-    // TODO: add add Family to SCAN from projections
-    scan
+//    val scan = {
+//      (hbPartition.lowerBound, hbPartition.upperBound) match {
+//        case (Some(lb), Some(ub)) => new Scan(lb, ub)
+//        case (Some(lb), None) => new Scan(lb)
+//        case _ => new Scan
+//      }
+//    }
+////    if (filters.isDefined) {
+////      scan.setFilter(filters.get)
+////    }
+//    // TODO: add add Family to SCAN from projections
+//    scan
+
+    new Scan
   }
 
   def buildGet(projList: Seq[NamedExpression], rowKey: HBaseRawType) {
