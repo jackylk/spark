@@ -149,15 +149,16 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       val hbaseRelation = HBaseRelation(configuration, hbaseContext, connection,
         tableName, hbaseNamespace, hbaseTableName, allColumns)
 
-      val bufout = new ByteArrayOutputStream()
-      val obout = new ObjectOutputStream(bufout)
-      obout.writeObject(hbaseRelation)
+      val byteArrayOutputStream = new ByteArrayOutputStream()
+      val objectOutputStream = new ObjectOutputStream(byteArrayOutputStream)
+      objectOutputStream.writeObject(hbaseRelation)
 
-      put.add(ColumnFamily, QualData, bufout.toByteArray)
+      put.add(ColumnFamily, QualData, byteArrayOutputStream.toByteArray)
 
       // write to the metadata table
       table.put(put)
       table.flushCommits()
+      table.close()
 
       relationMapCache.put(processTableName(tableName), hbaseRelation)
     }
@@ -170,6 +171,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
       val get = new Get(Bytes.toBytes(tableName))
       val values = table.get(get)
+      table.close()
       if (values == null) {
         result = None
       } else {
@@ -229,9 +231,9 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
         }
         */
         val value = values.getValue(ColumnFamily, QualData)
-        val bufferInput = new ByteArrayInputStream(value)
-        val objectInput = new ObjectInputStream(bufferInput)
-        val relation = objectInput.readObject().asInstanceOf[HBaseRelation]: HBaseRelation
+        val byteArrayInputStream = new ByteArrayInputStream(value)
+        val objectInputStream = new ObjectInputStream(byteArrayInputStream)
+        val relation = objectInputStream.readObject().asInstanceOf[HBaseRelation]: HBaseRelation
 
         val hbaseRelation = HBaseRelation(
           configuration, hbaseContext, connection,
@@ -263,7 +265,6 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
     val delete = new Delete((Bytes.toBytes(tableName)))
     table.delete(delete)
-
     table.close()
 
     relationMapCache.remove(processTableName(tableName))
