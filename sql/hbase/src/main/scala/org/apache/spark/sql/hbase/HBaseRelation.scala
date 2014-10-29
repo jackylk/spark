@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase.filter.{FilterList, Filter}
-import org.apache.hadoop.hbase.TableName
+import org.apache.hadoop.hbase.{HBaseConfiguration, TableName, HRegionInfo, ServerName}
 import org.apache.log4j.Logger
 import org.apache.spark.Partition
 import org.apache.spark.sql.catalyst.expressions.{Row, MutableRow, _}
@@ -34,10 +34,7 @@ import scala.collection.SortedMap
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
-private[hbase] case class HBaseRelation(
-                                         @transient configuration: Configuration,
-                                         @transient hbaseContext: HBaseSQLContext,
-                                         @transient connection: HConnection,
+private[hbase] case class HBaseRelation( @transient configuration: Option[Configuration],
                                          tableName: String,
                                          hbaseNamespace: String,
                                          hbaseTableName: String,
@@ -45,7 +42,7 @@ private[hbase] case class HBaseRelation(
   extends LeafNode {
   self: Product =>
 
-  @transient lazy val handle: HTable = new HTable(configuration, hbaseTableName)
+  @transient lazy val htable: HTable = new HTable(configuration_, hbaseTableName)
   @transient lazy val logger = Logger.getLogger(getClass.getName)
   @transient lazy val keyColumns = allColumns.filter(_.isInstanceOf[KeyColumn])
     .asInstanceOf[Seq[KeyColumn]].sortBy(_.order)
@@ -54,9 +51,11 @@ private[hbase] case class HBaseRelation(
   @transient lazy val partitionKeys = keyColumns.map(col =>
     AttributeReference(col.sqlName, col.dataType, nullable = false)())
   @transient lazy val columnMap = allColumns.map {
-    case key: KeyColumn => (key.sqlName, keyColumns.indexOf(key))
+    case key: KeyColumn => (key.sqlName, key.order)
     case nonKey: NonKeyColumn => (nonKey.sqlName, nonKey)
   }.toMap
+
+  @transient private lazy val configuration_ = configuration.getOrElse(HBaseConfiguration.create())
 
   lazy val attributes = nonKeyColumns.map(col =>
     AttributeReference(col.sqlName, col.dataType, nullable = true)())
@@ -64,7 +63,7 @@ private[hbase] case class HBaseRelation(
   //  lazy val colFamilies = nonKeyColumns.map(_.family).distinct
   //  lazy val applyFilters = false
 
-  def closeHTable() = handle.close
+  def closeHTable() = htable.close
 
   override def output: Seq[Attribute] = {
     allColumns.map {
@@ -75,15 +74,12 @@ private[hbase] case class HBaseRelation(
 
   //TODO-XY:ADD getPrunedPartitions
   lazy val partitions: Seq[HBasePartition] = {
-    val tableNameInSpecialClass = TableName.valueOf(hbaseNamespace, tableName)
-    val regionLocations = connection.locateRegions(tableNameInSpecialClass)
-    regionLocations.asScala
-      .zipWithIndex.map { case (hregionLocation, index) =>
-      val regionInfo = hregionLocation.getRegionInfo
-      new HBasePartition(index, Some(regionInfo.getStartKey),
-        Some(regionInfo.getEndKey),
-        Some(hregionLocation.getServerName.getHostname))
-    }
+    val regionLocations = htable.getRegionLocations.asScala.toSeq
+    regionLocations.zipWithIndex.map(p =>
+      new HBasePartition(p._2, Some(p._1._1.getStartKey),
+        Some(p._1._1.getEndKey),
+        Some(p._1._2.getHostname))
+    )
   }
 
   def getPrunedPartitions(partionPred: Option[Expression] = None): Option[Seq[HBasePartition]] = {

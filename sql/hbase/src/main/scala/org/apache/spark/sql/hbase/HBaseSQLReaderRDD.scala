@@ -53,7 +53,7 @@ class HBaseSQLReaderRDD(relation: HBaseRelation,
     val filters = relation.buildFilter(output, rowKeyPred, valuePred)
     val scan = relation.buildScan(split, filters, output)
     scan.setCaching(cachingSize)
-    val scanner = relation.handle.getScanner(scan)
+    val scanner = relation.htable.getScanner(scan)
     var finished: Boolean = false
     var result: Result = null
     val row = new GenericMutableRow(output.size)
