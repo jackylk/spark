@@ -24,7 +24,7 @@ import org.scalatest.Ignore
 
 import org.apache.spark.sql.hbase.TestHbase._
 
-@Ignore
+//@Ignore
 class HBaseBasicOperationSuite extends QueryTest {
 
   test("create table") {
@@ -43,6 +43,10 @@ class HBaseBasicOperationSuite extends QueryTest {
     //      MAPPED BY (ht2, KEYS=[t2c1], COLS=[t2c2=cf2.cq21])""".stripMargin
     //    )
     sql( """INSERT INTO t1 SELECT * FROM t2""".stripMargin)
+  }
+
+  test("Select from table") {
+    sql( """SELECT * FROM myTable""".stripMargin).foreach(println)
   }
 
   test("Drop table") {

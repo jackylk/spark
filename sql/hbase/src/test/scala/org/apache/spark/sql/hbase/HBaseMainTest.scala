@@ -164,90 +164,90 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
 
     insertTestData
 
-//    var results: SchemaRDD = null
-//    var data: Array[sql.Row] = null
-//
-//    results = hbContext.sql( s"""SELECT * FROM $TabName """.stripMargin)
-//    printResults("Star* operator", results)
-//    data = results.collect
-//    assert(data.size >= 2)
-//
-//    results = hbContext.sql(
-//      s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
-//             """.stripMargin)
-//    printResults("Limit Op", results)
-//    data = results.collect
-//    assert(data.size == 1)
-//
-//    results = hbContext.sql(
-//      s"""SELECT col3, col2, col1, col4, col7 FROM $TabName order by col7 desc
-//             """.stripMargin)
-//    printResults("Ordering with nonkey columns", results)
-//    data = results.collect
-//    assert(data.size >= 2)
-//
-//    try {
-//      results = hbContext.sql(
-//        s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
-//             """.stripMargin)
-//      printResults("Limit Op", results)
-//    } catch {
-//      case e: Exception => "Query with Limit failed"
-//        e.printStackTrace
-//    }
-//
-//    results = hbContext.sql( s"""SELECT col3, col1, col7 FROM $TabName ORDER  by col7 DESC
-//      """.stripMargin)
-//    printResults("Order by", results)
-//
-//    if (runMultiTests) {
-//      results = hbContext.sql( s"""SELECT col3, col2, col1, col7, col4 FROM $TabName
-//          WHERE col1 ='Michigan'
-//          """.stripMargin)
-//      printResults("Where/filter on rowkey", results)
-//      data = results.collect
-//      assert(data.size >= 1)
-//
-//      results = hbContext.sql( s"""SELECT col7, col3, col2, col1, col4 FROM $TabName
-//          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 3500 and col3 <= 5000
-//          """.stripMargin)
-//      printResults("Where/filter on rowkeys change", results)
-//
-//      results = hbContext.sql( s"""SELECT col3, col2, col1, col7, col4 FROM $TabName
-//          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 3500 and col3 <= 5000
-//          """.stripMargin)
-//      printResults("Where/filter on rowkeys", results)
-//
-//
-//      results = hbContext.sql( s"""SELECT col1, col3, col7 FROM $TabName
-//          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col3 != 7.0
-//          """.stripMargin)
-//      printResults("Where with notequal", results)
-//
-//      results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
-//          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and cast(col2 as double) != 7.0
-//          """.stripMargin)
-//      printResults("Include non-rowkey cols in project", results)
-//    }
-//    if (runMultiTests) {
-//      results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
-//        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
-//        """.stripMargin)
-//      printResults("Include non-rowkey cols in filter", results)
-//
-//      results = hbContext.sql( s"""SELECT sum(col3) as col3sum, col1, col3 FROM $TabName
-//        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
-//        group by col1,  col3
-//        """.stripMargin)
-//      printResults("Aggregates on rowkeys", results)
-//
-//
-//      results = hbContext.sql( s"""SELECT sum(col2) as col2sum, col4, col1, col3, col2 FROM $TabName
-//        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50
-//        group by col1, col2, col4, col3
-//        """.stripMargin)
-//      printResults("Aggregates on non-rowkeys", results)
-//    }
+    var results: SchemaRDD = null
+    var data: Array[sql.Row] = null
+
+    results = hbContext.sql( s"""SELECT * FROM $TabName """.stripMargin)
+    printResults("Star* operator", results)
+    data = results.collect
+    assert(data.size >= 2)
+
+    results = hbContext.sql(
+      s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
+             """.stripMargin)
+    printResults("Limit Op", results)
+    data = results.collect
+    assert(data.size == 1)
+
+    results = hbContext.sql(
+      s"""SELECT col3, col2, col1, col4, col7 FROM $TabName order by col7 desc
+             """.stripMargin)
+    printResults("Ordering with nonkey columns", results)
+    data = results.collect
+    assert(data.size >= 2)
+
+    try {
+      results = hbContext.sql(
+        s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
+             """.stripMargin)
+      printResults("Limit Op", results)
+    } catch {
+      case e: Exception => "Query with Limit failed"
+        e.printStackTrace
+    }
+
+    results = hbContext.sql( s"""SELECT col3, col1, col7 FROM $TabName ORDER  by col7 DESC
+      """.stripMargin)
+    printResults("Order by", results)
+
+    if (runMultiTests) {
+      results = hbContext.sql( s"""SELECT col3, col2, col1, col7, col4 FROM $TabName
+          WHERE col1 ='Michigan'
+          """.stripMargin)
+      printResults("Where/filter on rowkey", results)
+      data = results.collect
+      assert(data.size >= 1)
+
+      results = hbContext.sql( s"""SELECT col7, col3, col2, col1, col4 FROM $TabName
+          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 3500 and col3 <= 5000
+          """.stripMargin)
+      printResults("Where/filter on rowkeys change", results)
+
+      results = hbContext.sql( s"""SELECT col3, col2, col1, col7, col4 FROM $TabName
+          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 3500 and col3 <= 5000
+          """.stripMargin)
+      printResults("Where/filter on rowkeys", results)
+
+
+      results = hbContext.sql( s"""SELECT col1, col3, col7 FROM $TabName
+          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col3 != 7.0
+          """.stripMargin)
+      printResults("Where with notequal", results)
+
+      results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
+          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and cast(col2 as double) != 7.0
+          """.stripMargin)
+      printResults("Include non-rowkey cols in project", results)
+    }
+    if (runMultiTests) {
+      results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
+        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
+        """.stripMargin)
+      printResults("Include non-rowkey cols in filter", results)
+
+      results = hbContext.sql( s"""SELECT sum(col3) as col3sum, col1, col3 FROM $TabName
+        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
+        group by col1,  col3
+        """.stripMargin)
+      printResults("Aggregates on rowkeys", results)
+
+
+      results = hbContext.sql( s"""SELECT sum(col2) as col2sum, col4, col1, col3, col2 FROM $TabName
+        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50
+        group by col1, col2, col4, col3
+        """.stripMargin)
+      printResults("Aggregates on non-rowkeys", results)
+    }
   }
 
   def printResults(msg: String, results: SchemaRDD) = {
