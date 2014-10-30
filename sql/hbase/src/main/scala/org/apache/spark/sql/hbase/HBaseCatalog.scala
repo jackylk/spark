@@ -57,7 +57,6 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
   lazy val configuration = HBaseConfiguration.create()
   lazy val relationMapCache = new HashMap[String, HBaseRelation]
     with SynchronizedMap[String, HBaseRelation]
-  lazy val connection = HConnectionManager.createConnection(configuration)
 
   private def processTableName(tableName: String): String = {
     if (!caseSensitive) {
@@ -268,19 +267,19 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     relationMapCache.remove(processTableName(tableName))
   }
 
-  def createMetadataTable(admin: HBaseAdmin) = {
+  private def createMetadataTable(admin: HBaseAdmin) = {
     val descriptor = new HTableDescriptor(TableName.valueOf(MetaData))
     val columnDescriptor = new HColumnDescriptor(ColumnFamily)
     descriptor.addFamily(columnDescriptor)
     admin.createTable(descriptor)
   }
 
-  def checkHBaseTableExists(hbaseTableName: String): Boolean = {
+  private def checkHBaseTableExists(hbaseTableName: String): Boolean = {
     val admin = new HBaseAdmin(configuration)
     admin.tableExists(hbaseTableName)
   }
 
-  def checkLogicalTableExist(tableName: String): Boolean = {
+  private def checkLogicalTableExist(tableName: String): Boolean = {
     val admin = new HBaseAdmin(configuration)
     if (!checkHBaseTableExists(MetaData)) {
       // create table
@@ -294,7 +293,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     result.size() > 0
   }
 
-  def checkFamilyExists(hbaseTableName: String, family: String): Boolean = {
+  private def checkFamilyExists(hbaseTableName: String, family: String): Boolean = {
     val admin = new HBaseAdmin(configuration)
     val tableDescriptor = admin.getTableDescriptor(TableName.valueOf(hbaseTableName))
     tableDescriptor.hasFamily(Bytes.toBytes(family))
