@@ -17,32 +17,29 @@
 package org.apache.spark.sql.hbase
 
 import java.util.ArrayList
-import java.util.concurrent.atomic.AtomicInteger
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client._
-import org.apache.hadoop.hbase.filter.{FilterList, Filter}
-import org.apache.hadoop.hbase.{HBaseConfiguration, TableName, HRegionInfo, ServerName}
+import org.apache.hadoop.hbase.client.{Scan, HTable, Put, Get, Result}
+import org.apache.hadoop.hbase.filter.{Filter, FilterList}
+import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.log4j.Logger
 import org.apache.spark.Partition
-import org.apache.spark.sql.catalyst.expressions.{Row, MutableRow, _}
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
 
 import org.apache.spark.sql.catalyst.types._
-import scala.collection.SortedMap
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
-private[hbase] case class HBaseRelation( @transient configuration: Option[Configuration],
-                                         tableName: String,
+private[hbase] case class HBaseRelation( tableName: String,
                                          hbaseNamespace: String,
                                          hbaseTableName: String,
                                          allColumns: Seq[AbstractColumn])
   extends LeafNode {
   self: Product =>
 
-  @transient lazy val htable: HTable = new HTable(configuration_, hbaseTableName)
+  @transient lazy val htable: HTable = new HTable(getConf, hbaseTableName)
   @transient lazy val logger = Logger.getLogger(getClass.getName)
   @transient lazy val keyColumns = allColumns.filter(_.isInstanceOf[KeyColumn])
     .asInstanceOf[Seq[KeyColumn]].sortBy(_.order)
@@ -55,8 +52,11 @@ private[hbase] case class HBaseRelation( @transient configuration: Option[Config
     case nonKey: NonKeyColumn => (nonKey.sqlName, nonKey)
   }.toMap
 
-  @transient private lazy val configuration_ = if (configuration != null) configuration.getOrElse(HBaseConfiguration.create())
-                                               else HBaseConfiguration.create()
+  @transient var configuration: Configuration = null
+
+  private def getConf: Configuration = if (configuration == null) HBaseConfiguration.create
+                               else configuration
+
 
   lazy val attributes = nonKeyColumns.map(col =>
     AttributeReference(col.sqlName, col.dataType, nullable = true)())
@@ -104,20 +104,18 @@ private[hbase] case class HBaseRelation( @transient configuration: Option[Config
   def buildScan(split: Partition, filters: Option[FilterList],
                 projList: Seq[NamedExpression]): Scan = {
     val hbPartition = split.asInstanceOf[HBasePartition]
-//    val scan = {
-//      (hbPartition.lowerBound, hbPartition.upperBound) match {
-//        case (Some(lb), Some(ub)) => new Scan(lb, ub)
-//        case (Some(lb), None) => new Scan(lb)
-//        case _ => new Scan
-//      }
-//    }
-////    if (filters.isDefined) {
-////      scan.setFilter(filters.get)
-////    }
-//    // TODO: add add Family to SCAN from projections
-//    scan
-
-    new Scan
+    val scan = {
+      (hbPartition.lowerBound, hbPartition.upperBound) match {
+        case (Some(lb), Some(ub)) => new Scan(lb, ub)
+        case (Some(lb), None) => new Scan(lb)
+        case _ => new Scan
+      }
+    }
+    if (filters.isDefined && !filters.get.getFilters.isEmpty) {
+      scan.setFilter(filters.get)
+    }
+    // TODO: add add Family to SCAN from projections
+    scan
   }
 
   def buildGet(projList: Seq[NamedExpression], rowKey: HBaseRawType) {
