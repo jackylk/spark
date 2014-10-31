@@ -173,7 +173,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       val get = new Get(Bytes.toBytes(tableName))
       val values = table.get(get)
       table.close()
-      if (values == null) {
+      if (values == null || values.isEmpty) {
         result = None
       } else {
         /*
