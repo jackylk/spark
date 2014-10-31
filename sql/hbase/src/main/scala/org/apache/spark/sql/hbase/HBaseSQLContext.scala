@@ -34,7 +34,8 @@ class HBaseSQLContext(@transient val sc: SparkContext)
 
   override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this)
 
-  // TODO: suggest to have our own planner that extends SparkPlanner, so we can reuse SparkPlanner's strategies
+  // TODO: suggest to have our own planner that extends SparkPlanner,
+  // so we can reuse SparkPlanner's strategies
   @transient val hBasePlanner = new SparkPlanner with HBaseStrategies {
 
     val hbaseSQLContext = self

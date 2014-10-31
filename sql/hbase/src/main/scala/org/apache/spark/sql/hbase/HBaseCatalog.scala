@@ -234,8 +234,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
         val value = values.getValue(ColumnFamily, QualData)
         val byteArrayInputStream = new ByteArrayInputStream(value)
         val objectInputStream = new ObjectInputStream(byteArrayInputStream)
-        val hbaseRelation : HBaseRelation
-                = objectInputStream.readObject().asInstanceOf[HBaseRelation]
+        val hbaseRelation: HBaseRelation
+        = objectInputStream.readObject().asInstanceOf[HBaseRelation]
         hbaseRelation.configuration = configuration
         result = Some(hbaseRelation)
       }
@@ -267,21 +267,21 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     relationMapCache.remove(processTableName(tableName))
   }
 
-  //TODO: Change to private when release
-  def createMetadataTable(admin: HBaseAdmin) = {
+  private def createMetadataTable(admin: HBaseAdmin) = {
     val descriptor = new HTableDescriptor(TableName.valueOf(MetaData))
     val columnDescriptor = new HColumnDescriptor(ColumnFamily)
     descriptor.addFamily(columnDescriptor)
     admin.createTable(descriptor)
   }
 
-  //TODO: Change to private when release
+  // TODO: Change to private when release
   def checkHBaseTableExists(hbaseTableName: String): Boolean = {
     val admin = new HBaseAdmin(configuration)
     admin.tableExists(hbaseTableName)
   }
 
-  private def checkLogicalTableExist(tableName: String): Boolean = {
+  // TODO: Change to private when release
+  def checkLogicalTableExist(tableName: String): Boolean = {
     val admin = new HBaseAdmin(configuration)
     if (!checkHBaseTableExists(MetaData)) {
       // create table
