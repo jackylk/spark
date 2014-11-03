@@ -34,6 +34,7 @@ class HBaseSQLParser extends SqlParser {
   protected val COLS = Keyword("COLS")
   protected val BYTE = Keyword("BYTE")
   protected val SHORT = Keyword("SHORT")
+  protected val INT = Keyword("INT")
   protected val INTEGER = Keyword("INTEGER")
   protected val LONG = Keyword("LONG")
   protected val FLOAT = Keyword("FLOAT")
@@ -138,7 +139,7 @@ class HBaseSQLParser extends SqlParser {
     }
 
   protected lazy val tableCol: Parser[(String, String)] =
-    ident ~ (STRING | BYTE | SHORT | INTEGER | LONG | FLOAT | DOUBLE | BOOLEAN) ^^ {
+    ident ~ (STRING | BYTE | SHORT | INT | INTEGER | LONG | FLOAT | DOUBLE | BOOLEAN) ^^ {
       case e1 ~ e2 => (e1, e2)
     }
 
