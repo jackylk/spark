@@ -130,6 +130,24 @@ class CatalogTestSuite extends FunSuite with BeforeAndAfterAll with Logging {
     assert(relation.childrenResolved)
   }
 
+  test("Alter Table") {
+    val tableName = "testTable"
+
+    val family1 = "family1"
+    val column = NonKeyColumn("column5", BooleanType, family1, "qualifier3")
+
+    catalog.alterTableAddNonKey(tableName, column)
+
+    var result = catalog.getTable(tableName)
+    var table = result.get
+    assert(table.allColumns.size === 5)
+
+    catalog.alterTableDropNonKey(tableName, column.sqlName)
+    result = catalog.getTable(tableName)
+    table = result.get
+    assert(table.allColumns.size === 4)
+  }
+
   test("Delete Table") {
     // prepare the test data
     val tableName = "testTable"
