@@ -20,9 +20,15 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SqlLexical, SqlParser}
 import org.apache.spark.sql.catalyst.SparkSQLParser
-import org.apache.spark.sql.hbase.logical.{DropTablePlan, CreateHBaseTablePlan}
+import org.apache.spark.sql.hbase.logical.{LoadDataIntoTable, CreateHBaseTablePlan, DropTablePlan}
 
 class HBaseSQLParser extends SqlParser {
+
+  protected val DATA = Keyword("DATA")
+  protected val LOAD = Keyword("LOAD")
+  protected val LOCAL = Keyword("LOCAL")
+  protected val INPATH = Keyword("INPATH")
+
   protected val BULK = Keyword("BULK")
   protected val CREATE = Keyword("CREATE")
   protected val DROP = Keyword("DROP")
@@ -56,7 +62,7 @@ class HBaseSQLParser extends SqlParser {
         | EXCEPT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)}
         | UNION ~ DISTINCT.? ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2))}
         )
-      | insert | create | drop | alter
+      | insert | create | drop | alter | load
       )
 
   override protected lazy val insert: Parser[LogicalPlan] =
@@ -137,6 +143,18 @@ class HBaseSQLParser extends SqlParser {
     } | ALTER ~> TABLE ~> ident ~ ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> expressions <~ ")") ^^ {
       case tn ~ op ~ tc ~ cf => null
     }
+
+  protected lazy val load: Parser[LogicalPlan] =
+  (
+    (LOAD ~> DATA ~> INPATH ~> stringLit) ~
+    (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ^^ {
+      case filePath ~ table => LoadDataIntoTable(filePath, table, false)
+    }
+  | (LOAD ~> DATA ~> LOCAL ~> INPATH ~> stringLit) ~
+      (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ^^ {
+      case filePath ~ table => LoadDataIntoTable(filePath, table, true)
+    }
+  )
 
   protected lazy val tableCol: Parser[(String, String)] =
     ident ~ (STRING | BYTE | SHORT | INT | INTEGER | LONG | FLOAT | DOUBLE | BOOLEAN) ^^ {

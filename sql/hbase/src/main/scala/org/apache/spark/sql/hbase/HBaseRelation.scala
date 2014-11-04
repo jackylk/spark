@@ -17,30 +17,27 @@
 package org.apache.spark.sql.hbase
 
 import java.util.ArrayList
+import scala.collection.mutable.ArrayBuffer
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.{Scan, HTable, Put, Get, Result}
 import org.apache.hadoop.hbase.filter.{Filter, FilterList}
 import org.apache.hadoop.hbase.HBaseConfiguration
-import org.apache.log4j.Logger
+
 import org.apache.spark.Partition
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
-
 import org.apache.spark.sql.catalyst.types._
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
 
 private[hbase] case class HBaseRelation( tableName: String,
                                          hbaseNamespace: String,
                                          hbaseTableName: String,
                                          allColumns: Seq[AbstractColumn])
   extends LeafNode {
-  self: Product =>
 
   @transient lazy val htable: HTable = new HTable(getConf, hbaseTableName)
-  @transient lazy val logger = Logger.getLogger(getClass.getName)
   @transient lazy val keyColumns = allColumns.filter(_.isInstanceOf[KeyColumn])
     .asInstanceOf[Seq[KeyColumn]].sortBy(_.order)
   @transient lazy val nonKeyColumns = allColumns.filter(_.isInstanceOf[NonKeyColumn])
@@ -56,7 +53,6 @@ private[hbase] case class HBaseRelation( tableName: String,
 
   private def getConf: Configuration = if (configuration == null) HBaseConfiguration.create
                                else configuration
-
 
   lazy val attributes = nonKeyColumns.map(col =>
     AttributeReference(col.sqlName, col.dataType, nullable = true)())
@@ -85,6 +81,20 @@ private[hbase] case class HBaseRelation( tableName: String,
   def getPrunedPartitions(partionPred: Option[Expression] = None): Option[Seq[HBasePartition]] = {
     //TODO-XY:Use the input parameter
     Option(partitions)
+  }
+
+
+  /**
+   * Return the start keys of all of the regions in this table,
+   * as a list of SparkImmutableBytesWritable.
+   */
+  def getRegionStartKeys() = {
+    val byteKeys: Array[Array[Byte]] = htable.getStartKeys
+    val ret = ArrayBuffer[SparkImmutableBytesWritable]()
+    for (byteKey <- byteKeys) {
+      ret += new SparkImmutableBytesWritable(byteKey)
+    }
+    ret
   }
 
   def buildFilter(projList: Seq[NamedExpression],

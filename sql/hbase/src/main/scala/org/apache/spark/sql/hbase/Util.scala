@@ -14,30 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.sql.hbase.logical
 
-import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, UnaryNode, Command}
+package org.apache.spark.sql.hbase
 
-case class CreateHBaseTablePlan(
-    tableName: String,
-    nameSpace: String,
-    hbaseTable: String,
-    colsSeq: Seq[String],
-    keyCols: Seq[(String, String)],
-    nonKeyCols: Seq[(String, String, String, String)]) extends Command
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{Path, FileSystem}
+import java.util.concurrent.atomic.AtomicInteger
 
-case class DropTablePlan(tableName: String) extends Command
+object Util {
+  val iteration = new AtomicInteger(0)
 
-/**
- * Logical plan for Bulkload
- * @param path input data file path
- * @param child target relation
- * @param isLocal using HDFS or local file
- */
-case class LoadDataIntoTable(path: String, child: LogicalPlan, isLocal: Boolean)
-  extends UnaryNode {
-
-  override def output = Nil
-
-  override def toString = s"LogicalPlan: LoadDataIntoTable(LOAD $path INTO $child)"
+  def getTempFilePath(conf: Configuration, prefix: String): String = {
+    val fileSystem = FileSystem.get(conf)
+    val path = new Path(s"$prefix-${System.currentTimeMillis()}-${iteration.getAndIncrement}")
+    if (fileSystem.exists(path)) {
+      fileSystem.delete(path, true)
+    }
+    path.getName
+  }
 }

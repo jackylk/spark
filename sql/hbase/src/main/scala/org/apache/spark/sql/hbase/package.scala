@@ -16,6 +16,46 @@
  */
 package org.apache.spark.sql
 
+import org.apache.hadoop.hbase.KeyValue
+import org.apache.hadoop.hbase.client.Put
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable
+import scala.collection.mutable.ArrayBuffer
+
 package object hbase {
   type HBaseRawType = Array[Byte]
+
+  class SparkImmutableBytesWritable(rowKey: Array[Byte])
+    extends Serializable {
+
+    def compareTo(that: SparkImmutableBytesWritable): Int = {
+      this.toImmutableBytesWritable() compareTo that.toImmutableBytesWritable()
+    }
+
+    def toImmutableBytesWritable() = new ImmutableBytesWritable(rowKey)
+  }
+
+  class SparkPut(rowKey: Array[Byte]) extends Serializable {
+    val fqv = new ArrayBuffer[(Array[Byte], Array[Byte], Array[Byte])]
+
+    def add(family: Array[Byte], qualifier: Array[Byte], value: Array[Byte]) =
+      fqv += ((family, qualifier, value))
+
+    def toPut() = {
+      val put = new Put(rowKey)
+      fqv.foreach { fqv =>
+        put.add(fqv._1, fqv._2, fqv._3)
+      }
+      put
+    }
+  }
+
+  class SparkKeyValue(
+      rowKey: Array[Byte],
+      family: Array[Byte],
+      qualifier: Array[Byte],
+      value: Array[Byte]) extends Serializable {
+
+    def toKeyValue() = new KeyValue(rowKey, family, qualifier, value)
+
+  }
 }
