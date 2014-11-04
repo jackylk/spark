@@ -175,6 +175,12 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     }
   }
 
+  def alterTableDropNonKey(tableName: String, key: String): Unit = {
+  }
+
+  def alterTableAddNonKey(tableName: String, key: NonKeyColumn): Unit = {
+  }
+
   def getTable(tableName: String): Option[HBaseRelation] = {
     var result = relationMapCache.get(processTableName(tableName))
     if (result.isEmpty) {
