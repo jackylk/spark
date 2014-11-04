@@ -18,10 +18,11 @@ package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.HBaseAdmin
+import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.spark._
 import org.apache.spark.sql.catalyst.types.{BooleanType, FloatType, IntegerType, StringType}
-import org.scalatest.{BeforeAndAfterAll, FunSuite, Ignore}
+import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 /**
  * Created by mengbo on 10/2/14.
@@ -40,6 +41,38 @@ class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
     hbaseContext = new HBaseSQLContext(sparkContext)
     catalog = new HBaseCatalog(hbaseContext)
     configuration = HBaseConfiguration.create()
+  }
+
+  test("Bytes Utility") {
+    val util = new BytesUtils()
+
+    val v1: Boolean = true
+    assert(util.toBytes(v1) === Bytes.toBytes(v1))
+    assert(util.toBoolean(util.toBytes(v1)) === v1)
+
+    val v2: Double = 12.34d
+    assert(util.toBytes(v2) === Bytes.toBytes(v2))
+    assert(util.toDouble(util.toBytes(v2)) === v2)
+
+    val v3 = 12.34f
+    assert(util.toBytes(v3) === Bytes.toBytes(v3))
+    assert(util.toFloat(util.toBytes(v3)) === v3)
+
+    val v4 = 12
+    assert(util.toBytes(v4) === Bytes.toBytes(v4))
+    assert(util.toInt(util.toBytes(v4)) === v4)
+
+    val v5 = 1234l
+    assert(util.toBytes(v5) === Bytes.toBytes(v5))
+    assert(util.toLong(util.toBytes(v5)) === v5)
+
+    val v6 = 12.asInstanceOf[Short]
+    assert(util.toBytes(v6) === Bytes.toBytes(v6))
+    assert(util.toShort(util.toBytes(v6)) === v6)
+
+    val v7 = "abc"
+    assert(util.toBytes(v7) === Bytes.toBytes(v7))
+    assert(util.toString(util.toBytes(v7)) === v7)
   }
 
   test("Create Table") {
