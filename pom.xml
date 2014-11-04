@@ -1435,16 +1435,19 @@
     </profile>
 
     <profile>
-      <id>scala-2.11</id>
+      <id>hbase</id>
       <activation>
-        <property><name>scala-2.11</name></property>
+        <activeByDefault>false</activeByDefault>
       </activation>
       <properties>
-        <scala.version>2.11.2</scala.version>
-        <scala.binary.version>2.11</scala.binary.version>
-        <jline.version>2.12</jline.version>
-        <jline.groupid>jline</jline.groupid>
+        <hadoop.version>2.3.0</hadoop.version>
+        <protobuf.version>2.5.0</protobuf.version>
+        <jets3t.version>0.9.0</jets3t.version>
+        <avro.mapred.classifier>hadoop2</avro.mapred.classifier>
       </properties>
+      <modules>
+        <module>sql/hbase</module>
+      </modules>
     </profile>
 
   </profiles>
