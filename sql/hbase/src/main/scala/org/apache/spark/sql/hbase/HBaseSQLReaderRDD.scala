@@ -28,13 +28,14 @@ import org.apache.spark.{Logging, InterruptibleIterator, Partition, TaskContext}
  * HBaseSQLReaderRDD
  * Created by sboesch on 9/16/14.
  */
-class HBaseSQLReaderRDD(relation: HBaseRelation,
-                        output: Seq[Attribute],
-                        rowKeyPred: Option[Expression],
-                        valuePred: Option[Expression],
-                        partitionPred: Option[Expression],
-                        coprocSubPlan: Option[SparkPlan],
-                        @transient hbaseContext: HBaseSQLContext)
+class HBaseSQLReaderRDD(
+    relation: HBaseRelation,
+    output: Seq[Attribute],
+    rowKeyPred: Option[Expression],
+    valuePred: Option[Expression],
+    partitionPred: Option[Expression],
+    coprocSubPlan: Option[SparkPlan],
+    @transient hbaseContext: HBaseSQLContext)
   extends RDD[Row](hbaseContext.sparkContext, Nil) with Logging {
 
   private final val cachingSize: Int = 100 // To be made configurable

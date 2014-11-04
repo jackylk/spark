@@ -30,17 +30,17 @@ class HBasePartitionerSuite extends FunSuite with LocalSparkContext with Logging
     sc = new SparkContext("local", "test")
     val data = (1 to 40).map { r =>
       val rowKey = Bytes.toBytes(r)
-      val rowKeyWritable = new SparkImmutableBytesWritable(rowKey)
+      val rowKeyWritable = new ImmutableBytesWritableWrapper(rowKey)
       (rowKeyWritable, r)
     }
     val rdd = sc.parallelize(data, 4)
     val splitKeys = (1 to 40).filter(_ % 5 == 0).filter(_ != 40).map { r =>
-      new SparkImmutableBytesWritable(Bytes.toBytes(r))
+      new ImmutableBytesWritableWrapper(Bytes.toBytes(r))
     }
     import org.apache.spark.sql.hbase.HBasePartitioner._
     val partitioner = new HBasePartitioner(rdd)(splitKeys.toArray)
     val shuffled =
-      new ShuffledRDD[SparkImmutableBytesWritable, Int, Int](rdd, partitioner)
+      new ShuffledRDD[ImmutableBytesWritableWrapper, Int, Int](rdd, partitioner)
 
     val groups = shuffled.mapPartitionsWithIndex { (idx, iter) =>
       iter.map(x => (x._2, idx))

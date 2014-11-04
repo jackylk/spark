@@ -75,7 +75,7 @@ class BulkLoadIntoTableSuite extends FunSuite with BeforeAndAfterAll with Loggin
     val hbaseRelation = HBaseRelation("testtablename", "hbasenamespace", "hbasetablename", colums)
     val bulkLoad = BulkLoadIntoTable("./sql/hbase/src/test/resources/test.csv", hbaseRelation, true)(hbc)
     val splitKeys = (1 to 40).filter(_ % 5 == 0).filter(_ != 40).map { r =>
-      new SparkImmutableBytesWritable(Bytes.toBytes(r))
+      new ImmutableBytesWritableWrapper(Bytes.toBytes(r))
     }
     bulkLoad.makeBulkLoadRDD(splitKeys.toArray)
   }

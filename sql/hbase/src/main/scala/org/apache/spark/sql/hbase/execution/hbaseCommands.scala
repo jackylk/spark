@@ -21,13 +21,13 @@ import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.{Command, LeafNode}
 import org.apache.spark.sql.hbase.{NonKeyColumn, KeyColumn, HBaseSQLContext}
 
-case class CreateHBaseTableCommand(tableName: String,
-                                   nameSpace: String,
-                                   hbaseTable: String,
-                                   colsSeq: Seq[String],
-                                   keyCols: Seq[(String, String)],
-                                   nonKeyCols: Seq[(String, String, String, String)])
-                                  (@transient context: HBaseSQLContext)
+case class CreateHBaseTableCommand(
+    tableName: String,
+    nameSpace: String,
+    hbaseTable: String,
+    colsSeq: Seq[String],
+    keyCols: Seq[(String, String)],
+    nonKeyCols: Seq[(String, String, String, String)])(@transient context: HBaseSQLContext)
   extends LeafNode with Command {
 
   override protected[sql] lazy val sideEffectResult = {
@@ -60,8 +60,7 @@ case class CreateHBaseTableCommand(tableName: String,
   override def output: Seq[Attribute] = Seq.empty
 }
 
-case class DropHbaseTableCommand(tableName: String)
-                                (@transient context: HBaseSQLContext)
+case class DropHbaseTableCommand(tableName: String)(@transient context: HBaseSQLContext)
   extends LeafNode with Command {
 
   override protected[sql] lazy val sideEffectResult = {

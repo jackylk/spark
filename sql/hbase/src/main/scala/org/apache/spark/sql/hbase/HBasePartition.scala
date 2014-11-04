@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 package org.apache.spark.sql.hbase
+
 import org.apache.spark.Partition
 
-private[hbase] class HBasePartition(idx : Int, val lowerBound: Option[HBaseRawType],
-                          val upperBound: Option[HBaseRawType],
-                          val server: Option[String])  extends Partition {
+private[hbase] class HBasePartition(
+    idx : Int,
+    val lowerBound: Option[HBaseRawType],
+    val upperBound: Option[HBaseRawType],
+    val server: Option[String])  extends Partition {
   override def index: Int = idx
 }

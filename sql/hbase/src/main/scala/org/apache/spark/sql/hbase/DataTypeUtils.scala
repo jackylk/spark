@@ -25,8 +25,12 @@ import org.apache.spark.sql.catalyst.types._
  *
  */
 object DataTypeUtils {
-  def setRowColumnFromHBaseRawType(row: MutableRow, index: Int, src: HBaseRawType,
-                                   dt: DataType): Any = {
+  //  TODO: more data types support?
+  def setRowColumnFromHBaseRawType(
+      row: MutableRow,
+      index: Int,
+      src: HBaseRawType,
+      dt: DataType): Any = {
     dt match {
       case StringType => row.setString(index, Bytes.toString(src))
       case IntegerType => row.setInt(index, Bytes.toInt(src))
@@ -40,8 +44,7 @@ object DataTypeUtils {
     }
   }
 
-  def getRowColumnFromHBaseRawType(row: Row, index: Int,
-                                   dt: DataType): HBaseRawType = {
+  def getRowColumnFromHBaseRawType(row: Row, index: Int, dt: DataType): HBaseRawType = {
     dt match {
       case StringType => Bytes.toBytes(row.getString(index))
       case IntegerType => Bytes.toBytes(row.getInt(index))

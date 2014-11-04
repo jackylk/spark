@@ -24,17 +24,17 @@ import scala.collection.mutable.ArrayBuffer
 package object hbase {
   type HBaseRawType = Array[Byte]
 
-  class SparkImmutableBytesWritable(rowKey: Array[Byte])
+  class ImmutableBytesWritableWrapper(rowKey: Array[Byte])
     extends Serializable {
 
-    def compareTo(that: SparkImmutableBytesWritable): Int = {
+    def compareTo(that: ImmutableBytesWritableWrapper): Int = {
       this.toImmutableBytesWritable() compareTo that.toImmutableBytesWritable()
     }
 
     def toImmutableBytesWritable() = new ImmutableBytesWritable(rowKey)
   }
 
-  class SparkPut(rowKey: Array[Byte]) extends Serializable {
+  class PutWrapper(rowKey: Array[Byte]) extends Serializable {
     val fqv = new ArrayBuffer[(Array[Byte], Array[Byte], Array[Byte])]
 
     def add(family: Array[Byte], qualifier: Array[Byte], value: Array[Byte]) =
@@ -49,7 +49,7 @@ package object hbase {
     }
   }
 
-  class SparkKeyValue(
+  class KeyValueWrapper(
       rowKey: Array[Byte],
       family: Array[Byte],
       qualifier: Array[Byte],

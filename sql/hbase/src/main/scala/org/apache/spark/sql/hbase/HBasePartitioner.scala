@@ -18,8 +18,6 @@
 package org.apache.spark.sql.hbase
 
 import java.io.{ObjectInputStream, ObjectOutputStream, IOException}
-import scala.Array
-import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
 import org.apache.spark.rdd.RDD
@@ -27,7 +25,6 @@ import org.apache.spark.SparkEnv
 import org.apache.spark.Partitioner
 import org.apache.spark.util.{Utils, CollectionsUtils}
 import org.apache.spark.serializer.JavaSerializer
-import org.apache.hadoop.hbase.client.HTable
 
 class HBasePartitioner [K : Ordering : ClassTag, V](
     @transient rdd: RDD[_ <: Product2[K,V]])(splitKeys: Array[K])
@@ -119,9 +116,9 @@ class HBasePartitioner [K : Ordering : ClassTag, V](
 
 object HBasePartitioner {
   implicit val orderingRowKey =
-    OrderingRowKey.asInstanceOf[Ordering[SparkImmutableBytesWritable]]
+    OrderingRowKey.asInstanceOf[Ordering[ImmutableBytesWritableWrapper]]
 }
 
-object OrderingRowKey extends Ordering[SparkImmutableBytesWritable] {
-  def compare(a: SparkImmutableBytesWritable, b: SparkImmutableBytesWritable) = a.compareTo(b)
+object OrderingRowKey extends Ordering[ImmutableBytesWritableWrapper] {
+  def compare(a: ImmutableBytesWritableWrapper, b: ImmutableBytesWritableWrapper) = a.compareTo(b)
 }

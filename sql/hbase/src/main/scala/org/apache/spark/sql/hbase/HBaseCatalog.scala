@@ -50,8 +50,11 @@ case class KeyColumn(val sqlName: String, val dataType: DataType, val order: Int
   override def isKeyColum() = true
 }
 
-case class NonKeyColumn(val sqlName: String, val dataType: DataType,
-                        val family: String, val qualifier: String) extends AbstractColumn {
+case class NonKeyColumn(
+    val sqlName: String,
+    val dataType: DataType,
+    val family: String,
+    val qualifier: String) extends AbstractColumn {
   @transient lazy val familyRaw = Bytes.toBytes(family)
   @transient lazy val qualifierRaw = Bytes.toBytes(qualifier)
 

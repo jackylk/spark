@@ -43,8 +43,8 @@ class HadoopReader(
     rdd.map { line =>
       val (keyBytes, valueBytes) = HadoopReader.string2KV(line, splitRegex, cls)
       val rowKeyData = HadoopReader.encodingRawKeyColumns(keyBytes)
-      val rowKey = new SparkImmutableBytesWritable(rowKeyData)
-      val put = new SparkPut(rowKeyData)
+      val rowKey = new ImmutableBytesWritableWrapper(rowKeyData)
+      val put = new PutWrapper(rowKeyData)
       valueBytes.foreach { case (family, qualifier, value) =>
         put.add(family, qualifier, value)
       }

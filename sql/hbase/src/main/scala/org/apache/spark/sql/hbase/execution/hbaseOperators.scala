@@ -98,19 +98,19 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation, isLocal: Boo
   // tmp path for storing HFile
   val tmpPath = Util.getTempFilePath(conf, relation.tableName)
 
-  private[hbase] def makeBulkLoadRDD(splitKeys: Array[SparkImmutableBytesWritable]) = {
+  private[hbase] def makeBulkLoadRDD(splitKeys: Array[ImmutableBytesWritableWrapper]) = {
     val ordering = HBasePartitioner.orderingRowKey
-      .asInstanceOf[Ordering[SparkImmutableBytesWritable]]
+      .asInstanceOf[Ordering[ImmutableBytesWritableWrapper]]
     val rdd = hadoopReader.makeBulkLoadRDDFromTextFile
     val partitioner = new HBasePartitioner(rdd)(splitKeys)
     val shuffled =
-      new ShuffledRDD[SparkImmutableBytesWritable, SparkPut, SparkPut](rdd, partitioner)
+      new ShuffledRDD[ImmutableBytesWritableWrapper, PutWrapper, PutWrapper](rdd, partitioner)
         .setKeyOrdering(ordering)
     val bulkLoadRDD = shuffled.mapPartitions { iter =>
-    // the rdd now already sort by key, to sort by value
+      // the rdd now already sort by key, to sort by value
       val map = new java.util.TreeSet[KeyValue](KeyValue.COMPARATOR)
-      var preKV: (SparkImmutableBytesWritable, SparkPut) = null
-      var nowKV: (SparkImmutableBytesWritable, SparkPut) = null
+      var preKV: (ImmutableBytesWritableWrapper, PutWrapper) = null
+      var nowKV: (ImmutableBytesWritableWrapper, PutWrapper) = null
       val ret = new ArrayBuffer[(ImmutableBytesWritable, KeyValue)]()
       if(iter.hasNext) {
         preKV = iter.next()

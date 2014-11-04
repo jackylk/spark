@@ -31,10 +31,11 @@ import org.apache.spark.sql.catalyst.types._
 
 import scala.collection.JavaConverters._
 
-private[hbase] case class HBaseRelation( tableName: String,
-                                         hbaseNamespace: String,
-                                         hbaseTableName: String,
-                                         allColumns: Seq[AbstractColumn])
+private[hbase] case class HBaseRelation(
+    tableName: String,
+    hbaseNamespace: String,
+    hbaseTableName: String,
+    allColumns: Seq[AbstractColumn])
   extends LeafNode {
 
   @transient lazy val htable: HTable = new HTable(getConf, hbaseTableName)
@@ -90,16 +91,17 @@ private[hbase] case class HBaseRelation( tableName: String,
    */
   def getRegionStartKeys() = {
     val byteKeys: Array[Array[Byte]] = htable.getStartKeys
-    val ret = ArrayBuffer[SparkImmutableBytesWritable]()
+    val ret = ArrayBuffer[ImmutableBytesWritableWrapper]()
     for (byteKey <- byteKeys) {
-      ret += new SparkImmutableBytesWritable(byteKey)
+      ret += new ImmutableBytesWritableWrapper(byteKey)
     }
     ret
   }
 
-  def buildFilter(projList: Seq[NamedExpression],
-                  rowKeyPredicate: Option[Expression],
-                  valuePredicate: Option[Expression]) = {
+  def buildFilter(
+      projList: Seq[NamedExpression],
+      rowKeyPredicate: Option[Expression],
+      valuePredicate: Option[Expression]) = {
     val filters = new ArrayList[Filter]
     // TODO: add specific filters
     Option(new FilterList(filters))
@@ -111,8 +113,10 @@ private[hbase] case class HBaseRelation( tableName: String,
     new Put(rowKey)
   }
 
-  def buildScan(split: Partition, filters: Option[FilterList],
-                projList: Seq[NamedExpression]): Scan = {
+  def buildScan(
+      split: Partition,
+      filters: Option[FilterList],
+      projList: Seq[NamedExpression]): Scan = {
     val hbPartition = split.asInstanceOf[HBasePartition]
     val scan = {
       (hbPartition.lowerBound, hbPartition.upperBound) match {
