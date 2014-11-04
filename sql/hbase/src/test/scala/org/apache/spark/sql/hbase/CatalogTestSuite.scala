@@ -28,7 +28,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuite}
  * Created by mengbo on 10/2/14.
  */
 //@Ignore
-class CatalogTest extends FunSuite with BeforeAndAfterAll with Logging {
+class CatalogTestSuite extends FunSuite with BeforeAndAfterAll with Logging {
   var sparkConf: SparkConf = _
   var sparkContext: SparkContext = _
   var hbaseContext: HBaseSQLContext = _
