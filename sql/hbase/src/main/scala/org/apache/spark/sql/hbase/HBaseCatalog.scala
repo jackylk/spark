@@ -51,10 +51,10 @@ case class KeyColumn(val sqlName: String, val dataType: DataType, val order: Int
 }
 
 case class NonKeyColumn(
-    val sqlName: String,
-    val dataType: DataType,
-    val family: String,
-    val qualifier: String) extends AbstractColumn {
+                         val sqlName: String,
+                         val dataType: DataType,
+                         val family: String,
+                         val qualifier: String) extends AbstractColumn {
   @transient lazy val familyRaw = Bytes.toBytes(family)
   @transient lazy val qualifierRaw = Bytes.toBytes(qualifier)
 
@@ -177,7 +177,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     }
   }
 
-  def alterTableDropNonKey(tableName: String, columnName: String): Unit = {
+  def alterTableDropNonKey(tableName: String, columnName: String) = {
     val result = getTable(tableName)
     if (result.isDefined) {
       val relation = result.get
@@ -192,7 +192,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     }
   }
 
-  def alterTableAddNonKey(tableName: String, column: NonKeyColumn): Unit = {
+  def alterTableAddNonKey(tableName: String, column: NonKeyColumn) = {
     val result = getTable(tableName)
     if (result.isDefined) {
       val relation = result.get
@@ -207,7 +207,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     }
   }
 
-  private def writeObjectToTable(hbaseRelation: HBaseRelation): Unit = {
+  private def writeObjectToTable(hbaseRelation: HBaseRelation) = {
     val tableName = hbaseRelation.tableName
     val table = new HTable(configuration, MetaData)
 
