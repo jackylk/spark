@@ -79,14 +79,27 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     }
   }
 
+  private def createHBaseUserTable(tableName: String,
+                                   allColumns: Seq[AbstractColumn]): Unit ={
+    val hBaseAdmin = new HBaseAdmin(configuration)
+    val tableDescriptor = new HTableDescriptor(tableName);
+    allColumns.map(x =>
+      if (x.isInstanceOf[NonKeyColumn]) {
+        val nonKeyColumn = x.asInstanceOf[NonKeyColumn]
+        tableDescriptor.addFamily(new HColumnDescriptor(nonKeyColumn.family))
+      })
+    hBaseAdmin.createTable(tableDescriptor);
+  }
+
   def createTable(tableName: String, hbaseNamespace: String, hbaseTableName: String,
                   allColumns: Seq[AbstractColumn]): Unit = {
     if (checkLogicalTableExist(tableName)) {
       throw new Exception(s"The logical table: $tableName already exists")
     }
 
+    // create a new hbase table for the user if not exist
     if (!checkHBaseTableExists(hbaseTableName)) {
-      throw new Exception(s"The HBase table $hbaseTableName doesn't exist")
+      createHBaseUserTable(hbaseTableName, allColumns)
     }
 
     val nonKeyColumns = allColumns.filter(_.isInstanceOf[NonKeyColumn])
