@@ -24,28 +24,26 @@ import org.apache.spark.sql.hbase.logical.{LoadDataIntoTable, CreateHBaseTablePl
 
 class HBaseSQLParser extends SqlParser {
 
-  protected val DATA = Keyword("DATA")
-  protected val LOAD = Keyword("LOAD")
-  protected val LOCAL = Keyword("LOCAL")
-  protected val INPATH = Keyword("INPATH")
-
-  protected val BULK = Keyword("BULK")
-  protected val CREATE = Keyword("CREATE")
-  protected val DROP = Keyword("DROP")
-  protected val ALTER = Keyword("ALTER")
-  protected val EXISTS = Keyword("EXISTS")
-  protected val MAPPED = Keyword("MAPPED")
   protected val ADD = Keyword("ADD")
-  protected val KEYS = Keyword("KEYS")
-  protected val COLS = Keyword("COLS")
+  protected val ALTER = Keyword("ALTER")
+  protected val BOOLEAN = Keyword("BOOLEAN")
   protected val BYTE = Keyword("BYTE")
-  protected val SHORT = Keyword("SHORT")
+  protected val COLS = Keyword("COLS")
+  protected val CREATE = Keyword("CREATE")
+  protected val DATA = Keyword("DATA")
+  protected val DOUBLE = Keyword("DOUBLE")
+  protected val DROP = Keyword("DROP")
+  protected val EXISTS = Keyword("EXISTS")
+  protected val FLOAT = Keyword("FLOAT")
+  protected val INPATH = Keyword("INPATH")
   protected val INT = Keyword("INT")
   protected val INTEGER = Keyword("INTEGER")
+  protected val KEYS = Keyword("KEYS")
+  protected val LOAD = Keyword("LOAD")
+  protected val LOCAL = Keyword("LOCAL")
   protected val LONG = Keyword("LONG")
-  protected val FLOAT = Keyword("FLOAT")
-  protected val DOUBLE = Keyword("DOUBLE")
-  protected val BOOLEAN = Keyword("BOOLEAN")
+  protected val MAPPED = Keyword("MAPPED")
+  protected val SHORT = Keyword("SHORT")
 
   protected val newReservedWords: Seq[String] =
     this.getClass
