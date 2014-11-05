@@ -46,14 +46,19 @@ class HBaseBasicOperationSuite extends QueryTest {
   }
 
   test("Select from table") {
-    sql( """SELECT * FROM tableName ORDER BY col7 DESC""")
+    sql( """SELECT * FROM tableName ORDER BY col7 DESC""").foreach(println)
+  }
+
+  test("Alter Add column") {
+    sql( """ALTER TABLE tableName ADD col8 STRING MAPPED BY (col8 = cf1.cf13)""")
+  }
+
+  test("Alter Drop column") {
+    sql( """ALTER TABLE tableName DROP col6""")
   }
 
   test("Drop table") {
-//    sql( """CREATE TABLE t1 (t1c1 STRING, t1c2 STRING)
-//          MAPPED BY (ht1, KEYS=[t1c1], COLS=[t1c2=cf1.cq11])""".stripMargin
-//    )
-    sql( """DROP TABLE tableName""".stripMargin)
+    sql( """DROP TABLE tableName""")
   }
 
   test("SPARK-3176 Added Parser of SQL ABS()") {

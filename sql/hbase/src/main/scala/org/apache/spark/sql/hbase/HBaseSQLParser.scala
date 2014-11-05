@@ -20,7 +20,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SqlLexical, SqlParser}
 import org.apache.spark.sql.catalyst.SparkSQLParser
-import org.apache.spark.sql.hbase.logical.{LoadDataIntoTable, CreateHBaseTablePlan, DropTablePlan}
+import org.apache.spark.sql.hbase.logical._
 
 class HBaseSQLParser extends SqlParser {
 
@@ -60,7 +60,7 @@ class HBaseSQLParser extends SqlParser {
         | EXCEPT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)}
         | UNION ~ DISTINCT.? ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2))}
         )
-      | insert | create | drop | alter | load
+      | insert | create | drop | alterDrop | alterAdd | load
       )
 
   override protected lazy val insert: Parser[LogicalPlan] =
@@ -135,24 +135,43 @@ class HBaseSQLParser extends SqlParser {
       case tableName => DropTablePlan(tableName)
     }
 
-  protected lazy val alter: Parser[LogicalPlan] =
-    ALTER ~> TABLE ~> ident ~ DROP ~ ident <~ opt(";") ^^ {
-      case tn ~ op ~ col => null
-    } | ALTER ~> TABLE ~> ident ~ ADD ~ tableCol ~ (MAPPED ~> BY ~> "(" ~> expressions <~ ")") ^^ {
-      case tn ~ op ~ tc ~ cf => null
+  protected lazy val alterDrop: Parser[LogicalPlan] =
+    ALTER ~> TABLE ~> ident ~
+      (DROP ~> ident) <~ opt(";") ^^ {
+      case tableName ~ colName => AlterDropColPlan(tableName, colName)
+    }
+  protected lazy val alterAdd: Parser[LogicalPlan] =
+    ALTER ~> TABLE ~> ident ~
+      (ADD ~> tableCol) ~
+      (MAPPED ~> BY ~> "(" ~> expressions <~ ")") ^^ {
+      case tableName ~ tableColumn ~ mappingInfo => {
+        //Since the lexical can not recognize the symbol "=" as we expected,
+        //we compose it to expression first and then translate it into Map[String, (String, String)]
+        //TODO: Now get the info by hacking, need to change it into normal way if possible
+        val infoMap: Map[String, (String, String)] =
+          mappingInfo.map { case EqualTo(e1, e2) =>
+            val info = e2.toString.substring(1).split('.')
+            if (info.length != 2) throw new Exception("\nSyntx Error of Create Table")
+            e1.toString.substring(1) ->(info(0), info(1))
+          }.toMap
+        val familyAndQualifier = infoMap(tableColumn._1)
+
+        AlterAddColPlan(tableName, tableColumn._1, tableColumn._2,
+          familyAndQualifier._1, familyAndQualifier._2)
+      }
     }
 
   protected lazy val load: Parser[LogicalPlan] =
-  (
-    (LOAD ~> DATA ~> INPATH ~> stringLit) ~
-    (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ^^ {
-      case filePath ~ table => LoadDataIntoTable(filePath, table, false)
-    }
-  | (LOAD ~> DATA ~> LOCAL ~> INPATH ~> stringLit) ~
-      (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ^^ {
-      case filePath ~ table => LoadDataIntoTable(filePath, table, true)
-    }
-  )
+    (
+      (LOAD ~> DATA ~> INPATH ~> stringLit) ~
+        (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ^^ {
+        case filePath ~ table => LoadDataIntoTable(filePath, table, false)
+      }
+        | (LOAD ~> DATA ~> LOCAL ~> INPATH ~> stringLit) ~
+        (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ^^ {
+        case filePath ~ table => LoadDataIntoTable(filePath, table, true)
+      }
+      )
 
   protected lazy val tableCol: Parser[(String, String)] =
     ident ~ (STRING | BYTE | SHORT | INT | INTEGER | LONG | FLOAT | DOUBLE | BOOLEAN) ^^ {

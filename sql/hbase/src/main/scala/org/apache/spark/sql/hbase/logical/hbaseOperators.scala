@@ -18,15 +18,22 @@ package org.apache.spark.sql.hbase.logical
 
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, UnaryNode, Command}
 
-case class CreateHBaseTablePlan(
-    tableName: String,
-    nameSpace: String,
-    hbaseTable: String,
-    colsSeq: Seq[String],
-    keyCols: Seq[(String, String)],
-    nonKeyCols: Seq[(String, String, String, String)]) extends Command
+case class CreateHBaseTablePlan(tableName: String,
+                                nameSpace: String,
+                                hbaseTable: String,
+                                colsSeq: Seq[String],
+                                keyCols: Seq[(String, String)],
+                                nonKeyCols: Seq[(String, String, String, String)]) extends Command
 
 case class DropTablePlan(tableName: String) extends Command
+
+case class AlterDropColPlan(tableName: String, colName: String) extends Command
+
+case class AlterAddColPlan(tableName: String,
+                           colName: String,
+                           colType: String,
+                           colFamily: String,
+                           colQualifier: String) extends Command
 
 /**
  * Logical plan for Bulkload

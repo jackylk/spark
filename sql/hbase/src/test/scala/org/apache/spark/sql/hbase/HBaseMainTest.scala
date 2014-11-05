@@ -170,7 +170,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
 
   def testQuery() {
     ctxSetup()
-    createTable()
+//    createTable()
     //    testInsertIntoTable
     //    testHBaseScanner
 

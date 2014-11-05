@@ -22,7 +22,7 @@ import org.apache.spark.sql.catalyst.planning.{PhysicalOperation, QueryPlanner}
 import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoTable, LogicalPlan}
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.hbase.execution.{DropHbaseTableCommand, HBaseSQLTableScan, InsertIntoHBaseTable}
+import org.apache.spark.sql.hbase.execution._
 
 private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
   self: SQLContext#SparkPlanner =>
@@ -65,9 +65,9 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
         val scanBuilder: (Seq[Attribute] => SparkPlan) = HBaseSQLTableScan(
           relation,
           _,
-          None,  // row key predicate
-          None,  // value predicate
-          None,  // partition predicate
+          None, // row key predicate
+          None, // value predicate
+          None, // partition predicate
           None // coprocSubPlan
         )(hbaseSQLContext)
 
@@ -85,18 +85,23 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
   object HBaseOperations extends Strategy {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
       case logical.CreateHBaseTablePlan(
-      tableName, nameSpace, hbaseTableName,
-      colsSeq, keyCols, nonKeyCols) =>
+      tableName, nameSpace, hbaseTableName, colsSeq, keyCols, nonKeyCols) =>
         Seq(execution.CreateHBaseTableCommand(
-          tableName, nameSpace, hbaseTableName,
-          colsSeq, keyCols, nonKeyCols)
+          tableName, nameSpace, hbaseTableName, colsSeq, keyCols, nonKeyCols)
           (hbaseSQLContext))
       case logical.LoadDataIntoTable(path, table: HBaseRelation, isLocal) =>
         execution.BulkLoadIntoTable(path, table, isLocal)(hbaseSQLContext) :: Nil
       case InsertIntoTable(table: HBaseRelation, partition, child, _) =>
         new InsertIntoHBaseTable(table, planLater(child))(hbaseSQLContext) :: Nil
+      case logical.AlterDropColPlan(tableName, colName) =>
+        Seq(AlterDropColCommand(tableName, colName)
+          (hbaseSQLContext))
+      case logical.AlterAddColPlan(tableName, colName, colType, colFamily, colQualifier) =>
+        Seq(AlterAddColCommand(tableName, colName, colType, colFamily, colQualifier)
+          (hbaseSQLContext))
       case logical.DropTablePlan(tableName) =>
-        Seq(DropHbaseTableCommand(tableName)(hbaseSQLContext))
+        Seq(DropHbaseTableCommand(tableName)
+          (hbaseSQLContext))
       case _ => Nil
     }
   }
