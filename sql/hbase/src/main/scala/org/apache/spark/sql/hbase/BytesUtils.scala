@@ -36,6 +36,15 @@ class BytesUtils {
     Bytes.toString(input)
   }
 
+  def toBytes(input: Byte): Array[Byte] = {
+    byteArray(0) = input
+    byteArray
+  }
+
+  def toByte(input: HBaseRawType): Byte = {
+    input(0)
+  }
+
   def toBytes(input: Boolean): Array[Byte] = {
     if (input) {
       booleanArray(0) = (-1).asInstanceOf[Byte]
