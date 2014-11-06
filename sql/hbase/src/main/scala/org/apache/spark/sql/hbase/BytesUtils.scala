@@ -19,16 +19,16 @@ package org.apache.spark.sql.hbase
 import org.apache.hadoop.hbase.util.Bytes
 
 class BytesUtils {
-  lazy val booleanArray: Array[Byte] = new Array[Byte](Bytes.SIZEOF_BOOLEAN)
-  lazy val byteArray: Array[Byte] = new Array[Byte](Bytes.SIZEOF_BYTE)
-  lazy val charArray: Array[Byte] = new Array[Byte](Bytes.SIZEOF_CHAR)
-  lazy val doubleArray: Array[Byte] = new Array[Byte](Bytes.SIZEOF_DOUBLE)
-  lazy val floatArray: Array[Byte] = new Array[Byte](Bytes.SIZEOF_FLOAT)
-  lazy val intArray: Array[Byte] = new Array[Byte](Bytes.SIZEOF_INT)
-  lazy val longArray: Array[Byte] = new Array[Byte](Bytes.SIZEOF_LONG)
-  lazy val shortArray: Array[Byte] = new Array[Byte](Bytes.SIZEOF_SHORT)
+  lazy val booleanArray: HBaseRawType = new HBaseRawType(Bytes.SIZEOF_BOOLEAN)
+  lazy val byteArray: HBaseRawType = new HBaseRawType(Bytes.SIZEOF_BYTE)
+  lazy val charArray: HBaseRawType = new HBaseRawType(Bytes.SIZEOF_CHAR)
+  lazy val doubleArray: HBaseRawType = new HBaseRawType(Bytes.SIZEOF_DOUBLE)
+  lazy val floatArray: HBaseRawType = new HBaseRawType(Bytes.SIZEOF_FLOAT)
+  lazy val intArray: HBaseRawType = new HBaseRawType(Bytes.SIZEOF_INT)
+  lazy val longArray: HBaseRawType = new HBaseRawType(Bytes.SIZEOF_LONG)
+  lazy val shortArray: HBaseRawType = new HBaseRawType(Bytes.SIZEOF_SHORT)
 
-  def toBytes(input: String): Array[Byte] = {
+  def toBytes(input: String): HBaseRawType = {
     Bytes.toBytes(input)
   }
 
@@ -36,27 +36,22 @@ class BytesUtils {
     Bytes.toString(input)
   }
 
-  def toBytes(input: Byte): Array[Byte] = {
-    //    byteArray(0) = input
-    //    byteArray
+  def toBytes(input: Byte): HBaseRawType = {
     // Flip sign bit so that Byte is binary comparable
     byteArray(0) = (input ^ 0x80).asInstanceOf[Byte]
     byteArray
   }
 
   def toByte(input: HBaseRawType): Byte = {
-    //    input(0)
     // Flip sign bit back
     val v: Int = input(0) ^ 0x80
     v.asInstanceOf[Byte]
   }
 
-  def toBytes(input: Boolean): Array[Byte] = {
+  def toBytes(input: Boolean): HBaseRawType = {
+    booleanArray(0) = 0.asInstanceOf[Byte]
     if (input) {
       booleanArray(0) = (-1).asInstanceOf[Byte]
-    }
-    else {
-      booleanArray(0) = 0.asInstanceOf[Byte]
     }
     booleanArray
   }
@@ -65,58 +60,47 @@ class BytesUtils {
     input(0) != 0
   }
 
-  def toBytes(input: Double): Array[Byte] = {
-    val bits: Long = java.lang.Double.doubleToRawLongBits(input)
-    toBytes(bits)
+  def toBytes(input: Double): HBaseRawType = {
+    var l: Long = java.lang.Double.doubleToLongBits(input)
+    l = (l ^ ((l >> java.lang.Long.SIZE - 1) | java.lang.Long.MIN_VALUE)) + 1
+    Bytes.putLong(longArray, 0, l)
+    longArray
   }
 
   def toDouble(input: HBaseRawType): Double = {
-    Bytes.toDouble(input)
+    var l: Long = Bytes.toLong(input)
+    l = l - 1
+    l ^= (~l >> java.lang.Long.SIZE - 1) | java.lang.Long.MIN_VALUE
+    java.lang.Double.longBitsToDouble(l)
   }
 
-  def toBytes(input: Short): Array[Byte] = {
-    //    shortArray(1) = input.asInstanceOf[Byte]
-    //    shortArray(0) = (input >> 8).asInstanceOf[Byte]
-    //    shortArray
+  def toBytes(input: Short): HBaseRawType = {
     shortArray(0) = ((input >> 8) ^ 0x80).asInstanceOf[Byte]
     shortArray(1) = input.asInstanceOf[Byte]
     shortArray
   }
 
   def toShort(input: HBaseRawType): Short = {
-    //    Bytes.toShort(input)
     // flip sign bit back
     var v: Int = input(0) ^ 0x80
     v = (v << 8) + (input(1) & 0xff)
-    val s = v.asInstanceOf[Short]
-    s
+    v.asInstanceOf[Short]
   }
 
-  def toBytes(input: Float): Array[Byte] = {
-    //    val bits: Int = java.lang.Float.floatToRawIntBits(input)
-    //    toBytes(bits)
+  def toBytes(input: Float): HBaseRawType = {
     var i: Int = java.lang.Float.floatToIntBits(input)
     i = (i ^ ((i >> Integer.SIZE - 1) | Integer.MIN_VALUE)) + 1
     toBytes(i)
   }
 
   def toFloat(input: HBaseRawType): Float = {
-    //    Bytes.toFloat(input)
     var i = toInt(input)
     i = i - 1
     i ^= (~i >> Integer.SIZE - 1) | Integer.MIN_VALUE
     java.lang.Float.intBitsToFloat(i)
   }
 
-  def toBytes(input: Int): Array[Byte] = {
-    //    var value: Int = input
-    //    for (i <- 3 to 1 by -1) {
-    //      intArray(i) = value.asInstanceOf[Byte]
-    //      value = value >>> 8
-    //    }
-    //    intArray(0) = value.asInstanceOf[Byte]
-    //    intArray
-
+  def toBytes(input: Int): HBaseRawType = {
     // Flip sign bit so that INTEGER is binary comparable
     intArray(0) = ((input >> 24) ^ 0x80).asInstanceOf[Byte]
     intArray(1) = (input >> 16).asInstanceOf[Byte]
@@ -126,28 +110,32 @@ class BytesUtils {
   }
 
   def toInt(input: HBaseRawType): Int = {
-    //    Bytes.toInt(input)
-
     // Flip sign bit back
     var v: Int = input(0) ^ 0x80
     for (i <- 1 to Bytes.SIZEOF_INT - 1) {
       v = (v << 8) + (input(i) & 0xff)
     }
-
     v
   }
 
-  def toBytes(input: Long): Array[Byte] = {
-    var value: Long = input
-    for (i <- 7 to 1 by -1) {
-      longArray(i) = value.asInstanceOf[Byte]
-      value = value >>> 8
-    }
-    longArray(0) = value.asInstanceOf[Byte]
+  def toBytes(input: Long): HBaseRawType = {
+    longArray(0) = ((input >> 56) ^ 0x80).asInstanceOf[Byte]
+    longArray(1) = (input >> 48).asInstanceOf[Byte]
+    longArray(2) = (input >> 40).asInstanceOf[Byte]
+    longArray(3) = (input >> 32).asInstanceOf[Byte]
+    longArray(4) = (input >> 24).asInstanceOf[Byte]
+    longArray(5) = (input >> 16).asInstanceOf[Byte]
+    longArray(6) = (input >> 8).asInstanceOf[Byte]
+    longArray(7) = input.asInstanceOf[Byte]
     longArray
   }
 
   def toLong(input: HBaseRawType): Long = {
-    Bytes.toLong(input)
+    // Flip sign bit back
+    var v: Long = input(0) ^ 0x80
+    for (i <- 1 to Bytes.SIZEOF_LONG - 1) {
+      v = (v << 8) + (input(i) & 0xff)
+    }
+    v
   }
 }
