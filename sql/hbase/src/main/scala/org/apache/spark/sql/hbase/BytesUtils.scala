@@ -39,7 +39,7 @@ class BytesUtils {
   def toBytes(input: Byte): Array[Byte] = {
     //    byteArray(0) = input
     //    byteArray
-    // Flip sign bit so that Short is binary comparable
+    // Flip sign bit so that Byte is binary comparable
     byteArray(0) = (input ^ 0x80).asInstanceOf[Byte]
     byteArray
   }
@@ -75,13 +75,20 @@ class BytesUtils {
   }
 
   def toBytes(input: Short): Array[Byte] = {
+    //    shortArray(1) = input.asInstanceOf[Byte]
+    //    shortArray(0) = (input >> 8).asInstanceOf[Byte]
+    //    shortArray
+    shortArray(0) = ((input >> 8) ^ 0x80).asInstanceOf[Byte]
     shortArray(1) = input.asInstanceOf[Byte]
-    shortArray(0) = (input >> 8).asInstanceOf[Byte]
     shortArray
   }
 
   def toShort(input: HBaseRawType): Short = {
-    Bytes.toShort(input)
+    //    Bytes.toShort(input)
+    // flip sign bit back
+    var v: Int = input(0) ^ 0x80
+    v = (v << 8) + (input(1) & 0xff)
+    v.asInstanceOf[Short]
   }
 
   def toBytes(input: Float): Array[Byte] = {
@@ -119,10 +126,9 @@ class BytesUtils {
 
   def toInt(input: HBaseRawType): Int = {
     //    Bytes.toInt(input)
-    var v: Int = 0
 
     // Flip sign bit back
-    v = input(0) ^ 0x80
+    var v: Int = input(0) ^ 0x80
     for (i <- 1 to Bytes.SIZEOF_INT - 1) {
       v = (v << 8) + (input(i) & 0xff)
     }
