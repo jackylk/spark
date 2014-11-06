@@ -37,12 +37,18 @@ class BytesUtils {
   }
 
   def toBytes(input: Byte): Array[Byte] = {
-    byteArray(0) = input
+    //    byteArray(0) = input
+    //    byteArray
+    // Flip sign bit so that Short is binary comparable
+    byteArray(0) = (input ^ 0x80).asInstanceOf[Byte]
     byteArray
   }
 
   def toByte(input: HBaseRawType): Byte = {
-    input(0)
+    //    input(0)
+    // Flip sign bit back
+    val v: Int = input(0) ^ 0x80
+    v.asInstanceOf[Byte]
   }
 
   def toBytes(input: Boolean): Array[Byte] = {
@@ -79,26 +85,49 @@ class BytesUtils {
   }
 
   def toBytes(input: Float): Array[Byte] = {
-    val bits: Int = java.lang.Float.floatToRawIntBits(input)
-    toBytes(bits)
+    //    val bits: Int = java.lang.Float.floatToRawIntBits(input)
+    //    toBytes(bits)
+    var i: Int = java.lang.Float.floatToIntBits(input)
+    i = (i ^ ((i >> Integer.SIZE - 1) | Integer.MIN_VALUE)) + 1
+    toBytes(i)
   }
 
   def toFloat(input: HBaseRawType): Float = {
-    Bytes.toFloat(input)
+    //    Bytes.toFloat(input)
+    var i = toInt(input)
+    i = i - 1
+    i ^= (~i >> Integer.SIZE - 1) | Integer.MIN_VALUE
+    java.lang.Float.intBitsToFloat(i)
   }
 
   def toBytes(input: Int): Array[Byte] = {
-    var value: Int = input
-    for (i <- 3 to 1 by -1) {
-      intArray(i) = value.asInstanceOf[Byte]
-      value = value >>> 8
-    }
-    intArray(0) = value.asInstanceOf[Byte]
+    //    var value: Int = input
+    //    for (i <- 3 to 1 by -1) {
+    //      intArray(i) = value.asInstanceOf[Byte]
+    //      value = value >>> 8
+    //    }
+    //    intArray(0) = value.asInstanceOf[Byte]
+    //    intArray
+
+    // Flip sign bit so that INTEGER is binary comparable
+    intArray(0) = ((input >> 24) ^ 0x80).asInstanceOf[Byte]
+    intArray(1) = (input >> 16).asInstanceOf[Byte]
+    intArray(2) = (input >> 8).asInstanceOf[Byte]
+    intArray(3) = input.asInstanceOf[Byte]
     intArray
   }
 
   def toInt(input: HBaseRawType): Int = {
-    Bytes.toInt(input)
+    //    Bytes.toInt(input)
+    var v: Int = 0
+
+    // Flip sign bit back
+    v = input(0) ^ 0x80
+    for (i <- 1 to Bytes.SIZEOF_INT - 1) {
+      v = (v << 8) + (input(i) & 0xff)
+    }
+
+    v
   }
 
   def toBytes(input: Long): Array[Byte] = {

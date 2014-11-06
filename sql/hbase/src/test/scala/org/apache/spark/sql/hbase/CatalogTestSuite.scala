@@ -43,6 +43,18 @@ class CatalogTestSuite extends FunSuite with BeforeAndAfterAll with Logging {
     configuration = HBaseConfiguration.create()
   }
 
+  def compare(a: Array[Byte], b: Array[Byte]): Int = {
+    val length = a.length
+    var result: Int = 0
+    for (i <- 0 to length - 1) {
+      val diff: Int = b(i) - a(i)
+      if (diff != 0) {
+        result = diff
+      }
+    }
+    result
+  }
+
   test("Bytes Utility") {
     val util = new BytesUtils()
 
@@ -54,25 +66,26 @@ class CatalogTestSuite extends FunSuite with BeforeAndAfterAll with Logging {
     assert(util.toBytes(v2) === Bytes.toBytes(v2))
     assert(util.toDouble(util.toBytes(v2)) === v2)
 
-    val v3 = 12.34f
-    assert(util.toBytes(v3) === Bytes.toBytes(v3))
-    assert(util.toFloat(util.toBytes(v3)) === v3)
+    val v3: Float = 12.34f
+    assert((new BytesUtils).toFloat((new BytesUtils).toBytes(12.34f)) === v3)
 
-    val v4 = 12
-    assert(util.toBytes(v4) === Bytes.toBytes(v4))
-    assert(util.toInt(util.toBytes(v4)) === v4)
+    val v4: Int = -12
+    assert((new BytesUtils).toInt((new BytesUtils).toBytes(-12)) === v4)
 
-    val v5 = 1234l
+    val v5: Long = 1234l
     assert(util.toBytes(v5) === Bytes.toBytes(v5))
     assert(util.toLong(util.toBytes(v5)) === v5)
 
-    val v6 = 12.asInstanceOf[Short]
+    val v6: Short = 12.asInstanceOf[Short]
     assert(util.toBytes(v6) === Bytes.toBytes(v6))
     assert(util.toShort(util.toBytes(v6)) === v6)
 
     val v7 = "abc"
     assert(util.toBytes(v7) === Bytes.toBytes(v7))
     assert(util.toString(util.toBytes(v7)) === v7)
+
+    val v8 = 5.asInstanceOf[Byte]
+    assert((new BytesUtils).toByte((new BytesUtils).toBytes(v8)) === v8)
   }
 
   test("Create Table") {
