@@ -56,15 +56,11 @@ class CatalogTestSuite extends FunSuite with BeforeAndAfterAll with Logging {
   }
 
   test("Bytes Utility") {
-    val util = new BytesUtils()
-
     val v1: Boolean = true
-    assert(util.toBytes(v1) === Bytes.toBytes(v1))
-    assert(util.toBoolean(util.toBytes(v1)) === v1)
+    assert((new BytesUtils).toBoolean((new BytesUtils).toBytes(v1)) === v1)
 
     val v2: Double = 12.34d
-    assert(util.toBytes(v2) === Bytes.toBytes(v2))
-    assert(util.toDouble(util.toBytes(v2)) === v2)
+    assert((new BytesUtils).toDouble((new BytesUtils).toBytes(v2)) === v2)
 
     val v3: Float = 12.34f
     assert((new BytesUtils).toFloat((new BytesUtils).toBytes(12.34f)) === v3)
@@ -73,18 +69,15 @@ class CatalogTestSuite extends FunSuite with BeforeAndAfterAll with Logging {
     assert((new BytesUtils).toInt((new BytesUtils).toBytes(-12)) === v4)
 
     val v5: Long = 1234l
-    assert(util.toBytes(v5) === Bytes.toBytes(v5))
-    assert(util.toLong(util.toBytes(v5)) === v5)
+    assert((new BytesUtils).toLong((new BytesUtils).toBytes(v5)) === v5)
 
     val v6: Short = 12.asInstanceOf[Short]
-    assert(util.toBytes(v6) === Bytes.toBytes(v6))
-    assert(util.toShort(util.toBytes(v6)) === v6)
+    assert((new BytesUtils).toShort((new BytesUtils).toBytes(v6)) === v6)
 
-    val v7 = "abc"
-    assert(util.toBytes(v7) === Bytes.toBytes(v7))
-    assert(util.toString(util.toBytes(v7)) === v7)
+    val v7: String = "abc"
+    assert((new BytesUtils).toString((new BytesUtils).toBytes(v7)) === v7)
 
-    val v8 = 5.asInstanceOf[Byte]
+    val v8: Byte = 5.asInstanceOf[Byte]
     assert((new BytesUtils).toByte((new BytesUtils).toBytes(v8)) === v8)
   }
 
