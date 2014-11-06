@@ -169,20 +169,20 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
       var preKV: (ImmutableBytesWritableWrapper, PutWrapper) = null
       var nowKV: (ImmutableBytesWritableWrapper, PutWrapper) = null
       val ret = new ArrayBuffer[(ImmutableBytesWritable, KeyValue)]()
-      if(iter.hasNext) {
+      if (iter.hasNext) {
         preKV = iter.next()
         var cellsIter = preKV._2.toPut().getFamilyCellMap.values().iterator()
-        while(cellsIter.hasNext()) {
+        while (cellsIter.hasNext()) {
           cellsIter.next().foreach { cell =>
             val kv = KeyValueUtil.ensureKeyValue(cell)
             map.add(kv)
           }
         }
-        while(iter.hasNext) {
+        while (iter.hasNext) {
           nowKV = iter.next()
-          if(0 == (nowKV._1 compareTo preKV._1)) {
+          if (0 == (nowKV._1 compareTo preKV._1)) {
             cellsIter = nowKV._2.toPut().getFamilyCellMap.values().iterator()
-            while(cellsIter.hasNext()) {
+            while (cellsIter.hasNext()) {
               cellsIter.next().foreach { cell =>
                 val kv = KeyValueUtil.ensureKeyValue(cell)
                 map.add(kv)
@@ -193,7 +193,7 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
             preKV = nowKV
             map.clear()
             cellsIter = preKV._2.toPut().getFamilyCellMap.values().iterator()
-            while(cellsIter.hasNext()) {
+            while (cellsIter.hasNext()) {
               cellsIter.next().foreach { cell =>
                 val kv = KeyValueUtil.ensureKeyValue(cell)
                 map.add(kv)
