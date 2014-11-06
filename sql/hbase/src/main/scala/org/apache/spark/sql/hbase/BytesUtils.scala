@@ -62,7 +62,7 @@ class BytesUtils {
   }
 
   def toBoolean(input: HBaseRawType): Boolean = {
-    Bytes.toBoolean(input)
+    input(0) != 0
   }
 
   def toBytes(input: Double): Array[Byte] = {
@@ -88,7 +88,8 @@ class BytesUtils {
     // flip sign bit back
     var v: Int = input(0) ^ 0x80
     v = (v << 8) + (input(1) & 0xff)
-    v.asInstanceOf[Short]
+    val s = v.asInstanceOf[Short]
+    s
   }
 
   def toBytes(input: Float): Array[Byte] = {

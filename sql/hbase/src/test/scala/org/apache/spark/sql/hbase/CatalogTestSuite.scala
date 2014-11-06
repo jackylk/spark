@@ -18,7 +18,6 @@ package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client.HBaseAdmin
-import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.spark._
 import org.apache.spark.sql.catalyst.types.{BooleanType, FloatType, IntegerType, StringType}
@@ -56,29 +55,28 @@ class CatalogTestSuite extends FunSuite with BeforeAndAfterAll with Logging {
   }
 
   test("Bytes Utility") {
-    val v1: Boolean = true
-    assert((new BytesUtils).toBoolean((new BytesUtils).toBytes(v1)) === v1)
+    assert((new BytesUtils).toBoolean((new BytesUtils).toBytes(true)) === true)
+    assert((new BytesUtils).toBoolean((new BytesUtils).toBytes(false)) === false)
 
-    val v2: Double = 12.34d
-    assert((new BytesUtils).toDouble((new BytesUtils).toBytes(v2)) === v2)
+    assert((new BytesUtils).toDouble((new BytesUtils).toBytes(12.34d)) === 12.34d)
+    assert((new BytesUtils).toDouble((new BytesUtils).toBytes(-12.34d)) === -12.34d)
 
-    val v3: Float = 12.34f
-    assert((new BytesUtils).toFloat((new BytesUtils).toBytes(12.34f)) === v3)
+    assert((new BytesUtils).toFloat((new BytesUtils).toBytes(12.34f)) === 12.34f)
+    assert((new BytesUtils).toFloat((new BytesUtils).toBytes(-12.34f)) === -12.34f)
 
-    val v4: Int = -12
-    assert((new BytesUtils).toInt((new BytesUtils).toBytes(-12)) === v4)
+    assert((new BytesUtils).toInt((new BytesUtils).toBytes(12)) === 12)
+    assert((new BytesUtils).toInt((new BytesUtils).toBytes(-12)) === -12)
 
-    val v5: Long = 1234l
-    assert((new BytesUtils).toLong((new BytesUtils).toBytes(v5)) === v5)
+    assert((new BytesUtils).toLong((new BytesUtils).toBytes(1234l)) === 1234l)
+    assert((new BytesUtils).toLong((new BytesUtils).toBytes(-1234l)) === -1234l)
 
-    val v6: Short = 12.asInstanceOf[Short]
-    assert((new BytesUtils).toShort((new BytesUtils).toBytes(v6)) === v6)
+    assert((new BytesUtils).toShort((new BytesUtils).toBytes(12.asInstanceOf[Short])) === 12)
+    assert((new BytesUtils).toShort((new BytesUtils).toBytes(-12.asInstanceOf[Short])) === -12)
 
-    val v7: String = "abc"
-    assert((new BytesUtils).toString((new BytesUtils).toBytes(v7)) === v7)
+    assert((new BytesUtils).toString((new BytesUtils).toBytes("abc")) === "abc")
 
-    val v8: Byte = 5.asInstanceOf[Byte]
-    assert((new BytesUtils).toByte((new BytesUtils).toBytes(v8)) === v8)
+    assert((new BytesUtils).toByte((new BytesUtils).toBytes(5.asInstanceOf[Byte])) === 5)
+    assert((new BytesUtils).toByte((new BytesUtils).toBytes(-5.asInstanceOf[Byte])) === -5)
   }
 
   test("Create Table") {
