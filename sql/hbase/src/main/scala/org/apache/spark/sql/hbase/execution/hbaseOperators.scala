@@ -136,6 +136,18 @@ case class InsertIntoHBaseTable(
 }
 
 @DeveloperApi
+case class InsertValueIntoTable(table: HBaseRelation,
+                                 valueSeq: Seq[String]) extends LeafNode {
+
+  override def execute() = {
+    // TODO
+    null
+  }
+
+  override def output = Nil
+}
+
+@DeveloperApi
 case class BulkLoadIntoTable(path: String, relation: HBaseRelation, isLocal: Boolean)(
   @transient hbContext: HBaseSQLContext) extends LeafNode {
 

@@ -23,6 +23,7 @@ import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoTable, LogicalPlan
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.hbase.execution._
+import org.apache.spark.sql.hbase.logical.InsertValueIntoTable
 
 private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
   self: SQLContext#SparkPlanner =>
@@ -93,6 +94,8 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
         execution.BulkLoadIntoTable(path, table, isLocal)(hbaseSQLContext) :: Nil
       case InsertIntoTable(table: HBaseRelation, partition, child, _) =>
         new InsertIntoHBaseTable(table, planLater(child))(hbaseSQLContext) :: Nil
+      case InsertValueIntoTable(table: HBaseRelation, partition, valueSeq) =>
+        execution.InsertValueIntoTable(table, valueSeq) :: Nil
       case logical.AlterDropColPlan(tableName, colName) =>
         Seq(AlterDropColCommand(tableName, colName)
           (hbaseSQLContext))
