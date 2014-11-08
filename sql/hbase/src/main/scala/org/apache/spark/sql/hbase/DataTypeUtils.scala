@@ -35,7 +35,7 @@ object DataTypeUtils {
       case StringType => row.setString(index, bu.toString(src))
       case IntegerType => row.setInt(index, bu.toInt(src))
       case BooleanType => row.setBoolean(index, bu.toBoolean(src))
-      case ByteType => row.setByte(index, src(0))
+      case ByteType => row.setByte(index, bu.toByte(src))
       case DoubleType => row.setDouble(index, bu.toDouble(src))
       case FloatType => row.setFloat(index, bu.toFloat(src))
       case LongType => row.setLong(index, bu.toLong(src))
