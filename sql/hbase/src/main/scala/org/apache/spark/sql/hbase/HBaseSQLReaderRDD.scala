@@ -55,12 +55,15 @@ class HBaseSQLReaderRDD(
     val scan = relation.buildScan(split, filters, output)
     scan.setCaching(cachingSize)
     val scanner = relation.htable.getScanner(scan)
-    var finished: Boolean = false
-    var gotNext: Boolean = false
-    var result: Result = null
+
     val row = new GenericMutableRow(output.size)
     val projections = output.zipWithIndex
     val bytesUtils = new BytesUtils
+
+    var finished: Boolean = false
+    var gotNext: Boolean = false
+    var result: Result = null
+
     val iter = new Iterator[Row] {
       override def hasNext: Boolean = {
         if (!finished) {

@@ -45,8 +45,20 @@ class HBaseBasicOperationSuite extends QueryTest {
     sql( """INSERT INTO tableName SELECT * FROM myTable""")
   }
 
-  test("Select from table") {
+  test("Select test 0") {
     sql( """SELECT * FROM tableName ORDER BY col7 DESC""").foreach(println)
+  }
+
+  test("Select test 1") {
+    sql( """SELECT * FROM myTable ORDER BY col7 DESC""").foreach(println)
+  }
+
+  test("Select test 2") {
+    sql( """SELECT col6, col7 FROM tableName ORDER BY col6 DESC""").foreach(println)
+  }
+
+  test("Select test 3") {
+    sql( """SELECT col6, col6 FROM myTable""").foreach(println)
   }
 
   test("Alter Add column") {

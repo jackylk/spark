@@ -17,21 +17,19 @@
 package org.apache.spark.sql.hbase
 
 import java.util.ArrayList
-import org.apache.spark.sql.hbase.BytesUtils
-
-import scala.collection.mutable.ArrayBuffer
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client.{Scan, HTable, Put, Get, Result}
-import org.apache.hadoop.hbase.filter.{Filter, FilterList}
 import org.apache.hadoop.hbase.HBaseConfiguration
-
+import org.apache.hadoop.hbase.client.{Get, HTable, Put, Result, Scan}
+import org.apache.hadoop.hbase.filter.{Filter, FilterList, _}
+import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.Partition
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
 import org.apache.spark.sql.catalyst.types._
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
 
 private[hbase] case class HBaseRelation(
                                          tableName: String,
@@ -104,9 +102,31 @@ private[hbase] case class HBaseRelation(
                    projList: Seq[NamedExpression],
                    rowKeyPredicate: Option[Expression],
                    valuePredicate: Option[Expression]) = {
-    val filters = new ArrayList[Filter]
-    // TODO: add specific filters
-    Option(new FilterList(filters))
+    val distinctProjList = projList.distinct
+    if (distinctProjList.size == allColumns.size) {
+      Option(new FilterList(new ArrayList[Filter]))
+    } else {
+      val filtersList:List[Filter] = nonKeyColumns.filter {
+        case nkc => distinctProjList.exists(nkc == _.name)
+      }.map {
+        case NonKeyColumn(_, _, family, qualifier) => {
+          val columnFilters = new ArrayList[Filter]
+          columnFilters.add(
+            new FamilyFilter(
+              CompareFilter.CompareOp.EQUAL,
+              new BinaryComparator(Bytes.toBytes(family))
+            ))
+          columnFilters.add(
+            new QualifierFilter(
+              CompareFilter.CompareOp.EQUAL,
+              new BinaryComparator(Bytes.toBytes(qualifier))
+            ))
+          new FilterList(FilterList.Operator.MUST_PASS_ALL, columnFilters)
+        }
+      }.toList
+
+      Option(new FilterList(FilterList.Operator.MUST_PASS_ONE, filtersList.asJava))
+    }
   }
 
   def buildPut(row: Row): Put = {
