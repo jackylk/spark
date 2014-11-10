@@ -39,7 +39,7 @@ class HadoopReader(@transient sc: SparkContext, @transient job: Job,
     val cls = columns
     // Todo: use mapPartitions more better
     rdd.map { line =>
-      val (keyBytes, valueBytes) = HadoopReader.string2KV(line, splitRegex, cls)
+      val (keyBytes, valueBytes) = HadoopReader.string2KV(line.split(splitRegex), cls)
       val rowKeyData = HadoopReader.encodingRawKeyColumns(keyBytes)
       val rowKey = new ImmutableBytesWritableWrapper(rowKeyData)
       val put = new PutWrapper(rowKeyData)
@@ -72,11 +72,11 @@ object HadoopReader {
   }
 
 
-  def string2KV(value: String, splitRegex: String, columns: Seq[AbstractColumn]):
+  def string2KV(values: Seq[String], columns: Seq[AbstractColumn]):
   (Seq[(Array[Byte], DataType)], Seq[(Array[Byte], Array[Byte], Array[Byte])]) = {
     val keyBytes = new ArrayBuffer[(Array[Byte], DataType)]()
     val valueBytes = new ArrayBuffer[(Array[Byte], Array[Byte], Array[Byte])]()
-    value.split(splitRegex).zip(columns).foreach { case (value, column) =>
+    values.zip(columns).foreach { case (value, column) =>
       val bytes = string2Bytes(value, column.dataType)
       if (column.isKeyColum()) {
         keyBytes += ((bytes, column.dataType))
