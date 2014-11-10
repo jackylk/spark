@@ -77,7 +77,7 @@ object HadoopReader {
     val keyBytes = new ArrayBuffer[(Array[Byte], DataType)]()
     val valueBytes = new ArrayBuffer[(Array[Byte], Array[Byte], Array[Byte])]()
     values.zip(columns).foreach { case (value, column) =>
-      val bytes = string2Bytes(value, column.dataType)
+      val bytes = string2Bytes(value, column.dataType, new BytesUtils)
       if (column.isKeyColum()) {
         keyBytes += ((bytes, column.dataType))
       } else {
@@ -88,23 +88,15 @@ object HadoopReader {
     (keyBytes, valueBytes)
   }
 
-  def string2Bytes(v: String, dataType: DataType): Array[Byte] = dataType match {
+  def string2Bytes(v: String, dataType: DataType, bu: BytesUtils): Array[Byte] = dataType match {
     // todo: handle some complex types
-    case ArrayType(elemType, _) => Bytes.toBytes(v)
-    case StructType(fields) => Bytes.toBytes(v)
-    case MapType(keyType, valueType, _) => Bytes.toBytes(v)
-    case BinaryType => Bytes.toBytes(v)
-    case BooleanType => Bytes.toBytes(v.toBoolean)
-    case ByteType => Bytes.toBytes(v)
-    case DoubleType => Bytes.toBytes(v.toDouble)
-    case FloatType => Bytes.toBytes((v.toFloat))
-    case IntegerType => Bytes.toBytes(v.toInt)
-    case LongType => Bytes.toBytes(v.toLong)
-    case ShortType => Bytes.toBytes(v.toShort)
-    case StringType => Bytes.toBytes(v)
-    case DecimalType => Bytes.toBytes(v)
-    case DateType => Bytes.toBytes(v)
-    case TimestampType => Bytes.toBytes(v)
-    case NullType => Bytes.toBytes(v)
+    case BooleanType => bu.toBytes(v.toBoolean)
+    case ByteType => bu.toBytes(v)
+    case DoubleType => bu.toBytes(v.toDouble)
+    case FloatType => bu.toBytes((v.toFloat))
+    case IntegerType => bu.toBytes(v.toInt)
+    case LongType => bu.toBytes(v.toLong)
+    case ShortType => bu.toBytes(v.toShort)
+    case StringType => bu.toBytes(v)
   }
 }
