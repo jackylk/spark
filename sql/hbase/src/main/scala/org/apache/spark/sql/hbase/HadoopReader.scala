@@ -60,13 +60,11 @@ object HadoopReader {
   def encodingRawKeyColumns(rawKeyColumns: Seq[(HBaseRawType, DataType)]): HBaseRawType = {
     var buffer = ArrayBuffer[Byte]()
     val delimiter: Byte = 0
-    var index = 0
     for (rawKeyColumn <- rawKeyColumns) {
       buffer = buffer ++ rawKeyColumn._1
       if (rawKeyColumn._2 == StringType) {
         buffer += delimiter
       }
-      index = index + 1
     }
     buffer.toArray
   }
