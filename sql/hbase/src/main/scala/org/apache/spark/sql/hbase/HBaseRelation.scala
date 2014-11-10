@@ -159,57 +159,6 @@ private[hbase] case class HBaseRelation(
     // TODO: add columns to the Get
   }
 
-  /**
-   * create row key based on key columns information
-   * @param rawKeyColumns sequence of byte array representing the key columns
-   * @return array of bytes
-   */
-  def encodingRawKeyColumns(rawKeyColumns: Seq[HBaseRawType]): HBaseRawType = {
-    var buffer = ArrayBuffer[Byte]()
-    val delimiter: Byte = 0
-    var index = 0
-    for (rawKeyColumn <- rawKeyColumns) {
-      val keyColumn = keyColumns(index)
-      buffer = buffer ++ rawKeyColumn
-      if (keyColumn.dataType == StringType) {
-        buffer += delimiter
-      }
-      index = index + 1
-    }
-    buffer.toArray
-  }
-
-  /**
-   * get the sequence of key columns from the byte array
-   * @param rowKey array of bytes
-   * @return sequence of byte array
-   */
-  def decodingRawKeyColumns(rowKey: HBaseRawType): Seq[HBaseRawType] = {
-    var rowKeyList = List[HBaseRawType]()
-    val delimiter: Byte = 0
-    var index = 0
-    for (keyColumn <- keyColumns) {
-      var buffer = ArrayBuffer[Byte]()
-      val dataType = keyColumn.dataType
-      if (dataType == StringType) {
-        while (index < rowKey.length && rowKey(index) != delimiter) {
-          buffer += rowKey(index)
-          index = index + 1
-        }
-        index = index + 1
-      }
-      else {
-        val length = NativeType.defaultSizeOf(dataType.asInstanceOf[NativeType])
-        for (i <- 0 to (length - 1)) {
-          buffer += rowKey(index)
-          index = index + 1
-        }
-      }
-      rowKeyList = rowKeyList :+ buffer.toArray
-    }
-    rowKeyList
-  }
-
   //  /**
   //   * Trait for RowKeyParser's that convert a raw array of bytes into their constituent
   //   * logical column values
@@ -341,7 +290,7 @@ private[hbase] case class HBaseRelation(
                bytesUtils: BytesUtils): Row = {
     assert(projections.size == row.length, "Projection size and row size mismatched")
     // TODO: replaced with the new Key method
-    val rowKeys = decodingRawKeyColumns(result.getRow)
+    val rowKeys = HBaseKVHelper.decodingRawKeyColumns(result.getRow, keyColumns)
     projections.foreach { p =>
       columnMap.get(p._1.name).get match {
         case column: NonKeyColumn => {

@@ -105,10 +105,10 @@ case class InsertIntoHBaseTable(
             val rowColumn = DataTypeUtils.getRowColumnFromHBaseRawType(
               row, colWithIndex(kc), kc.dataType, bu(rowIndexInBatch)(colIndexInBatch))
             colIndexInBatch += 1
-            rowColumn
+            (rowColumn, kc.dataType)
           }
         }
-        val key = relation.encodingRawKeyColumns(rawKeyCol)
+        val key = HBaseKVHelper.encodingRawKeyColumns(rawKeyCol)
         val put = new Put(key)
         relation.nonKeyColumns.foreach {
           case nkc: NonKeyColumn => {
