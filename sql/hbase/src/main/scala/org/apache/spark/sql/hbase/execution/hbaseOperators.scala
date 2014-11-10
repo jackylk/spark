@@ -44,13 +44,12 @@ import scala.collection.JavaConversions._
  */
 @DeveloperApi
 case class HBaseSQLTableScan(
-                              relation: HBaseRelation,
-                              output: Seq[Attribute],
-                              rowKeyPredicate: Option[Expression],
-                              valuePredicate: Option[Expression],
-                              partitionPredicate: Option[Expression],
-                              coProcessorPlan: Option[SparkPlan])
-                            (@transient context: HBaseSQLContext)
+    relation: HBaseRelation,
+    output: Seq[Attribute],
+    rowKeyPredicate: Option[Expression],
+    valuePredicate: Option[Expression],
+    partitionPredicate: Option[Expression],
+    coProcessorPlan: Option[SparkPlan])(@transient context: HBaseSQLContext)
   extends LeafNode {
 
   override def execute(): RDD[Row] = {
@@ -228,4 +227,92 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
 
   override def output = Nil
 
+}
+
+
+
+@DeveloperApi
+case class OptimizedBulkLoadIntoTable(path: String, relation: HBaseRelation, isLocal: Boolean)(
+  @transient hbContext: HBaseSQLContext) extends LeafNode {
+
+  val conf = hbContext.sc.hadoopConfiguration // should use hbase config in catalog?
+
+  val job = new Job(hbContext.sc.hadoopConfiguration)
+
+  val hadoopReader = if (isLocal) {
+    val fs = FileSystem.getLocal(conf)
+    val pathString = fs.pathToFile(new Path(path)).getCanonicalPath
+    new HadoopReader(hbContext.sparkContext, job, pathString)(relation.allColumns)
+  } else {
+    new HadoopReader(hbContext.sparkContext, job, path)(relation.allColumns)
+  }
+
+  private[hbase] def makeBulkLoadRDD(splitKeys: Array[ImmutableBytesWritableWrapper]) = {
+    val ordering = HBasePartitioner.orderingRowKey
+      .asInstanceOf[Ordering[ImmutableBytesWritableWrapper]]
+    val rdd = hadoopReader.makeBulkLoadRDDFromTextFile
+    val partitioner = new HBasePartitioner(rdd)(splitKeys)
+    val shuffled =
+      new HBaseShuffledRDD[ImmutableBytesWritableWrapper, PutWrapper, PutWrapper](rdd, partitioner)
+        .setHbasePartitions(relation.partitions)
+        .setKeyOrdering(ordering)
+    shuffled.mapPartitions { iter =>
+      // the rdd now already sort by key, to sort by value
+      val map = new java.util.TreeSet[KeyValue](KeyValue.COMPARATOR)
+      var preKV: (ImmutableBytesWritableWrapper, PutWrapper) = null
+      var nowKV: (ImmutableBytesWritableWrapper, PutWrapper) = null
+      val ret = new ArrayBuffer[(ImmutableBytesWritable, KeyValue)]()
+      if (iter.hasNext) {
+        preKV = iter.next()
+        var cellsIter = preKV._2.toPut().getFamilyCellMap.values().iterator()
+        while (cellsIter.hasNext()) {
+          cellsIter.next().foreach { cell =>
+            val kv = KeyValueUtil.ensureKeyValue(cell)
+            map.add(kv)
+          }
+        }
+        while (iter.hasNext) {
+          nowKV = iter.next()
+          if (0 == (nowKV._1 compareTo preKV._1)) {
+            cellsIter = nowKV._2.toPut().getFamilyCellMap.values().iterator()
+            while (cellsIter.hasNext()) {
+              cellsIter.next().foreach { cell =>
+                val kv = KeyValueUtil.ensureKeyValue(cell)
+                map.add(kv)
+              }
+            }
+          } else {
+            ret ++= map.iterator().map((preKV._1.toImmutableBytesWritable(), _))
+            preKV = nowKV
+            map.clear()
+            cellsIter = preKV._2.toPut().getFamilyCellMap.values().iterator()
+            while (cellsIter.hasNext()) {
+              cellsIter.next().foreach { cell =>
+                val kv = KeyValueUtil.ensureKeyValue(cell)
+                map.add(kv)
+              }
+            }
+          }
+        }
+        ret ++= map.iterator().map((preKV._1.toImmutableBytesWritable(), _))
+        map.clear()
+        ret.iterator
+      } else {
+        Iterator.empty
+      }
+    }
+  }
+
+  override def execute() = {
+    val splitKeys = relation.getRegionStartKeys().toArray
+    val bulkLoadRdd = makeBulkLoadRDD(splitKeys)
+    hbContext.sc.runJob(bulkLoadRdd, loadToHbase _)
+    // todo: load to hbase and cover the situation split happens when bulk load
+    def loadToHbase(context: TaskContext, iterator: Iterator[(ImmutableBytesWritable, KeyValue)]) {
+
+    }
+    hbContext.sc.parallelize(Seq.empty[Row], 1)
+  }
+
+  override def output = Nil
 }

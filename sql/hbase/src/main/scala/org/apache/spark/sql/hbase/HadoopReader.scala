@@ -30,6 +30,7 @@ class HadoopReader(@transient sc: SparkContext, @transient job: Job,
   private[hbase] def makeBulkLoadRDDFromTextFile = {
 
     val rdd = sc.textFile(path)
+    // todo: use delimiter instead after pr merged
     val splitRegex = sc.getConf.get("spark.sql.hbase.bulkload.textfile.splitRegex", ",")
     // use to fix serialize issue
     val cls = columns
