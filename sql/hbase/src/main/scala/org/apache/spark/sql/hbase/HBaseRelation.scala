@@ -82,7 +82,7 @@ private[hbase] case class HBaseRelation(
     )
   }
 
-  private def generateRange(partition: HBasePartition, index: Int) : HBaseRange[_] = {
+  private def generateRange(partition: HBasePartition, index: Int): HBaseRange[_] = {
     val bytesUtils1 = new BytesUtils
     val bytesUtils2 = new BytesUtils
     val dt = keyColumns(index).dataType.asInstanceOf[NativeType]
@@ -94,7 +94,7 @@ private[hbase] case class HBaseRelation(
   }
 
   private def prePruneRanges(ranges: Seq[HBaseRange[_]], keyIndex: Int)
-    : (Seq[HBaseRange[_]], Seq[HBaseRange[_]]) = {
+  : (Seq[HBaseRange[_]], Seq[HBaseRange[_]]) = {
     require(keyIndex < keyColumns.size, "key index out of range")
     if (ranges.isEmpty) {
       (ranges, Nil)
@@ -103,8 +103,8 @@ private[hbase] case class HBaseRelation(
     } else {
       // the first portion is of those ranges of equal start and end values of the
       // previous dimensions so they can be subject to further checks on the next dimension
-      val (p1, p2) = ranges.partition(p=>p.start == p.end)
-      (p2, p1.map(p=>generateRange(partitions(p.id), keyIndex)))
+      val (p1, p2) = ranges.partition(p => p.start == p.end)
+      (p2, p1.map(p => generateRange(partitions(p.id), keyIndex)))
     }
   }
 
@@ -116,7 +116,7 @@ private[hbase] case class HBaseRelation(
         case Some(keyIndex) => row.update(i, range)
         case None => throw new IllegalArgumentException(
           "Invalid column in predicate during partial row setup")
-        case _ => row.setNullAt(i)  // all other columns are assigned null
+        case _ => row.setNullAt(i) // all other columns are assigned null
       }
     }
   }
@@ -132,9 +132,9 @@ private[hbase] case class HBaseRelation(
 
         var prunedRanges = partitions.map(generateRange(_, 0))
         for (i <- 0 until keyColumns.size) {
-          val (newRanges, toBePrunedRanges) = prePruneRanges(prunedRanges,i)
+          val (newRanges, toBePrunedRanges) = prePruneRanges(prunedRanges, i)
           prunedRanges = newRanges ++ toBePrunedRanges.filter(
-            r=> {
+            r => {
               generatePartialRow(row, predRefs, i, r)
               val partialEvalResult = pred.partialEval(row)
               // MAYBE is represented by a null
@@ -142,12 +142,11 @@ private[hbase] case class HBaseRelation(
             }
           )
         }
-        Some(prunedRanges.map(p=>partitions(p.id)))
+        Some(prunedRanges.map(p => partitions(p.id)))
       }
     }
-
+    Some(partitions)
   }
-
 
   /**
    * Return the start keys of all of the regions in this table,
@@ -170,7 +169,7 @@ private[hbase] case class HBaseRelation(
     if (distinctProjList.size == allColumns.size) {
       Option(new FilterList(new ArrayList[Filter]))
     } else {
-      val filtersList:List[Filter] = nonKeyColumns.filter {
+      val filtersList: List[Filter] = nonKeyColumns.filter {
         case nkc => distinctProjList.exists(nkc == _.name)
       }.map {
         case NonKeyColumn(_, _, family, qualifier) => {
