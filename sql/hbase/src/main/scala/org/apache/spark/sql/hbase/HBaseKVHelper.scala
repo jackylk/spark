@@ -74,9 +74,12 @@ object HBaseKVHelper {
 
   def string2KV(values: Seq[String], columns: Seq[AbstractColumn]):
   (Seq[(Array[Byte], DataType)], Seq[(Array[Byte], Array[Byte], Array[Byte])]) = {
+    assert(values.length == columns.length)
     val keyBytes = new ArrayBuffer[(Array[Byte], DataType)]()
     val valueBytes = new ArrayBuffer[(Array[Byte], Array[Byte], Array[Byte])]()
-    values.zip(columns).foreach { case (value, column) =>
+    for (i <- 0 until values.length) {
+      val value = values(i)
+      val column = columns(i)
       val bytes = string2Bytes(value, column.dataType, new BytesUtils)
       if (column.isKeyColum()) {
         keyBytes += ((bytes, column.dataType))
