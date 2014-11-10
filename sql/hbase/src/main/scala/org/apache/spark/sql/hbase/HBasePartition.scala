@@ -20,8 +20,8 @@ import org.apache.spark.Partition
 
 private[hbase] class HBasePartition(
     idx : Int,
-    val lowerBound: Option[HBaseRawType],
-    val upperBound: Option[HBaseRawType],
-    val server: Option[String])  extends Partition {
+    val lowerBound: Option[HBaseRawType] = None,
+    val upperBound: Option[HBaseRawType]= None,
+    val server: Option[String] = None)  extends Partition {
   override def index: Int = idx
 }
