@@ -86,9 +86,11 @@ private[hbase] case class HBaseRelation(
     val bytesUtils1 = new BytesUtils
     val bytesUtils2 = new BytesUtils
     val dt = keyColumns(index).dataType.asInstanceOf[NativeType]
-    val start = DataTypeUtils.bytesToData(decodingRawKeyColumns(partition.lowerBound.get)(index),
+    val start = DataTypeUtils.bytesToData(
+      HBaseKVHelper.decodingRawKeyColumns(partition.lowerBound.get, keyColumns)(index),
       dt, bytesUtils1).asInstanceOf[dt.JvmType]
-    val end = DataTypeUtils.bytesToData(decodingRawKeyColumns(partition.upperBound.get)(index),
+    val end = DataTypeUtils.bytesToData(
+      HBaseKVHelper.decodingRawKeyColumns(partition.upperBound.get, keyColumns)(index),
       dt, bytesUtils2).asInstanceOf[dt.JvmType]
     new HBaseRange(Some(start), Some(end), partition.index)
   }

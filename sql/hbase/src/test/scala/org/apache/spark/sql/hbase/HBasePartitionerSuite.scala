@@ -18,16 +18,12 @@
 package org.apache.spark.sql.hbase
 
 import org.scalatest.FunSuite
-import org.apache.spark.{SparkConf, LocalSparkContext, SparkContext, Logging}
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.rdd.ShuffledRDD
 
-class HBasePartitionerSuite extends FunSuite with LocalSparkContext with Logging {
-
-  val conf = new SparkConf(loadDefaults = false)
+class HBasePartitionerSuite extends FunSuite with HBaseTestSparkContext{
 
   test("test hbase partitioner") {
-    sc = new SparkContext("local", "test")
     val data = (1 to 40).map { r =>
       val rowKey = Bytes.toBytes(r)
       val rowKeyWritable = new ImmutableBytesWritableWrapper(rowKey)

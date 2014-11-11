@@ -17,14 +17,8 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.spark.sql.QueryTest
-import org.scalatest.Ignore
-
-//Implicits
-
 import org.apache.spark.sql.hbase.TestHbase._
 
-//@Ignore
 class HBaseBasicOperationSuite extends QueryTest {
 
   test("create table") {
