@@ -18,7 +18,6 @@
 package org.apache.spark.sql
 
 import org.apache.spark.annotation.{DeveloperApi, Experimental}
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.LogicalRDD

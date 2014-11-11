@@ -21,7 +21,7 @@ import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.TaskContext
 
-import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import org.apache.hadoop.mapreduce.Job
 import org.apache.hadoop.hbase.mapreduce.{LoadIncrementalHFiles, HFileOutputFormat}
 import org.apache.hadoop.hbase._
@@ -44,13 +44,12 @@ import scala.collection.JavaConversions._
  */
 @DeveloperApi
 case class HBaseSQLTableScan(
-                              relation: HBaseRelation,
-                              output: Seq[Attribute],
-                              rowKeyPredicate: Option[Expression],
-                              valuePredicate: Option[Expression],
-                              partitionPredicate: Option[Expression],
-                              coProcessorPlan: Option[SparkPlan])
-                            (@transient context: HBaseSQLContext)
+    relation: HBaseRelation,
+    output: Seq[Attribute],
+    rowKeyPredicate: Option[Expression],
+    valuePredicate: Option[Expression],
+    partitionPredicate: Option[Expression],
+    coProcessorPlan: Option[SparkPlan])(@transient context: HBaseSQLContext)
   extends LeafNode {
 
   override def execute(): RDD[Row] = {
@@ -98,6 +97,7 @@ case class InsertIntoHBaseTable(
       var colIndexInBatch = 0
 
       var puts = new ListBuffer[Put]()
+      val buffer = ArrayBuffer[Byte]()
       while (iterator.hasNext) {
         val row = iterator.next()
         val rawKeyCol = relation.keyColumns.map {
@@ -105,10 +105,10 @@ case class InsertIntoHBaseTable(
             val rowColumn = DataTypeUtils.getRowColumnFromHBaseRawType(
               row, colWithIndex(kc), kc.dataType, bu(rowIndexInBatch)(colIndexInBatch))
             colIndexInBatch += 1
-            rowColumn
+            (rowColumn, kc.dataType)
           }
         }
-        val key = relation.encodingRawKeyColumns(rawKeyCol)
+        val key = HBaseKVHelper.encodingRawKeyColumns(buffer, rawKeyCol)
         val put = new Put(key)
         relation.nonKeyColumns.foreach {
           case nkc: NonKeyColumn => {
@@ -172,7 +172,8 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation, isLocal: Boo
     val rdd = hadoopReader.makeBulkLoadRDDFromTextFile
     val partitioner = new HBasePartitioner(rdd)(splitKeys)
     val shuffled =
-      new ShuffledRDD[ImmutableBytesWritableWrapper, PutWrapper, PutWrapper](rdd, partitioner)
+      new HBaseShuffledRDD[ImmutableBytesWritableWrapper, PutWrapper, PutWrapper](rdd, partitioner)
+        .setHbasePartitions(relation.partitions)
         .setKeyOrdering(ordering)
     val bulkLoadRDD = shuffled.mapPartitions { iter =>
       // the rdd now already sort by key, to sort by value

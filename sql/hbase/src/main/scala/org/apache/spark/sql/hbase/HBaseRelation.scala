@@ -27,9 +27,12 @@ import org.apache.spark.Partition
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
 import org.apache.spark.sql.catalyst.types._
+import org.apache.spark.sql.hbase.catalyst.expressions.PartialPredicateOperations._
+import org.apache.spark.sql.hbase.catalyst.types.HBaseRange
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+
 
 private[hbase] case class HBaseRelation(
                                          tableName: String,
@@ -43,7 +46,7 @@ private[hbase] case class HBaseRelation(
     .asInstanceOf[Seq[KeyColumn]].sortBy(_.order)
   @transient lazy val nonKeyColumns = allColumns.filter(_.isInstanceOf[NonKeyColumn])
     .asInstanceOf[Seq[NonKeyColumn]]
-  @transient lazy val partitionKeys = keyColumns.map(col =>
+  @transient lazy val partitionKeys: Seq[AttributeReference] = keyColumns.map(col =>
     AttributeReference(col.sqlName, col.dataType, nullable = false)())
   @transient lazy val columnMap = allColumns.map {
     case key: KeyColumn => (key.sqlName, key.order)
@@ -63,7 +66,7 @@ private[hbase] case class HBaseRelation(
 
   def closeHTable() = htable.close
 
-  override def output: Seq[Attribute] = {
+  val output: Seq[Attribute] = {
     allColumns.map {
       case column =>
         (partitionKeys union attributes).find(_.name == column.sqlName).get
@@ -79,11 +82,74 @@ private[hbase] case class HBaseRelation(
     )
   }
 
-  def getPrunedPartitions(partionPred: Option[Expression] = None): Option[Seq[HBasePartition]] = {
-    //TODO-XY:Use the input parameter
-    Option(partitions)
+  private def generateRange(partition: HBasePartition, index: Int): HBaseRange[_] = {
+    val bytesUtils1 = new BytesUtils
+    val bytesUtils2 = new BytesUtils
+    val dt = keyColumns(index).dataType.asInstanceOf[NativeType]
+    val buffer = ListBuffer[HBaseRawType]()
+    val start = DataTypeUtils.bytesToData(
+      HBaseKVHelper.decodingRawKeyColumns(buffer, partition.lowerBound.get, keyColumns)(index),
+      dt, bytesUtils1).asInstanceOf[dt.JvmType]
+    val end = DataTypeUtils.bytesToData(
+      HBaseKVHelper.decodingRawKeyColumns(buffer, partition.upperBound.get, keyColumns)(index),
+      dt, bytesUtils2).asInstanceOf[dt.JvmType]
+    new HBaseRange(Some(start), Some(end), partition.index)
   }
 
+  private def prePruneRanges(ranges: Seq[HBaseRange[_]], keyIndex: Int)
+  : (Seq[HBaseRange[_]], Seq[HBaseRange[_]]) = {
+    require(keyIndex < keyColumns.size, "key index out of range")
+    if (ranges.isEmpty) {
+      (ranges, Nil)
+    } else if (keyIndex == 0) {
+      (Nil, ranges)
+    } else {
+      // the first portion is of those ranges of equal start and end values of the
+      // previous dimensions so they can be subject to further checks on the next dimension
+      val (p1, p2) = ranges.partition(p => p.start == p.end)
+      (p2, p1.map(p => generateRange(partitions(p.id), keyIndex)))
+    }
+  }
+
+  private def generatePartialRow(row: GenericMutableRow, predRefs: Seq[Attribute], keyIndex: Int,
+                                 range: HBaseRange[_]): Unit = {
+    require(row.length == predRefs.size, "mismatched partially evaluated output size")
+    for (i <- 0 until row.length) {
+      columnMap.get(predRefs(i).name) match {
+        case Some(keyIndex) => row.update(i, range)
+        case None => throw new IllegalArgumentException(
+          "Invalid column in predicate during partial row setup")
+        case _ => row.setNullAt(i) // all other columns are assigned null
+      }
+    }
+  }
+
+  def getPrunedPartitions(partitionPred: Option[Expression] = None): Option[Seq[HBasePartition]] = {
+    partitionPred match {
+      case None => Some(partitions)
+      case Some(pred) => if (pred.references.intersect(AttributeSet(partitionKeys)).isEmpty) {
+        Some(partitions)
+      } else {
+        val predRefs = pred.references.toSeq
+        val row = new GenericMutableRow(predRefs.size)
+
+        var prunedRanges = partitions.map(generateRange(_, 0))
+        for (i <- 0 until keyColumns.size) {
+          val (newRanges, toBePrunedRanges) = prePruneRanges(prunedRanges, i)
+          prunedRanges = newRanges ++ toBePrunedRanges.filter(
+            r => {
+              generatePartialRow(row, predRefs, i, r)
+              val partialEvalResult = pred.partialEval(row)
+              // MAYBE is represented by a null
+              (partialEvalResult == null) || partialEvalResult.asInstanceOf[Boolean]
+            }
+          )
+        }
+        Some(prunedRanges.map(p => partitions(p.id)))
+      }
+    }
+    Some(partitions)
+  }
 
   /**
    * Return the start keys of all of the regions in this table,
@@ -106,7 +172,7 @@ private[hbase] case class HBaseRelation(
     if (distinctProjList.size == allColumns.size) {
       Option(new FilterList(new ArrayList[Filter]))
     } else {
-      val filtersList:List[Filter] = nonKeyColumns.filter {
+      val filtersList: List[Filter] = nonKeyColumns.filter {
         case nkc => distinctProjList.exists(nkc == _.name)
       }.map {
         case NonKeyColumn(_, _, family, qualifier) => {
@@ -157,57 +223,6 @@ private[hbase] case class HBaseRelation(
   def buildGet(projList: Seq[NamedExpression], rowKey: HBaseRawType) {
     new Get(rowKey)
     // TODO: add columns to the Get
-  }
-
-  /**
-   * create row key based on key columns information
-   * @param rawKeyColumns sequence of byte array representing the key columns
-   * @return array of bytes
-   */
-  def encodingRawKeyColumns(rawKeyColumns: Seq[HBaseRawType]): HBaseRawType = {
-    var buffer = ArrayBuffer[Byte]()
-    val delimiter: Byte = 0
-    var index = 0
-    for (rawKeyColumn <- rawKeyColumns) {
-      val keyColumn = keyColumns(index)
-      buffer = buffer ++ rawKeyColumn
-      if (keyColumn.dataType == StringType) {
-        buffer += delimiter
-      }
-      index = index + 1
-    }
-    buffer.toArray
-  }
-
-  /**
-   * get the sequence of key columns from the byte array
-   * @param rowKey array of bytes
-   * @return sequence of byte array
-   */
-  def decodingRawKeyColumns(rowKey: HBaseRawType): Seq[HBaseRawType] = {
-    var rowKeyList = List[HBaseRawType]()
-    val delimiter: Byte = 0
-    var index = 0
-    for (keyColumn <- keyColumns) {
-      var buffer = ArrayBuffer[Byte]()
-      val dataType = keyColumn.dataType
-      if (dataType == StringType) {
-        while (index < rowKey.length && rowKey(index) != delimiter) {
-          buffer += rowKey(index)
-          index = index + 1
-        }
-        index = index + 1
-      }
-      else {
-        val length = NativeType.defaultSizeOf(dataType.asInstanceOf[NativeType])
-        for (i <- 0 to (length - 1)) {
-          buffer += rowKey(index)
-          index = index + 1
-        }
-      }
-      rowKeyList = rowKeyList :+ buffer.toArray
-    }
-    rowKeyList
   }
 
   //  /**
@@ -341,7 +356,8 @@ private[hbase] case class HBaseRelation(
                bytesUtils: BytesUtils): Row = {
     assert(projections.size == row.length, "Projection size and row size mismatched")
     // TODO: replaced with the new Key method
-    val rowKeys = decodingRawKeyColumns(result.getRow)
+    val buffer = ListBuffer[HBaseRawType]()
+    val rowKeys = HBaseKVHelper.decodingRawKeyColumns(buffer, result.getRow, keyColumns)
     projections.foreach { p =>
       columnMap.get(p._1.name).get match {
         case column: NonKeyColumn => {

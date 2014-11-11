@@ -70,7 +70,7 @@ class BulkLoadIntoTableSuite extends FunSuite with BeforeAndAfterAll with Loggin
     assert(r.tableName.equals("tb"))
   }
 
-  test("write data to HFile") {
+  ignore("write data to HFile") {
     val colums = Seq(new KeyColumn("k1", IntegerType, 0), new NonKeyColumn("v1", IntegerType, "cf1", "c1"))
     val hbaseRelation = HBaseRelation("testtablename", "hbasenamespace", "hbasetablename", colums)
     val bulkLoad = BulkLoadIntoTable("./sql/hbase/src/test/resources/test.csv", hbaseRelation, true)(hbc)

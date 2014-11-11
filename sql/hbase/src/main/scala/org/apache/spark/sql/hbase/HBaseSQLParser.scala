@@ -38,11 +38,12 @@ class HBaseSQLParser extends SqlParser {
   protected val INPATH = Keyword("INPATH")
   protected val INT = Keyword("INT")
   protected val INTEGER = Keyword("INTEGER")
-  protected val KEYS = Keyword("KEYS")
+  protected val KEY = Keyword("KEY")
   protected val LOAD = Keyword("LOAD")
   protected val LOCAL = Keyword("LOCAL")
   protected val LONG = Keyword("LONG")
   protected val MAPPED = Keyword("MAPPED")
+  protected val PRIMARY = Keyword("PRIMARY")
   protected val SHORT = Keyword("SHORT")
   protected val VALUES = Keyword("VALUES")
 
@@ -74,13 +75,13 @@ class HBaseSQLParser extends SqlParser {
 
   protected lazy val create: Parser[LogicalPlan] =
     CREATE ~> TABLE ~> ident ~
-      ("(" ~> tableCols <~ ")") ~
+      ("(" ~> tableCols <~ ",") ~
+      (PRIMARY ~> KEY ~> "(" ~> keys <~ ")" <~ ")") ~
       (MAPPED ~> BY ~> "(" ~> opt(nameSpace)) ~
       (ident <~ ",") ~
-      (KEYS ~> "=" ~> "[" ~> keys <~ "]" <~ ",") ~
       (COLS ~> "=" ~> "[" ~> expressions <~ "]" <~ ")") <~ opt(";") ^^ {
 
-      case tableName ~ tableColumns ~ tableNameSpace ~ hbaseTableName ~ keySeq ~ mappingInfo =>
+      case tableName ~ tableColumns ~ keySeq ~ tableNameSpace ~ hbaseTableName ~ mappingInfo =>
         //Since the lexical can not recognize the symbol "=" as we expected,
         //we compose it to expression first and then translate it into Map[String, (String, String)]
         //TODO: Now get the info by hacking, need to change it into normal way if possible

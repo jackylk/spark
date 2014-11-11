@@ -71,8 +71,8 @@ class SQLContext(@transient val sparkContext: SparkContext)
   protected[sql] val optimizer = Optimizer
 
   @transient
-    val fallback = new catalyst.SqlParser
   protected[sql] val sqlParser = {
+    val fallback = new catalyst.SqlParser
     new catalyst.SparkSQLParser(fallback(_))
   }
 

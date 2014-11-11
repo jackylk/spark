@@ -17,10 +17,8 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.catalyst.types._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -34,13 +32,15 @@ class HadoopReader(@transient sc: SparkContext, @transient job: Job,
   private[hbase] def makeBulkLoadRDDFromTextFile = {
 
     val rdd = sc.textFile(path)
+    // todo: use delimiter instead after pr merged
     val splitRegex = sc.getConf.get("spark.sql.hbase.bulkload.textfile.splitRegex", ",")
     // use to fix serialize issue
     val cls = columns
     // Todo: use mapPartitions more better
+    val buffer = ArrayBuffer[Byte]()
     rdd.map { line =>
-      val (keyBytes, valueBytes) = HadoopReader.string2KV(line, splitRegex, cls)
-      val rowKeyData = HadoopReader.encodingRawKeyColumns(keyBytes)
+      val (keyBytes, valueBytes) = HBaseKVHelper.string2KV(line.split(splitRegex), cls)
+      val rowKeyData = HBaseKVHelper.encodingRawKeyColumns(buffer, keyBytes)
       val rowKey = new ImmutableBytesWritableWrapper(rowKeyData)
       val put = new PutWrapper(rowKeyData)
       valueBytes.foreach { case (family, qualifier, value) =>
@@ -48,63 +48,5 @@ class HadoopReader(@transient sc: SparkContext, @transient job: Job,
       }
       (rowKey, put)
     }
-  }
-}
-
-object HadoopReader {
-  /**
-   * create row key based on key columns information
-   * @param rawKeyColumns sequence of byte array representing the key columns
-   * @return array of bytes
-   */
-  def encodingRawKeyColumns(rawKeyColumns: Seq[(HBaseRawType, DataType)]): HBaseRawType = {
-    var buffer = ArrayBuffer[Byte]()
-    val delimiter: Byte = 0
-    var index = 0
-    for (rawKeyColumn <- rawKeyColumns) {
-      buffer = buffer ++ rawKeyColumn._1
-      if (rawKeyColumn._2 == StringType) {
-        buffer += delimiter
-      }
-      index = index + 1
-    }
-    buffer.toArray
-  }
-
-
-  def string2KV(value: String, splitRegex: String, columns: Seq[AbstractColumn]):
-  (Seq[(Array[Byte], DataType)], Seq[(Array[Byte], Array[Byte], Array[Byte])]) = {
-    val keyBytes = new ArrayBuffer[(Array[Byte], DataType)]()
-    val valueBytes = new ArrayBuffer[(Array[Byte], Array[Byte], Array[Byte])]()
-    value.split(splitRegex).zip(columns).foreach { case (value, column) =>
-      val bytes = string2Bytes(value, column.dataType)
-      if (column.isKeyColum()) {
-        keyBytes += ((bytes, column.dataType))
-      } else {
-        val realCol = column.asInstanceOf[NonKeyColumn]
-        valueBytes += ((Bytes.toBytes(realCol.family), Bytes.toBytes(realCol.qualifier), bytes))
-      }
-    }
-    (keyBytes, valueBytes)
-  }
-
-  def string2Bytes(v: String, dataType: DataType): Array[Byte] = dataType match {
-    // todo: handle some complex types
-    case ArrayType(elemType, _) => Bytes.toBytes(v)
-    case StructType(fields) => Bytes.toBytes(v)
-    case MapType(keyType, valueType, _) => Bytes.toBytes(v)
-    case BinaryType => Bytes.toBytes(v)
-    case BooleanType => Bytes.toBytes(v.toBoolean)
-    case ByteType => Bytes.toBytes(v)
-    case DoubleType => Bytes.toBytes(v.toDouble)
-    case FloatType => Bytes.toBytes((v.toFloat))
-    case IntegerType => Bytes.toBytes(v.toInt)
-    case LongType => Bytes.toBytes(v.toLong)
-    case ShortType => Bytes.toBytes(v.toShort)
-    case StringType => Bytes.toBytes(v)
-    case DecimalType => Bytes.toBytes(v)
-    case DateType => Bytes.toBytes(v)
-    case TimestampType => Bytes.toBytes(v)
-    case NullType => Bytes.toBytes(v)
   }
 }
