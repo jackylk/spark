@@ -217,6 +217,7 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
   }
 
   override def execute() = {
+    hbContext.sc.getConf.set("spark.sql.hbase.bulkload.textfile.splitRegex", delimiter.get)
     val splitKeys = relation.getRegionStartKeys().toArray
     makeBulkLoadRDD(splitKeys)
     val hbaseConf = HBaseConfiguration.create
