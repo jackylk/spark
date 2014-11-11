@@ -147,9 +147,9 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
   val hadoopReader = if (isLocal) {
     val fs = FileSystem.getLocal(conf)
     val pathString = fs.pathToFile(new Path(path)).getCanonicalPath
-    new HadoopReader(hbContext.sparkContext, job, pathString)(relation.allColumns)
+    new HadoopReader(hbContext.sparkContext, job, pathString, delimiter)(relation.allColumns)
   } else {
-    new HadoopReader(hbContext.sparkContext, job, path)(relation.allColumns)
+    new HadoopReader(hbContext.sparkContext, job, path, delimiter)(relation.allColumns)
   }
 
   // tmp path for storing HFile

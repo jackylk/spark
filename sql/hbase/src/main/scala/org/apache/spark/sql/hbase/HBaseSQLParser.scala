@@ -164,7 +164,8 @@ class HBaseSQLParser extends SqlParser {
       }
     }
     
-  // syntax: LOAD DATA [LOCAL] INPATH filepath [OVERWRITE] INTO TABLE tablename [FIELDS TERMINATED BY char]
+  // Load syntax:
+  // LOAD DATA [LOCAL] INPATH filepath [OVERWRITE] INTO TABLE tablename [FIELDS TERMINATED BY char]
   protected lazy val load: Parser[LogicalPlan] =
   (
     (LOAD ~> DATA ~> INPATH ~> stringLit) ~
