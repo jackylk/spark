@@ -21,7 +21,7 @@ import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.TaskContext
 
-import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import org.apache.hadoop.mapreduce.Job
 import org.apache.hadoop.hbase.mapreduce.{LoadIncrementalHFiles, HFileOutputFormat}
 import org.apache.hadoop.hbase._
@@ -97,6 +97,7 @@ case class InsertIntoHBaseTable(
       var colIndexInBatch = 0
 
       var puts = new ListBuffer[Put]()
+      val buffer = ArrayBuffer[Byte]()
       while (iterator.hasNext) {
         val row = iterator.next()
         val rawKeyCol = relation.keyColumns.map {
@@ -107,7 +108,7 @@ case class InsertIntoHBaseTable(
             (rowColumn, kc.dataType)
           }
         }
-        val key = HBaseKVHelper.encodingRawKeyColumns(rawKeyCol)
+        val key = HBaseKVHelper.encodingRawKeyColumns(buffer, rawKeyCol)
         val put = new Put(key)
         relation.nonKeyColumns.foreach {
           case nkc: NonKeyColumn => {

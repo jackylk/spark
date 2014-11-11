@@ -20,25 +20,27 @@ package org.apache.spark.sql.hbase
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.sql.catalyst.types._
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 
 object HBaseKVHelper {
+  private val delimiter: Byte = 0
 
   /**
    * create row key based on key columns information
    * @param rawKeyColumns sequence of byte array representing the key columns
    * @return array of bytes
    */
-  def encodingRawKeyColumns(rawKeyColumns: Seq[(HBaseRawType, DataType)]): HBaseRawType = {
-    var buffer = ArrayBuffer[Byte]()
-    val delimiter: Byte = 0
+  def encodingRawKeyColumns(buffer: ArrayBuffer[Byte],
+                            rawKeyColumns: Seq[(HBaseRawType, DataType)]): HBaseRawType = {
+    var arrayBuffer = buffer
+    arrayBuffer.clear()
     for (rawKeyColumn <- rawKeyColumns) {
-      buffer = buffer ++ rawKeyColumn._1
+      arrayBuffer = arrayBuffer ++ rawKeyColumn._1
       if (rawKeyColumn._2 == StringType) {
-        buffer += delimiter
+        arrayBuffer += delimiter
       }
     }
-    buffer.toArray
+    arrayBuffer.toArray
   }
 
   /**
@@ -46,16 +48,18 @@ object HBaseKVHelper {
    * @param rowKey array of bytes
    * @return sequence of byte array
    */
-  def decodingRawKeyColumns(rowKey: HBaseRawType, keyColumns: Seq[KeyColumn]): Seq[HBaseRawType] = {
-    var rowKeyList = List[HBaseRawType]()
-    val delimiter: Byte = 0
+  def decodingRawKeyColumns(buffer: ListBuffer[HBaseRawType],
+                            rowKey: HBaseRawType, keyColumns: Seq[KeyColumn]): Seq[HBaseRawType] = {
+    var listBuffer = buffer
+    listBuffer.clear()
+    var arrayBuffer = ArrayBuffer[Byte]()
     var index = 0
     for (keyColumn <- keyColumns) {
-      var buffer = ArrayBuffer[Byte]()
+      arrayBuffer.clear()
       val dataType = keyColumn.dataType
       if (dataType == StringType) {
         while (index < rowKey.length && rowKey(index) != delimiter) {
-          buffer += rowKey(index)
+          arrayBuffer += rowKey(index)
           index = index + 1
         }
         index = index + 1
@@ -63,13 +67,13 @@ object HBaseKVHelper {
       else {
         val length = NativeType.defaultSizeOf(dataType.asInstanceOf[NativeType])
         for (i <- 0 to (length - 1)) {
-          buffer += rowKey(index)
+          arrayBuffer += rowKey(index)
           index = index + 1
         }
       }
-      rowKeyList = rowKeyList :+ buffer.toArray
+      listBuffer += arrayBuffer.toArray
     }
-    rowKeyList
+    listBuffer.toSeq
   }
 
   def string2KV(values: Seq[String], columns: Seq[AbstractColumn]):

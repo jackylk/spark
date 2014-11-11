@@ -31,7 +31,7 @@ import org.apache.spark.sql.hbase.catalyst.expressions.PartialPredicateOperation
 import org.apache.spark.sql.hbase.catalyst.types.HBaseRange
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 
 
 private[hbase] case class HBaseRelation(
@@ -86,11 +86,12 @@ private[hbase] case class HBaseRelation(
     val bytesUtils1 = new BytesUtils
     val bytesUtils2 = new BytesUtils
     val dt = keyColumns(index).dataType.asInstanceOf[NativeType]
+    val buffer = ListBuffer[HBaseRawType]()
     val start = DataTypeUtils.bytesToData(
-      HBaseKVHelper.decodingRawKeyColumns(partition.lowerBound.get, keyColumns)(index),
+      HBaseKVHelper.decodingRawKeyColumns(buffer, partition.lowerBound.get, keyColumns)(index),
       dt, bytesUtils1).asInstanceOf[dt.JvmType]
     val end = DataTypeUtils.bytesToData(
-      HBaseKVHelper.decodingRawKeyColumns(partition.upperBound.get, keyColumns)(index),
+      HBaseKVHelper.decodingRawKeyColumns(buffer, partition.upperBound.get, keyColumns)(index),
       dt, bytesUtils2).asInstanceOf[dt.JvmType]
     new HBaseRange(Some(start), Some(end), partition.index)
   }
@@ -355,7 +356,8 @@ private[hbase] case class HBaseRelation(
                bytesUtils: BytesUtils): Row = {
     assert(projections.size == row.length, "Projection size and row size mismatched")
     // TODO: replaced with the new Key method
-    val rowKeys = HBaseKVHelper.decodingRawKeyColumns(result.getRow, keyColumns)
+    val buffer = ListBuffer[HBaseRawType]()
+    val rowKeys = HBaseKVHelper.decodingRawKeyColumns(buffer, result.getRow, keyColumns)
     projections.foreach { p =>
       columnMap.get(p._1.name).get match {
         case column: NonKeyColumn => {
