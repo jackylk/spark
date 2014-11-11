@@ -17,7 +17,8 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.spark.{Partitioner, Partition}
+import org.apache.spark.serializer.Serializer
+import org.apache.spark.{Aggregator, Partitioner, Partition}
 import org.apache.spark.rdd.{RDD, ShuffledRDD}
 
 // is there a way to not extend shuffledrdd, just reuse the original shuffledrdd?
@@ -25,8 +26,15 @@ class HBaseShuffledRDD[K, V, C](
     @transient var prevRdd: RDD[_ <: Product2[K, V]],
     partitoner: Partitioner) extends ShuffledRDD(prevRdd, partitoner){
 
-  private var hbPartitions: Seq[HBasePartition] = Seq.empty
+  private var serializer: Option[Serializer] = None
+
   private var keyOrdering: Option[Ordering[K]] = None
+
+  private var aggregator: Option[Aggregator[K, V, C]] = None
+
+  private var mapSideCombine: Boolean = false
+
+  private var hbPartitions: Seq[HBasePartition] = Seq.empty
 
   override def getPreferredLocations(split: Partition): Seq[String] = {
     split.asInstanceOf[HBasePartition].server.map {
@@ -39,9 +47,28 @@ class HBaseShuffledRDD[K, V, C](
     this
   }
 
+  /** Set a serializer for this RDD's shuffle, or null to use the default (spark.serializer) */
+  override def setSerializer(serializer: Serializer): HBaseShuffledRDD[K, V, C] = {
+    this.serializer = Option(serializer)
+    this
+  }
+
   /** Set key ordering for RDD's shuffle. */
   override def setKeyOrdering(keyOrdering: Ordering[K]): HBaseShuffledRDD[K, V, C] = {
     this.keyOrdering = Option(keyOrdering)
+    this
+  }
+
+  // why here use override get error?
+  /** Set aggregator for RDD's shuffle. */
+  def setAggregator(aggregator: Aggregator[K, V, C]): HBaseShuffledRDD[K, V, C] = {
+    this.aggregator = Option(aggregator)
+    this
+  }
+
+  /** Set mapSideCombine flag for RDD's shuffle. */
+  override def setMapSideCombine(mapSideCombine: Boolean): HBaseShuffledRDD[K, V, C] = {
+    this.mapSideCombine = mapSideCombine
     this
   }
 
