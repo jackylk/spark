@@ -65,7 +65,10 @@ case class NonKeyColumn(
 
 private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
   extends SimpleCatalog(false) with Logging with Serializable {
-  lazy val configuration = HBaseConfiguration.create()
+
+  lazy val configuration = hbaseContext.optConfiguration
+    .getOrElse(HBaseConfiguration.create())
+
   lazy val relationMapCache = new HashMap[String, HBaseRelation]
     with SynchronizedMap[String, HBaseRelation]
 
@@ -315,7 +318,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
   def deleteTable(tableName: String): Unit = {
     if (!checkLogicalTableExist(tableName)) {
-      throw new Exception(s"The logical table $tableName does not exist")
+      throw new IllegalStateException(s"The logical table $tableName does not exist")
     }
     val table = new HTable(configuration, MetaData)
 
