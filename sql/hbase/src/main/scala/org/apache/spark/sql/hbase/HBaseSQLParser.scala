@@ -34,6 +34,7 @@ class HBaseSQLParser extends SqlParser {
   protected val DOUBLE = Keyword("DOUBLE")
   protected val DROP = Keyword("DROP")
   protected val EXISTS = Keyword("EXISTS")
+  protected val FIELDS = Keyword("FIELDS")
   protected val FLOAT = Keyword("FLOAT")
   protected val INPATH = Keyword("INPATH")
   protected val INT = Keyword("INT")
@@ -46,6 +47,7 @@ class HBaseSQLParser extends SqlParser {
   protected val PRIMARY = Keyword("PRIMARY")
   protected val SHORT = Keyword("SHORT")
   protected val VALUES = Keyword("VALUES")
+  protected val TERMINATED = Keyword("TERMINATED")
 
   protected val newReservedWords: Seq[String] =
     this.getClass
@@ -163,18 +165,22 @@ class HBaseSQLParser extends SqlParser {
           familyAndQualifier._1, familyAndQualifier._2)
       }
     }
-
+    
+  // Load syntax:
+  // LOAD DATA [LOCAL] INPATH filepath [OVERWRITE] INTO TABLE tablename [FIELDS TERMINATED BY char]
   protected lazy val load: Parser[LogicalPlan] =
-    (
-      (LOAD ~> DATA ~> INPATH ~> stringLit) ~
-        (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ^^ {
-        case filePath ~ table => LoadDataIntoTable(filePath, table, false)
-      }
-        | (LOAD ~> DATA ~> LOCAL ~> INPATH ~> stringLit) ~
-        (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ^^ {
-        case filePath ~ table => LoadDataIntoTable(filePath, table, true)
-      }
-      )
+  (
+    (LOAD ~> DATA ~> INPATH ~> stringLit) ~
+    (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation ) ~
+    (FIELDS ~> TERMINATED ~> BY ~> stringLit).? <~ opt(";") ^^ {
+      case filePath ~ table ~ delimiter => LoadDataIntoTable(filePath, table, false, delimiter)
+    }
+  | (LOAD ~> DATA ~> LOCAL ~> INPATH ~> stringLit) ~
+      (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ~
+      (FIELDS ~> TERMINATED ~> BY ~> stringLit).? <~ opt(";") ^^ {
+      case filePath ~ table ~ delimiter => LoadDataIntoTable(filePath, table, true, delimiter)
+    }
+  )
 
   protected lazy val tableCol: Parser[(String, String)] =
     ident ~ (STRING | BYTE | SHORT | INT | INTEGER | LONG | FLOAT | DOUBLE | BOOLEAN) ^^ {

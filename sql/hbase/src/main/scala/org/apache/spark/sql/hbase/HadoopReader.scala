@@ -26,14 +26,16 @@ import scala.collection.mutable.ArrayBuffer
  * Helper class for scanning files stored in Hadoop - e.g., to read text file when bulk loading.
  */
 private[hbase]
-class HadoopReader(@transient sc: SparkContext, @transient job: Job,
-                   path: String)(columns: Seq[AbstractColumn]) {
+class HadoopReader(
+    @transient sc: SparkContext,
+    @transient job: Job,
+    path: String,
+    delimiter: Option[String])(columns: Seq[AbstractColumn]) {
   // make RDD[(SparkImmutableBytesWritable, SparkKeyValue)] from text file
   private[hbase] def makeBulkLoadRDDFromTextFile = {
 
     val rdd = sc.textFile(path)
-    // todo: use delimiter instead after pr merged
-    val splitRegex = sc.getConf.get("spark.sql.hbase.bulkload.textfile.splitRegex", ",")
+    val splitRegex = delimiter.getOrElse(",")
     // use to fix serialize issue
     val cls = columns
     // Todo: use mapPartitions more better

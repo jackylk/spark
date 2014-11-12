@@ -138,7 +138,7 @@ case class InsertIntoHBaseTable(
 
 @DeveloperApi
 case class InsertValueIntoHBaseTable(relation: HBaseRelation, valueSeq: Seq[String])(
-                                      @transient hbContext: HBaseSQLContext) extends LeafNode {
+  @transient hbContext: HBaseSQLContext) extends LeafNode {
 
   override def execute() = {
     val buffer = ArrayBuffer[Byte]()
@@ -157,8 +157,9 @@ case class InsertValueIntoHBaseTable(relation: HBaseRelation, valueSeq: Seq[Stri
 }
 
 @DeveloperApi
-case class BulkLoadIntoTable(path: String, relation: HBaseRelation, isLocal: Boolean)(
-  @transient hbContext: HBaseSQLContext) extends LeafNode {
+case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
+                             isLocal: Boolean, delimiter: Option[String])(
+                              @transient hbContext: HBaseSQLContext) extends LeafNode {
 
   val conf = hbContext.sc.hadoopConfiguration
 
@@ -167,9 +168,9 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation, isLocal: Boo
   val hadoopReader = if (isLocal) {
     val fs = FileSystem.getLocal(conf)
     val pathString = fs.pathToFile(new Path(path)).getCanonicalPath
-    new HadoopReader(hbContext.sparkContext, job, pathString)(relation.allColumns)
+    new HadoopReader(hbContext.sparkContext, job, pathString, delimiter)(relation.allColumns)
   } else {
-    new HadoopReader(hbContext.sparkContext, job, path)(relation.allColumns)
+    new HadoopReader(hbContext.sparkContext, job, path, delimiter)(relation.allColumns)
   }
 
   // tmp path for storing HFile
@@ -237,6 +238,7 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation, isLocal: Boo
   }
 
   override def execute() = {
+    hbContext.sc.getConf.set("spark.sql.hbase.bulkload.textfile.splitRegex", delimiter.get)
     val splitKeys = relation.getRegionStartKeys().toArray
     makeBulkLoadRDD(splitKeys)
     val hbaseConf = HBaseConfiguration.create
