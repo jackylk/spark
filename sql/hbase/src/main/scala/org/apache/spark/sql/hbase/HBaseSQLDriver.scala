@@ -23,14 +23,11 @@ import org.apache.spark.Logging
 import org.apache.spark.sql.Row
 
 private[hbase] class HBaseSQLDriver(val context: HBaseSQLContext) extends Logging {
-
   private var hbaseResponse: Seq[String] = _
-
 
   def run(command: String): Array[Row] = {
     val execution = context.executePlan(context.sql(command).logicalPlan)
     val result = execution.toRdd.collect()
     result
   }
-
 }

@@ -16,7 +16,6 @@
 */
 package org.apache.spark.sql.hbase
 
-import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.sql.catalyst.expressions.{MutableRow, Row}
 import org.apache.spark.sql.catalyst.types._
 
@@ -41,6 +40,7 @@ object DataTypeUtils {
       case _ => throw new Exception("Unsupported HBase SQL Data Type")
     }
   }
+
   def setRowColumnFromHBaseRawType(row: MutableRow,
                                    index: Int,
                                    src: HBaseRawType,

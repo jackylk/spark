@@ -17,18 +17,17 @@
 
 package org.apache.spark.sql.hbase
 
+import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning.{PhysicalOperation, QueryPlanner}
 import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoTable, LogicalPlan}
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.hbase.execution._
 
 private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
   self: SQLContext#SparkPlanner =>
 
   val hbaseSQLContext: HBaseSQLContext
-
 
   /**
    * Retrieves data using a HBaseTableScan.  Partition pruning predicates are also detected and

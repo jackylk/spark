@@ -79,5 +79,4 @@ class HBaseShuffledRDD[K, V, C](
       hbPartitions.toArray
     }
   }
-
 }

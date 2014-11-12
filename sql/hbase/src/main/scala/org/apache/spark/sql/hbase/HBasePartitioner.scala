@@ -51,7 +51,7 @@ class HBasePartitioner [K : Ordering : ClassTag, V](
       partition = binarySearch(rangeBounds, k)
       // binarySearch either returns the match location or -[insertion point]-1
       if (partition < 0) {
-        partition = -partition-1
+        partition = -partition - 1
       }
       if (partition > rangeBounds.length) {
         partition = rangeBounds.length
@@ -61,7 +61,7 @@ class HBasePartitioner [K : Ordering : ClassTag, V](
   }
 
   override def equals(other: Any): Boolean = other match {
-    case r: HBasePartitioner[_,_] =>
+    case r: HBasePartitioner[_, _] =>
       r.rangeBounds.sameElements(rangeBounds)
     case _ =>
       false

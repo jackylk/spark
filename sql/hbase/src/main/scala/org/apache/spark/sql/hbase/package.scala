@@ -19,6 +19,7 @@ package org.apache.spark.sql
 import org.apache.hadoop.hbase.KeyValue
 import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
+
 import scala.collection.mutable.ArrayBuffer
 
 package object hbase {
@@ -50,12 +51,11 @@ package object hbase {
   }
 
   class KeyValueWrapper(
-      rowKey: Array[Byte],
-      family: Array[Byte],
-      qualifier: Array[Byte],
-      value: Array[Byte]) extends Serializable {
+                         rowKey: Array[Byte],
+                         family: Array[Byte],
+                         qualifier: Array[Byte],
+                         value: Array[Byte]) extends Serializable {
 
     def toKeyValue() = new KeyValue(rowKey, family, qualifier, value)
-
   }
 }
