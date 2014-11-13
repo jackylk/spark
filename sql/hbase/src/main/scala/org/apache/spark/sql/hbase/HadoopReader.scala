@@ -20,7 +20,7 @@ package org.apache.spark.sql.hbase
 import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.SparkContext
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ListBuffer
 
 /**
  * Helper class for scanning files stored in Hadoop - e.g., to read text file when bulk loading.
@@ -39,7 +39,7 @@ class HadoopReader(
     // use to fix serialize issue
     val cls = columns
     // Todo: use mapPartitions more better
-    val buffer = ArrayBuffer[Byte]()
+    val buffer = ListBuffer[Byte]()
     rdd.map { line =>
       val (keyBytes, valueBytes) = HBaseKVHelper.string2KV(line.split(splitRegex), cls)
       val rowKeyData = HBaseKVHelper.encodingRawKeyColumns(buffer, keyBytes)

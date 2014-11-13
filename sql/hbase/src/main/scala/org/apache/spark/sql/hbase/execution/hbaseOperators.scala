@@ -97,7 +97,7 @@ case class InsertIntoHBaseTable(
       var colIndexInBatch = 0
 
       var puts = new ListBuffer[Put]()
-      val buffer = ArrayBuffer[Byte]()
+      val buffer = ListBuffer[Byte]()
       while (iterator.hasNext) {
         val row = iterator.next()
         val rawKeyCol = relation.keyColumns.map {
