@@ -17,12 +17,14 @@
 package org.apache.spark.sql.hbase.catalyst.types
 
 import java.sql.Timestamp
+
+import org.apache.spark.sql.catalyst.types._
+import org.apache.spark.util.Utils
+
+import scala.language.implicitConversions
 import scala.math.PartialOrdering
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.{TypeTag, runtimeMirror, typeTag}
-import org.apache.spark.sql.catalyst.types._
-import scala.language.implicitConversions
-import org.apache.spark.util.Utils
 
 class Range[T](val start: Option[T], // None for open ends
                val startInclusive: Boolean,
@@ -95,32 +97,55 @@ class RangeType[T] extends PartiallyOrderingDataType {
     }
 
     def lteq(a: JvmType, b: JvmType): Boolean = {
-      // returns TRUE iff a <= b
-      // Right now just support PointRange at one end
-      require(a.isInstanceOf[PointRange[T]] || b.isInstanceOf[PointRange[T]],
-        "Non-point range on both sides of a predicate is not supported")
+      val aRange = a.asInstanceOf[HBaseRange[T]]
+      val aStartInclusive = aRange.startInclusive
+      val aEnd = aRange.end.getOrElse(null)
+      val aEndInclusive = aRange.endInclusive
+      val bRange = b.asInstanceOf[HBaseRange[T]]
+      val bStart = bRange.start.getOrElse(null)
+      val bStartInclusive = bRange.startInclusive
+      val bEndInclusive = bRange.endInclusive
 
-      var result = false
-      if (a.isInstanceOf[PointRange[T]]) {
-        val pointValue = a.asInstanceOf[PointRange[T]].start.getOrElse(null)
-        val range = b.asInstanceOf[HBaseRange[T]]
-        val startValue = range.start.getOrElse(null)
-
-        if (pointValue != null && startValue != null &&
-          range.dt.ordering.lteq(pointValue.asInstanceOf[range.dt.JvmType],
-            startValue.asInstanceOf[range.dt.JvmType])) {
-          result = true
+      val result =
+        (aStartInclusive, aEndInclusive, bStartInclusive, bEndInclusive) match {
+          case (_, true, true, _) => {
+            if (aRange.dt.ordering.lteq(aEnd.asInstanceOf[aRange.dt.JvmType],
+              bStart.asInstanceOf[aRange.dt.JvmType])) {
+              true
+            }
+            else {
+              false
+            }
+          }
+          case (_, true, false, _) => {
+            if (bStart != null && aRange.dt.ordering.lteq(aEnd.asInstanceOf[aRange.dt.JvmType],
+              bStart.asInstanceOf[aRange.dt.JvmType])) {
+              true
+            }
+            else {
+              false
+            }
+          }
+          case (_, false, true, _) => {
+            if (a.end != null && aRange.dt.ordering.lteq(aEnd.asInstanceOf[aRange.dt.JvmType],
+              bStart.asInstanceOf[aRange.dt.JvmType])) {
+              true
+            }
+            else {
+              false
+            }
+          }
+          case (_, false, false, _) => {
+            if (a.end != null && bStart != null &&
+              aRange.dt.ordering.lteq(aEnd.asInstanceOf[aRange.dt.JvmType],
+                bStart.asInstanceOf[aRange.dt.JvmType])) {
+              true
+            }
+            else {
+              false
+            }
+          }
         }
-      } else if (b.isInstanceOf[PointRange[T]]) {
-        val pointValue = b.asInstanceOf[PointRange[T]].start.getOrElse(null)
-        val range = a.asInstanceOf[HBaseRange[T]]
-        val endValue = range.start.getOrElse(null)
-        if (pointValue != null && endValue != null &&
-          range.dt.ordering.lteq(endValue.asInstanceOf[range.dt.JvmType],
-            pointValue.asInstanceOf[range.dt.JvmType])) {
-          result = true
-        }
-      }
 
       result
 
