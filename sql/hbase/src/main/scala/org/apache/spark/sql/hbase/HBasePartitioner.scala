@@ -34,7 +34,7 @@ class HBasePartitioner [K : Ordering : ClassTag, V](
 
   private var rangeBounds: Array[K] = splitKeys
 
-  def numPartitions = rangeBounds.length + 1
+  def numPartitions = rangeBounds.length
 
   private var binarySearch: ((Array[K], K) => Int) = CollectionsUtils.makeBinarySearch[K]
 

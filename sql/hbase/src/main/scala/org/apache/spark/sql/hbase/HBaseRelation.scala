@@ -35,10 +35,10 @@ import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 
 
 private[hbase] case class HBaseRelation(
-                                         tableName: String,
-                                         hbaseNamespace: String,
-                                         hbaseTableName: String,
-                                         allColumns: Seq[AbstractColumn])
+    tableName: String,
+    hbaseNamespace: String,
+    hbaseTableName: String,
+    allColumns: Seq[AbstractColumn])
   extends LeafNode {
 
   @transient lazy val htable: HTable = new HTable(getConf, hbaseTableName)
@@ -76,7 +76,9 @@ private[hbase] case class HBaseRelation(
   lazy val partitions: Seq[HBasePartition] = {
     val regionLocations = htable.getRegionLocations.asScala.toSeq
     regionLocations.zipWithIndex.map(p =>
-      new HBasePartition(p._2, Some(p._1._1.getStartKey),
+      new HBasePartition(
+        p._2,
+        Some(p._1._1.getStartKey),
         Some(p._1._1.getEndKey),
         Some(p._1._2.getHostname))
     )

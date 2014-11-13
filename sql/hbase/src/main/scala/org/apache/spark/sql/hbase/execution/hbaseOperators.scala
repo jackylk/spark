@@ -35,6 +35,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.execution.{LeafNode, UnaryNode, SparkPlan}
 import org.apache.spark.sql.hbase._
 import org.apache.spark.sql.hbase.HBasePartitioner._
+import org.apache.spark.sql.hbase.BytesUtils
 
 import scala.collection.JavaConversions._
 
@@ -161,13 +162,10 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
     val rdd = hadoopReader.makeBulkLoadRDDFromTextFile
     val partitioner = new HBasePartitioner(rdd)(splitKeys)
     // Todo: fix issues with HBaseShuffledRDD
-//    val shuffled =
-//    new HBaseShuffledRDD[ImmutableBytesWritableWrapper, PutWrapper, PutWrapper](rdd, partitioner)
-//    .setHbasePartitions(relation.partitions)
-//    .setKeyOrdering(ordering)
     val shuffled =
-      new ShuffledRDD[ImmutableBytesWritableWrapper, PutWrapper, PutWrapper](rdd, partitioner)
-        .setKeyOrdering(ordering)
+    new HBaseShuffledRDD[ImmutableBytesWritableWrapper, PutWrapper, PutWrapper](rdd, partitioner)
+      .setKeyOrdering(ordering)
+      .setHbasePartitions(relation.partitions)
     val bulkLoadRDD = shuffled.mapPartitions { iter =>
       // the rdd now already sort by key, to sort by value
       val map = new java.util.TreeSet[KeyValue](KeyValue.COMPARATOR)
