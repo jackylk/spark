@@ -27,25 +27,28 @@ object HBaseKVHelper {
 
   /**
    * create row key based on key columns information
-   * @param rawKeyColumns sequence of byte array representing the key columns
+   * @param buffer an input buffer
+   * @param rawKeyColumns sequence of byte array and data type representing the key columns
    * @return array of bytes
    */
-  def encodingRawKeyColumns(buffer: ArrayBuffer[Byte],
+  def encodingRawKeyColumns(buffer: ListBuffer[Byte],
                             rawKeyColumns: Seq[(HBaseRawType, DataType)]): HBaseRawType = {
-    var arrayBuffer = buffer
-    arrayBuffer.clear()
+    var listBuffer = buffer
+    listBuffer.clear()
     for (rawKeyColumn <- rawKeyColumns) {
-      arrayBuffer = arrayBuffer ++ rawKeyColumn._1
+      listBuffer = listBuffer ++ rawKeyColumn._1
       if (rawKeyColumn._2 == StringType) {
-        arrayBuffer += delimiter
+        listBuffer += delimiter
       }
     }
-    arrayBuffer.toArray
+    listBuffer.toArray
   }
 
   /**
    * get the sequence of key columns from the byte array
+   * @param buffer an input buffer
    * @param rowKey array of bytes
+   * @param keyColumns the sequence of key columns
    * @return sequence of byte array
    */
   def decodingRawKeyColumns(buffer: ListBuffer[HBaseRawType],
