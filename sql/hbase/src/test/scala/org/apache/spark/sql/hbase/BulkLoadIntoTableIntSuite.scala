@@ -37,7 +37,6 @@ class BulkLoadIntoTableIntSuite extends HBaseIntegrationTestBase {
   // that the original testcase writers (Wangei ?)  need to fix
   test("load data into hbase") {
     // this need to local test with hbase, so here to ignore this
-    // create sql table map with hbase table and run simple sql
 
     val drop = "drop table testblk"
     val executeSql0 = hbc.executeSql(drop)
@@ -48,11 +47,6 @@ class BulkLoadIntoTableIntSuite extends HBaseIntegrationTestBase {
         // do not throw exception here
         logWarning(e.getMessage)
     }
-
-    """CREATE TABLE tableName (col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
-      col5 LONG, col6 FLOAT, col7 DOUBLE, PRIMARY KEY(col7, col1, col3))
-      MAPPED BY (hbaseTableName1, COLS=[col2=cf1.cq11,
-      col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])"""
 
     val sql1 =
       s"""CREATE TABLE testblk(col1 STRING, col2 STRING, col3 STRING, PRIMARY KEY(col1))

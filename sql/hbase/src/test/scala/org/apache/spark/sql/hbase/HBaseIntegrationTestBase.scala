@@ -86,6 +86,7 @@ trait HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll with Logg
     config.set("ipc.client.connect.timeout", "240000")
     config.set("dfs.namenode.stale.datanode.interva", "240000")
     config.set("hbase.rpc.shortoperation.timeout", "240000")
+    config.set("hbase.zookeeper.quorum", "127.0.0.1")
 //    config.set("hbase.regionserver.lease.period", "240000")
 
     if (useMiniCluster) {
