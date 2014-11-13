@@ -34,7 +34,7 @@ import org.scalatest.{FunSuite, BeforeAndAfterAll, Suite}
  * HBaseTestSparkContext used for test.
  *
  */
-class HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll with Logging { self: Suite =>
+trait HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll with Logging { self: Suite =>
 
   @transient var sc: SparkContext = null
   @transient var cluster: MiniHBaseCluster = null
@@ -103,16 +103,6 @@ class HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll with Logg
     }
     catalog = hbc.catalog
     hbaseAdmin = new HBaseAdmin(config)
-    try {
-      catalog.deleteTable("wf")
-    } catch {
-      case _ => println("wfwf")
-    }
-    println(s"##########1 ${hbaseAdmin.tableExists("wf")}")
-  }
-
-  test("nothing") {
-
   }
 
   override def afterAll: Unit = {

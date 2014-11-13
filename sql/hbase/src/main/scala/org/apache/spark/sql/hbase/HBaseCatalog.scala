@@ -69,13 +69,6 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
   lazy val configuration = hbaseContext.optConfiguration
     .getOrElse(HBaseConfiguration.create())
 
-  {
-    val hbaseAdmin = new HBaseAdmin(configuration)
-    println(s"test catalog ${hbaseAdmin.tableExists("wf")}")
-    println("hhahah")
-  }
-
-
   lazy val relationMapCache = new HashMap[String, HBaseRelation]
     with SynchronizedMap[String, HBaseRelation]
 
