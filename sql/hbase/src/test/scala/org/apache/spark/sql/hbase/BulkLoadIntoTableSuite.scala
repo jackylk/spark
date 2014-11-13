@@ -99,15 +99,22 @@ class BulkLoadIntoTableSuite extends FunSuite with BeforeAndAfterAll with Loggin
   }
 
   ignore("load data into hbase") { // this need to local test with hbase, so here to ignore this
-    // create sql table map with hbase table and run simple sql
+
     val drop = "drop table testblk"
     val executeSql0 = hbc.executeSql(drop)
-    executeSql0.toRdd.collect().foreach(println)
+    try {
+      executeSql0.toRdd.collect().foreach(println)
+    } catch {
+      case e: IllegalStateException =>
+        // do not throw exception here
+      println(e.getMessage)
+    }
 
+    // create sql table map with hbase table and run simple sql
     val sql1 =
-      s"""CREATE TABLE testblk(col1 STRING, col2 STRING, col3 STRING)
-          MAPPED BY (wf, KEYS=[col1], COLS=[col2=cf1.a, col3=cf1.b])"""
-      .stripMargin
+      s"""CREATE TABLE testblk(col1 STRING, col2 STRING, col3 STRING, PRIMARY KEY(col1))
+          MAPPED BY (wf, COLS=[col2=cf1.a, col3=cf1.b])"""
+        .stripMargin
 
     val sql2 =
       s"""select * from testblk limit 5"""

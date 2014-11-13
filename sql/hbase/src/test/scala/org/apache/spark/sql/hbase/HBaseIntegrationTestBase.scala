@@ -27,19 +27,16 @@ import java.util.Date
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.{HBaseConfiguration, HBaseTestingUtility, MiniHBaseCluster}
 import org.apache.hadoop.hbase.client.HBaseAdmin
-import org.apache.log4j.Logger
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.sql.test.TestSQLContext
+import org.apache.spark.{Logging, SparkConf, SparkContext}
 import org.scalatest.{FunSuite, BeforeAndAfterAll, Suite}
 
 /**
  * HBaseTestSparkContext used for test.
  *
  */
-trait HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll { self: Suite =>
+trait HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll with Logging { self: Suite =>
 
-  @transient var sc: SparkContext = _
-
+  @transient var sc: SparkContext = null
   @transient var cluster: MiniHBaseCluster = null
   @transient var config: Configuration = null
   @transient var hbaseAdmin: HBaseAdmin = null
@@ -47,15 +44,13 @@ trait HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll { self: S
   @transient var catalog: HBaseCatalog = null
   @transient var testUtil: HBaseTestingUtility = null
 
-  @transient val logger = Logger.getLogger(getClass.getName)
-
   def sparkContext: SparkContext = sc
 
   val useMiniCluster: Boolean = true
 
   val NMasters = 1
   val NRegionServers = 1
-  // 3
+  // why this is 0 ?
   val NDataNodes = 0
 
   val NWorkers = 1
@@ -63,13 +58,15 @@ trait HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll { self: S
   val startTime = (new Date).getTime
 
   override def beforeAll: Unit = {
+    sc = new SparkContext("local", "hbase sql test")
     ctxSetup
   }
 
   def ctxSetup() {
-    logger.info(s"Setting up context with useMiniCluster=$useMiniCluster")
+    logInfo(s"Setting up context with useMiniCluster=$useMiniCluster")
     if (useMiniCluster) {
-      logger.info(s"Spin up hbase minicluster w/ $NMasters mast, $NRegionServers RS, $NDataNodes dataNodes")
+      logInfo(s"Spin up hbase minicluster with $NMasters master, $NRegionServers " +
+        s"region server, $NDataNodes dataNodes")
       testUtil = new HBaseTestingUtility
       config = testUtil.getConfiguration
     } else {
@@ -93,14 +90,12 @@ trait HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll { self: S
 
     if (useMiniCluster) {
       cluster = testUtil.startMiniCluster(NMasters, NRegionServers)
-      println(s"# of region servers = ${cluster.countServedRegions}")
+      logInfo(s"cluster started with ${cluster.countServedRegions} region servers!")
     }
 
-    @transient val conf = new SparkConf
-    val SparkPort = 11223
-    conf.set("spark.ui.port", SparkPort.toString)
-    //    @transient val sc = new SparkContext(s"local[$NWorkers]", "HBaseTestsSparkContext", conf)
-    hbc = new HBaseSQLContext(TestSQLContext.sparkContext, Some(config))
+    // this step cost to much time, need to know why
+    hbc = new HBaseSQLContext(sc, Some(config))
+
     import collection.JavaConverters._
     config.iterator.asScala.foreach { entry =>
       hbc.setConf(entry.getKey, entry.getValue)
@@ -110,8 +105,9 @@ trait HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll { self: S
   }
 
   override def afterAll: Unit = {
-    logger.info(s"Test ${getClass.getName} completed at ${(new java.util.Date).toString} duration=${((new java.util.Date).getTime - startTime)/1000}")
-    hbc.sparkContext.stop()
+    logInfo(s"Test ${getClass.getName} completed at ${(new java.util.Date).toString} duration=${((new java.util.Date).getTime - startTime)/1000}")
+    sc.stop()
+    sc = null
     hbc = null
   }
 }
