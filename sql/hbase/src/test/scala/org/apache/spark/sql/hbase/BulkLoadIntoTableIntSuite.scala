@@ -19,7 +19,7 @@ package org.apache.spark.sql.hbase
 
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.hbase.logical.LoadDataIntoTable
+import org.apache.spark.sql.hbase.logical.BulkLoadPlan
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.apache.spark.{SparkContext, Logging}
 import org.apache.spark.sql.catalyst.types.IntegerType
