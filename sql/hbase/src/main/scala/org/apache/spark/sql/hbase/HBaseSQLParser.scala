@@ -171,12 +171,12 @@ class HBaseSQLParser extends SqlParser {
     (LOAD ~> DATA ~> INPATH ~> stringLit) ~
     (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation ) ~
     (FIELDS ~> TERMINATED ~> BY ~> stringLit).? <~ opt(";") ^^ {
-      case filePath ~ table ~ delimiter => LoadDataIntoTable(filePath, table, false, delimiter)
+      case filePath ~ table ~ delimiter => BulkLoadPlan(filePath, table, false, delimiter)
     }
   | (LOAD ~> DATA ~> LOCAL ~> INPATH ~> stringLit) ~
       (opt(OVERWRITE) ~> INTO ~> TABLE ~> relation) ~
       (FIELDS ~> TERMINATED ~> BY ~> stringLit).? <~ opt(";") ^^ {
-      case filePath ~ table ~ delimiter => LoadDataIntoTable(filePath, table, true, delimiter)
+      case filePath ~ table ~ delimiter => BulkLoadPlan(filePath, table, true, delimiter)
     }
   )
 

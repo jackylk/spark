@@ -42,7 +42,7 @@ case class AlterAddColPlan(tableName: String,
  * @param isLocal using HDFS or local file
  * @param delimiter character in terminated by
  */
-case class LoadDataIntoTable(path: String, child: LogicalPlan,
+case class BulkLoadPlan(path: String, child: LogicalPlan,
                              isLocal: Boolean, delimiter: Option[String])
   extends UnaryNode {
 

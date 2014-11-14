@@ -19,7 +19,7 @@ package org.apache.spark.sql.hbase
 
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.hbase.logical.LoadDataIntoTable
+import org.apache.spark.sql.hbase.logical.BulkLoadPlan
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.apache.spark.{SparkContext, Logging}
 import org.apache.spark.sql.catalyst.types.IntegerType
@@ -40,9 +40,9 @@ class BulkLoadIntoTableSuite extends FunSuite with BeforeAndAfterAll with Loggin
 
     val plan: LogicalPlan = parser(sql)
     assert(plan != null)
-    assert(plan.isInstanceOf[LoadDataIntoTable])
+    assert(plan.isInstanceOf[BulkLoadPlan])
 
-    val l = plan.asInstanceOf[LoadDataIntoTable]
+    val l = plan.asInstanceOf[BulkLoadPlan]
     assert(l.path.equals(raw"./usr/file.csv"))
     assert(l.isLocal)
 
@@ -60,9 +60,9 @@ class BulkLoadIntoTableSuite extends FunSuite with BeforeAndAfterAll with Loggin
 
     val plan: LogicalPlan = parser(sql)
     assert(plan != null)
-    assert(plan.isInstanceOf[LoadDataIntoTable])
+    assert(plan.isInstanceOf[BulkLoadPlan])
 
-    val l = plan.asInstanceOf[LoadDataIntoTable]
+    val l = plan.asInstanceOf[BulkLoadPlan]
     assert(l.path.equals(raw"/usr/hdfsfile.csv"))
     assert(!l.isLocal)
     assert(plan.children(0).isInstanceOf[UnresolvedRelation])
@@ -77,9 +77,9 @@ class BulkLoadIntoTableSuite extends FunSuite with BeforeAndAfterAll with Loggin
 
     val plan: LogicalPlan = parser(sql)
     assert(plan != null)
-    assert(plan.isInstanceOf[LoadDataIntoTable])
+    assert(plan.isInstanceOf[BulkLoadPlan])
 
-    val l = plan.asInstanceOf[LoadDataIntoTable]
+    val l = plan.asInstanceOf[BulkLoadPlan]
     assert(l.path.equals(raw"/usr/hdfsfile.csv"))
     assert(!l.isLocal)
     assert(plan.children(0).isInstanceOf[UnresolvedRelation])
