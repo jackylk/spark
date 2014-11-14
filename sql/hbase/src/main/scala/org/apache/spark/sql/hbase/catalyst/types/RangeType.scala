@@ -97,6 +97,8 @@ class RangeType[T] extends PartiallyOrderingDataType {
     }
 
     def lteq(a: JvmType, b: JvmType): Boolean = {
+      // [(aStart, aEnd)] and [(bStart, bEnd)]
+      // [( and )] mean the possibilities of the inclusive and exclusive condition
       val aRange = a.asInstanceOf[HBaseRange[T]]
       val aStartInclusive = aRange.startInclusive
       val aEnd = aRange.end.getOrElse(null)
@@ -106,8 +108,12 @@ class RangeType[T] extends PartiallyOrderingDataType {
       val bStartInclusive = bRange.startInclusive
       val bEndInclusive = bRange.endInclusive
 
+      // Compare two ranges, return true iff the upper bound of the lower range is lteq to
+      // the lower bound of the upper range. Because the exclusive boundary could be null, which
+      // means the boundary could be infinity, we need to further check this conditions.
       val result =
         (aStartInclusive, aEndInclusive, bStartInclusive, bEndInclusive) match {
+          // [(aStart, aEnd] compare to [bStart, bEnd)]
           case (_, true, true, _) => {
             if (aRange.dt.ordering.lteq(aEnd.asInstanceOf[aRange.dt.JvmType],
               bStart.asInstanceOf[aRange.dt.JvmType])) {
@@ -116,6 +122,7 @@ class RangeType[T] extends PartiallyOrderingDataType {
               false
             }
           }
+          // [(aStart, aEnd] compare to (bStart, bEnd)]
           case (_, true, false, _) => {
             if (bStart != null && aRange.dt.ordering.lteq(aEnd.asInstanceOf[aRange.dt.JvmType],
               bStart.asInstanceOf[aRange.dt.JvmType])) {
@@ -124,6 +131,7 @@ class RangeType[T] extends PartiallyOrderingDataType {
               false
             }
           }
+          // [(aStart, aEnd) compare to [bStart, bEnd)]
           case (_, false, true, _) => {
             if (a.end != null && aRange.dt.ordering.lteq(aEnd.asInstanceOf[aRange.dt.JvmType],
               bStart.asInstanceOf[aRange.dt.JvmType])) {
@@ -132,6 +140,7 @@ class RangeType[T] extends PartiallyOrderingDataType {
               false
             }
           }
+          // [(aStart, aEnd) compare to (bStart, bEnd)]
           case (_, false, false, _) => {
             if (a.end != null && bStart != null &&
               aRange.dt.ordering.lteq(aEnd.asInstanceOf[aRange.dt.JvmType],
