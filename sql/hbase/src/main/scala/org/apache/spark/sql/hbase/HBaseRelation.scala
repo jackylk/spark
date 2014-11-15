@@ -28,17 +28,18 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.hbase.catalyst.expressions.PartialPredicateOperations._
-import org.apache.spark.sql.hbase.catalyst.types.HBaseRange
+import org.apache.spark.sql.hbase.catalyst.types.PartitionRange
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+import scala.util.control.Breaks._
 
 
 private[hbase] case class HBaseRelation(
-    tableName: String,
-    hbaseNamespace: String,
-    hbaseTableName: String,
-    allColumns: Seq[AbstractColumn])
+                                         tableName: String,
+                                         hbaseNamespace: String,
+                                         hbaseTableName: String,
+                                         allColumns: Seq[AbstractColumn])
   extends LeafNode {
 
   @transient lazy val htable: HTable = new HTable(getConf, hbaseTableName)
@@ -75,31 +76,47 @@ private[hbase] case class HBaseRelation(
 
   lazy val partitions: Seq[HBasePartition] = {
     val regionLocations = htable.getRegionLocations.asScala.toSeq
-    regionLocations.zipWithIndex.map(p =>
-      new HBasePartition(
-        p._2,
-        Some(p._1._1.getStartKey),
-        Some(p._1._1.getEndKey),
-        Some(p._1._2.getHostname))
-    )
+    regionLocations.zipWithIndex.map {
+      case p =>
+        val a1 = Bytes.toStringBinary(p._1._1.getStartKey)
+        println(a1)
+        val a2 = Bytes.toStringBinary(p._1._1.getEndKey)
+        println(a2)
+        new HBasePartition(
+          p._2,
+          Some(p._1._1.getStartKey),
+          Some(p._1._1.getEndKey),
+          Some(p._1._2.getHostname))
+    }
   }
 
-  private def generateRange(partition: HBasePartition, index: Int): HBaseRange[_] = {
-    val bytesUtils1 = new BytesUtils
-    val bytesUtils2 = new BytesUtils
+  private def generateRange(partition: HBasePartition, index: Int): PartitionRange[_] = {
+    def getData(dt: NativeType,
+                buffer: ListBuffer[HBaseRawType],
+                bound: Option[HBaseRawType]): Option[Any] = {
+      if (Bytes.toStringBinary(bound.get) == "") None
+      else {
+        val bytesUtils = new BytesUtils
+        Some(DataTypeUtils.bytesToData(
+          HBaseKVHelper.decodingRawKeyColumns(buffer, bound.get, keyColumns)(index),
+          dt, bytesUtils).asInstanceOf[dt.JvmType])
+      }
+    }
+
     val dt = keyColumns(index).dataType.asInstanceOf[NativeType]
+    val isLastKeyIndex = index == (keyColumns.size - 1)
     val buffer = ListBuffer[HBaseRawType]()
-    val start = DataTypeUtils.bytesToData(
-      HBaseKVHelper.decodingRawKeyColumns(buffer, partition.lowerBound.get, keyColumns)(index),
-      dt, bytesUtils1).asInstanceOf[dt.JvmType]
-    val end = DataTypeUtils.bytesToData(
-      HBaseKVHelper.decodingRawKeyColumns(buffer, partition.upperBound.get, keyColumns)(index),
-      dt, bytesUtils2).asInstanceOf[dt.JvmType]
-    new HBaseRange(Some(start), Some(end), partition.index)
+    val start = getData(dt, buffer, partition.lowerBound)
+    val end = getData(dt, buffer, partition.upperBound)
+    if (isLastKeyIndex) {
+      new PartitionRange(start, true, end, false, partition.index, dt)
+    } else {
+      new PartitionRange(start, true, end, true, partition.index, dt)
+    }
   }
 
-  private def prePruneRanges(ranges: Seq[HBaseRange[_]], keyIndex: Int)
-  : (Seq[HBaseRange[_]], Seq[HBaseRange[_]]) = {
+  private def prePruneRanges(ranges: Seq[PartitionRange[_]], keyIndex: Int)
+  : (Seq[PartitionRange[_]], Seq[PartitionRange[_]]) = {
     require(keyIndex < keyColumns.size, "key index out of range")
     if (ranges.isEmpty) {
       (ranges, Nil)
@@ -114,43 +131,66 @@ private[hbase] case class HBaseRelation(
   }
 
   private def generatePartialRow(row: GenericMutableRow, predRefs: Seq[Attribute], keyIndex: Int,
-                                 range: HBaseRange[_]): Unit = {
-    require(row.length == predRefs.size, "mismatched partially evaluated output size")
-    for (i <- 0 until row.length) {
-      columnMap.get(predRefs(i).name) match {
-        case Some(keyIndex) => row.update(i, range)
-        case None => throw new IllegalArgumentException(
-          "Invalid column in predicate during partial row setup")
-        case _ => row.setNullAt(i) // all other columns are assigned null
-      }
-    }
+                                 range: PartitionRange[_]): Unit = {
+    row.update(keyIndex, range)
+    //    require(row.length == predRefs.size, "mismatched partially evaluated output size")
+    //    for (i <- 0 until row.length) {
+    //      columnMap.get(predRefs(i).name) match {
+    //        case Some(keyIndex) => row.update(i, range)
+    //        case None => throw new IllegalArgumentException(
+    //          "Invalid column in predicate during partial row setup")
+    //        case _ => row.setNullAt(i) // all other columns are assigned null
+    //      }
+    //    }
   }
 
   def getPrunedPartitions(partitionPred: Option[Expression] = None): Option[Seq[HBasePartition]] = {
+    def getPrunedRanges(pred: Expression): Seq[PartitionRange[_]] = {
+      val predRefs = pred.references.toSeq
+      val boundPruningPred = BindReferences.bindReference(pred, predRefs)
+      val keyIndexToPredIndex = (for {
+        (keyColumn, keyIndex) <- keyColumns.zipWithIndex
+        (predRef, predIndex) <- predRefs.zipWithIndex
+        if (keyColumn.sqlName == predRef.name)
+      } yield (keyIndex, predIndex)).toMap
+
+      val row = new GenericMutableRow(predRefs.size)
+      var notPrunedRanges = partitions.map(generateRange(_, 0))
+      var prunedRanges: Seq[PartitionRange[_]] = Nil
+
+      for (keyIndex <- 0 until keyColumns.size; if (!notPrunedRanges.isEmpty)) {
+        val (passedRanges, toBePrunedRanges) = prePruneRanges(notPrunedRanges, keyIndex)
+        prunedRanges = prunedRanges ++ passedRanges
+        println("prunedRanges: ", prunedRanges.length)
+        notPrunedRanges =
+          if (keyIndexToPredIndex.contains(keyIndex)) {
+            toBePrunedRanges.filter(
+              r => {
+                val predIndex = keyIndexToPredIndex(keyIndex)
+                generatePartialRow(row, predRefs, predIndex, r)
+                val partialEvalResult = boundPruningPred.partialEval(row)
+                // MAYBE is represented by a null
+                (partialEvalResult == null) || partialEvalResult.asInstanceOf[Boolean]
+              }
+            )
+          } else toBePrunedRanges
+        println("notprunedRanges: ", notPrunedRanges.length)
+      }
+      prunedRanges ++ notPrunedRanges
+    }
+
     partitionPred match {
       case None => Some(partitions)
       case Some(pred) => if (pred.references.intersect(AttributeSet(partitionKeys)).isEmpty) {
         Some(partitions)
       } else {
-        val predRefs = pred.references.toSeq
-        val row = new GenericMutableRow(predRefs.size)
-
-        var prunedRanges = partitions.map(generateRange(_, 0))
-        for (i <- 0 until keyColumns.size) {
-          val (newRanges, toBePrunedRanges) = prePruneRanges(prunedRanges, i)
-          prunedRanges = newRanges ++ toBePrunedRanges.filter(
-            r => {
-              generatePartialRow(row, predRefs, i, r)
-              val partialEvalResult = pred.partialEval(row)
-              // MAYBE is represented by a null
-              (partialEvalResult == null) || partialEvalResult.asInstanceOf[Boolean]
-            }
-          )
-        }
-        Some(prunedRanges.map(p => partitions(p.id)))
+        val prunedRanges: Seq[PartitionRange[_]] = getPrunedRanges(pred)
+        println("prunedRanges: " + prunedRanges.length)
+        val result = Some(prunedRanges.map(p => partitions(p.id)))
+        result.foreach(println)
+        result
       }
     }
-    Some(partitions)
   }
 
   /**

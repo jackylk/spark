@@ -17,7 +17,11 @@
 
 package org.apache.spark.sql.hbase
 
+import org.apache.spark.sql.catalyst.SqlParser
+import org.apache.spark.sql.catalyst.types.{IntegerType, NativeType}
 import org.apache.spark.sql.hbase.TestHbase._
+
+import scala.collection.immutable.HashMap
 
 class HBaseBasicOperationSuite extends QueryTest {
 
@@ -27,6 +31,21 @@ class HBaseBasicOperationSuite extends QueryTest {
       MAPPED BY (hbaseTableName1, COLS=[col2=cf1.cq11,
       col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])"""
     )
+  }
+
+  test("create table1") {
+    sql( """CREATE TABLE testTable (column2 INTEGER, column1 INTEGER, column4 FLOAT,
+        column3 SHORT, PRIMARY KEY(column1, column2))
+        MAPPED BY (testNamespace.hbaseTable, COLS=[column3=family1.qualifier1,
+        column4=family2.qualifier2])"""
+    )
+  }
+
+  test("Insert Into table0") {
+    object O extends SqlParser
+
+    val a = HashMap[Int,SqlParser](1 -> O)
+    //    sql( """INSERT INTO testTable SELECT col4,col4,col6,col3 FROM myTable""")
   }
 
   test("Insert Into table") {
@@ -44,7 +63,7 @@ class HBaseBasicOperationSuite extends QueryTest {
   }
 
   test("Select test 1") {
-    sql( """SELECT * FROM myTable ORDER BY col7 DESC""").foreach(println)
+    sql( """SELECT * FROM myTable WHERE col7 > 3""").foreach(println)
   }
 
   test("Select test 2") {
@@ -64,7 +83,7 @@ class HBaseBasicOperationSuite extends QueryTest {
   }
 
   test("Drop table") {
-    sql( """DROP TABLE tableName""")
+    sql( """DROP TABLE myTable""")
   }
 
   test("SPARK-3176 Added Parser of SQL ABS()") {

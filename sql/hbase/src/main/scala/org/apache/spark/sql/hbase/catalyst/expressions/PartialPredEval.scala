@@ -19,24 +19,26 @@ package org.apache.spark.sql.hbase.catalyst.expressions
 
 import org.apache.spark.sql.catalyst.errors.TreeNodeException
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.hbase.catalyst.types.PartiallyOrderingDataType
+import org.apache.spark.sql.catalyst.types.NativeType
+import org.apache.spark.sql.hbase.catalyst.types._
 
 
 object PartialPredicateOperations {
+
   // Partial evaluation is nullness-based, i.e., uninterested columns are assigned nulls,
   // which necessitates changes of the null handling from the normal evaluations
   // of predicate expressions
   implicit class partialPredicateEvaluator(e: Expression) {
-    def partialEval(input: Row) : Any = {
+    def partialEval(input: Row): Any = {
       e match {
         case In(value, list) => {
           val evaluatedValue = value.partialEval(input)
           if (evaluatedValue == null) {
             null
           } else {
-            if (list.exists(e=>e.partialEval(input) == evaluatedValue)) {
+            if (list.exists(e => e.partialEval(input) == evaluatedValue)) {
               true
-            } else if (list.exists(e=>e.partialEval(input) == null)) {
+            } else if (list.exists(e => e.partialEval(input) == null)) {
               null
             } else {
               false
@@ -55,8 +57,9 @@ object PartialPredicateOperations {
             false
           }
         }
-        case b: BoundReference => b.eval(input)
-        case l: Literal => l.eval(input)
+        case l: LeafExpression => l.eval(input)
+        case b: BoundReference => b.eval(input) //Really a LeafExpression but not declared as such
+        case n: NamedExpression => n.eval(input) //Really a LeafExpression but not declared as such
         case IsNull(child) => {
           if (child.partialEval(input) == null) {
             // In partial evaluation, null indicates MAYBE
@@ -126,25 +129,32 @@ object PartialPredicateOperations {
 
     @inline
     protected def pc2(
-      i: Row,
-      e1: Expression,
-      e2: Expression): Option[Int] = {
+                       i: Row,
+                       e1: Expression,
+                       e2: Expression): Option[Int] = {
       if (e1.dataType != e2.dataType) {
-        throw new TreeNodeException(e,  s"Types do not match ${e1.dataType} != ${e2.dataType}")
+        throw new TreeNodeException(e, s"Types do not match ${e1.dataType} != ${e2.dataType}")
       }
 
       val evalE1 = e1.partialEval(i)
-      if(evalE1 == null) {
-        null
+      if (evalE1 == null) {
+        None
       } else {
         val evalE2 = e2.partialEval(i)
         if (evalE2 == null) {
-          null
+          None
         } else {
           e1.dataType match {
-            case i: PartiallyOrderingDataType =>
-                i.partialOrdering.tryCompare(evalE1.asInstanceOf[i.JvmType],
-                  evalE2.asInstanceOf[i.JvmType])
+            case nativeType: NativeType => {
+              val pdt = RangeType.primitiveToPODataTypeMap.get(nativeType).getOrElse(null)
+              if (pdt == null) {
+                sys.error(s"Type $i does not have corresponding partial ordered type")
+              } else {
+                pdt.partialOrdering.tryCompare(
+                  pdt.toPartiallyOrderingDataType(evalE1, nativeType).asInstanceOf[pdt.JvmType],
+                  pdt.toPartiallyOrderingDataType(evalE2, nativeType).asInstanceOf[pdt.JvmType])
+              }
+            }
             case other => sys.error(s"Type $other does not support partially ordered operations")
           }
         }

@@ -39,10 +39,10 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
       case PhysicalOperation(projectList, inPredicates, relation: HBaseRelation) =>
 
         // Filter out all predicates that only deal with partition keys
-        val partitionsKeys = AttributeSet(relation.partitionKeys)
-        val (rowKeyPredicates, otherPredicates) = inPredicates.partition {
-          _.references.subsetOf(partitionsKeys)
-        }
+        // val partitionsKeys = AttributeSet(relation.partitionKeys)
+        // val (rowKeyPredicates, otherPredicates) = inPredicates.partition {
+        //  _.references.subsetOf(partitionsKeys)
+        //}
 
         // TODO: Ensure the outputs from the relation match the expected columns of the query
 
@@ -61,12 +61,13 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
         */
 
         // TODO: add pushdowns
+        val filterPred = inPredicates.reduceLeftOption(And)
         val scanBuilder: (Seq[Attribute] => SparkPlan) = HBaseSQLTableScan(
           relation,
           _,
           None, // row key predicate
           None, // value predicate
-          None, // partition predicate
+          filterPred, // partition predicate
           None // coprocSubPlan
         )(hbaseSQLContext)
 

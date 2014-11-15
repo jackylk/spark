@@ -89,7 +89,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
         val nonKeyColumn = x.asInstanceOf[NonKeyColumn]
         tableDescriptor.addFamily(new HColumnDescriptor(nonKeyColumn.family))
       })
-    hBaseAdmin.createTable(tableDescriptor);
+//    val splitKeys: Array[Array[Byte]] = Array(Bytes.toBytes("sdfsdf"))
+    hBaseAdmin.createTable(tableDescriptor, null);
   }
 
   def createTable(tableName: String, hbaseNamespace: String, hbaseTableName: String,
