@@ -46,6 +46,8 @@ class HBaseSQLParser extends SqlParser {
   protected val MAPPED = Keyword("MAPPED")
   protected val PRIMARY = Keyword("PRIMARY")
   protected val SHORT = Keyword("SHORT")
+  protected val SHOW = Keyword("SHOW")
+  protected val TABLES = Keyword("TABLES")
   protected val TERMINATED = Keyword("TERMINATED")
 
   protected val newReservedWords: Seq[String] =
@@ -63,7 +65,7 @@ class HBaseSQLParser extends SqlParser {
         | EXCEPT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)}
         | UNION ~ DISTINCT.? ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2))}
         )
-      | insert | create | drop | alterDrop | alterAdd | load
+      | insert | create | drop | alterDrop | alterAdd | load | show
       )
 
   override protected lazy val insert: Parser[LogicalPlan] =
@@ -179,6 +181,11 @@ class HBaseSQLParser extends SqlParser {
       case filePath ~ table ~ delimiter => BulkLoadPlan(filePath, table, true, delimiter)
     }
   )
+
+  // syntax:
+  // SHOW TABLES
+  protected lazy val show: Parser[LogicalPlan] =
+    ( SHOW ~> TABLES <~ opt(";") ^^^ ShowTablesPlan() )
 
   protected lazy val tableCol: Parser[(String, String)] =
     ident ~ (STRING | BYTE | SHORT | INT | INTEGER | LONG | FLOAT | DOUBLE | BOOLEAN) ^^ {

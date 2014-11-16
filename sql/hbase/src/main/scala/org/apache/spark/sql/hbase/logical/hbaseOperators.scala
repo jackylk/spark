@@ -35,6 +35,8 @@ case class AlterAddColPlan(tableName: String,
                            colFamily: String,
                            colQualifier: String) extends Command
 
+case class ShowTablesPlan() extends Command
+
 /**
  * Logical plan for Bulkload
  * @param path input data file path

@@ -103,3 +103,15 @@ case class DropHbaseTableCommand(tableName: String)
 
   override def output: Seq[Attribute] = Seq.empty
 }
+
+
+case class ShowTablesCommand(@transient context: HBaseSQLContext)
+  extends LeafNode with Command {
+
+  override protected[sql] lazy val sideEffectResult = {
+    context.catalog.relationMapCache.keySet.foreach(println)
+    Seq.empty[Row]
+  }
+
+  override def output: Seq[Attribute] = Seq.empty
+}
