@@ -18,12 +18,12 @@
 #
 
 #
-# Shell script for starting the Spark SQL CLI
+# Shell script for starting the Spark SQL for HBase CLI
 
 # Enter posix mode for bash
 set -o posix
 
-CLASS="org.apache.spark.sql.hbase.HBaseSQLDriver
+CLASS="org.apache.spark.sql.hbase.HBaseSQLCLIDriver"
 
 # Figure out where Spark is installed
 FWDIR="$(cd "`dirname "$0"`"/..; pwd)"
@@ -31,7 +31,7 @@ FWDIR="$(cd "`dirname "$0"`"/..; pwd)"
 function usage {
   echo "Usage: ./bin/hbase-sql [options] [cli option]"
   pattern="usage"
-  pattern+="\|Spark assembly has been built with Hive"
+  pattern+="\|Spark assembly has been built with hbase"
   pattern+="\|NOTE: SPARK_PREPEND_CLASSES is set"
   pattern+="\|Spark Command: "
   pattern+="\|--help"
