@@ -23,11 +23,12 @@ import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.analysis.SimpleCatalog
+import org.apache.spark.sql.catalyst.expressions.Row
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.hbase.HBaseCatalog._
 
-import scala.collection.mutable.{HashMap, SynchronizedMap}
+import scala.collection.mutable.{ListBuffer, HashMap, SynchronizedMap}
 
 /**
  * Column represent the sql column
@@ -80,8 +81,22 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     }
   }
 
+  //Todo: This function is just for test purpose
+  //  def makeRowKey(row: Row, dataTypeOfKeys: Seq[DataType]) = {
+  //    //    val row = new GenericRow(Array(col7, col1, col3))
+  //    val rawKeyCol = dataTypeOfKeys.zipWithIndex.map {
+  //      case (dataType, index) => {
+  //        (DataTypeUtils.getRowColumnFromHBaseRawType(row, index, dataType, new BytesUtils),
+  //         dataType)
+  //      }
+  //    }
+  //
+  //    val buffer = ListBuffer[Byte]()
+  //    HBaseKVHelper.encodingRawKeyColumns(buffer, rawKeyCol)
+  //  }
+
   private def createHBaseUserTable(tableName: String,
-                                   allColumns: Seq[AbstractColumn]): Unit ={
+                                   allColumns: Seq[AbstractColumn]): Unit = {
     val hBaseAdmin = new HBaseAdmin(configuration)
     val tableDescriptor = new HTableDescriptor(tableName);
     allColumns.map(x =>
@@ -89,7 +104,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
         val nonKeyColumn = x.asInstanceOf[NonKeyColumn]
         tableDescriptor.addFamily(new HColumnDescriptor(nonKeyColumn.family))
       })
-//    val splitKeys: Array[Array[Byte]] = Array(Bytes.toBytes("sdfsdf"))
+    //    val splitKeys: Array[Array[Byte]] = Array(Bytes.toBytes("sdfsdf"))
     hBaseAdmin.createTable(tableDescriptor, null);
   }
 

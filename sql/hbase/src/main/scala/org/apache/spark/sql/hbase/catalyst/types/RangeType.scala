@@ -122,7 +122,7 @@ class RangeType[T] extends PartiallyOrderingDataType {
           }
           // [(aStart, aEnd) compare to [bStart, bEnd)]
           case (_, false, true, _) => {
-            if (a.end != null && aRange.dt.ordering.lteq(aEnd.asInstanceOf[aRange.dt.JvmType],
+            if (aEnd != null && aRange.dt.ordering.lteq(aEnd.asInstanceOf[aRange.dt.JvmType],
               bStart.asInstanceOf[aRange.dt.JvmType])) {
               true
             } else {
@@ -131,7 +131,7 @@ class RangeType[T] extends PartiallyOrderingDataType {
           }
           // [(aStart, aEnd) compare to (bStart, bEnd)]
           case (_, false, false, _) => {
-            if (a.end != null && bStart != null &&
+            if (aEnd != null && bStart != null &&
               aRange.dt.ordering.lteq(aEnd.asInstanceOf[aRange.dt.JvmType],
                 bStart.asInstanceOf[aRange.dt.JvmType])) {
               true

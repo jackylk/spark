@@ -42,10 +42,7 @@ class HBaseBasicOperationSuite extends QueryTest {
   }
 
   test("Insert Into table0") {
-    object O extends SqlParser
-
-    val a = HashMap[Int,SqlParser](1 -> O)
-    //    sql( """INSERT INTO testTable SELECT col4,col4,col6,col3 FROM myTable""")
+        sql( """INSERT INTO testTable SELECT col4,col4,col6,col3 FROM myTable""")
   }
 
   test("Insert Into table") {
@@ -63,7 +60,7 @@ class HBaseBasicOperationSuite extends QueryTest {
   }
 
   test("Select test 1") {
-    sql( """SELECT * FROM myTable WHERE col7 > 3""").foreach(println)
+    sql( """SELECT * FROM myTable WHERE col7 > 12346""").foreach(println)
   }
 
   test("Select test 2") {

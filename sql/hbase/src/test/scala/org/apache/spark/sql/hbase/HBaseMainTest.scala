@@ -292,10 +292,6 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
       }
     }
 
-//    val key0 = DataTypeUtils.getRowColumnFromHBaseRawType(row, 0, DoubleType)
-//    val key1 = DataTypeUtils.getRowColumnFromHBaseRawType(row, 1, StringType)
-//    val key2 = DataTypeUtils.getRowColumnFromHBaseRawType(row, 2, ShortType)
-
     encodingRawKeyColumns(rawKeyCol)
   }
 
