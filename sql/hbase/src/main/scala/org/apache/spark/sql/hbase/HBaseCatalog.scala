@@ -98,7 +98,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
   private def createHBaseUserTable(tableName: String,
                                    allColumns: Seq[AbstractColumn]): Unit = {
     val hBaseAdmin = new HBaseAdmin(configuration)
-    val tableDescriptor = new HTableDescriptor(tableName);
+    val tableDescriptor = new HTableDescriptor(TableName.valueOf(tableName))
     allColumns.map(x =>
       if (x.isInstanceOf[NonKeyColumn]) {
         val nonKeyColumn = x.asInstanceOf[NonKeyColumn]
