@@ -69,7 +69,7 @@ object HBaseSQLCLIDriver {
         prefix += '\n'
       }
 
-      if (line.trim().endsWith(";") && !line.trim().endsWith("\\;")) {
+      if (line.trim.endsWith(";") && !line.trim.endsWith("\\;")) {
         line = prefix + line
         ret = processLine(line, true)
         prefix = ""
@@ -86,6 +86,8 @@ object HBaseSQLCLIDriver {
   }
 
   private def processLine(line: String, allowInterrupting: Boolean): Int = {
+    // TODO: handle multiple command separated by ;
+
     processCmd(line)
     println(s"processing line: $line")
     try {
@@ -122,6 +124,7 @@ object HBaseSQLCLIDriver {
     val cmd = line.trim.toLowerCase
     if (cmd.startsWith("quit") || cmd.startsWith("exit"))
       System.exit(0)
+    //TODO: add support for bash command startwith !
   }
 
 }
