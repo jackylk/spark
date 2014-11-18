@@ -90,7 +90,9 @@ private[hbase] case class HBaseRelation(
     }
   }
 
-  private def generateRange(partition: HBasePartition, index: Int): PartitionRange[_] = {
+  private def generateRange(partition: HBasePartition,
+                            index: Int):
+  (PartitionRange[_]) = {
     def getData(dt: NativeType,
                 buffer: ListBuffer[HBaseRawType],
                 bound: Option[HBaseRawType]): Option[Any] = {
@@ -128,20 +130,6 @@ private[hbase] case class HBaseRelation(
     }
   }
 
-  private def generatePartialRow(row: GenericMutableRow, predRefs: Seq[Attribute], keyIndex: Int,
-                                 range: PartitionRange[_]): Unit = {
-    row.update(keyIndex, range)
-    //    require(row.length == predRefs.size, "mismatched partially evaluated output size")
-    //    for (i <- 0 until row.length) {
-    //      columnMap.get(predRefs(i).name) match {
-    //        case Some(keyIndex) => row.update(i, range)
-    //        case None => throw new IllegalArgumentException(
-    //          "Invalid column in predicate during partial row setup")
-    //        case _ => row.setNullAt(i) // all other columns are assigned null
-    //      }
-    //    }
-  }
-
   def getPrunedPartitions(partitionPred: Option[Expression] = None): Option[Seq[HBasePartition]] = {
     def getPrunedRanges(pred: Expression): Seq[PartitionRange[_]] = {
       val predRefs = pred.references.toSeq
@@ -159,20 +147,18 @@ private[hbase] case class HBaseRelation(
       for (keyIndex <- 0 until keyColumns.size; if (!notPrunedRanges.isEmpty)) {
         val (passedRanges, toBePrunedRanges) = prePruneRanges(notPrunedRanges, keyIndex)
         prunedRanges = prunedRanges ++ passedRanges
-        println("prunedRanges: ", prunedRanges.length)
         notPrunedRanges =
           if (keyIndexToPredIndex.contains(keyIndex)) {
             toBePrunedRanges.filter(
-              r => {
+              range => {
                 val predIndex = keyIndexToPredIndex(keyIndex)
-                generatePartialRow(row, predRefs, predIndex, r)
+                row.update(predIndex, range)
                 val partialEvalResult = boundPruningPred.partialEval(row)
                 // MAYBE is represented by a null
                 (partialEvalResult == null) || partialEvalResult.asInstanceOf[Boolean]
               }
             )
           } else toBePrunedRanges
-        println("notprunedRanges: ", notPrunedRanges.length)
       }
       prunedRanges ++ notPrunedRanges
     }

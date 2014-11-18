@@ -91,17 +91,20 @@ class RangeType[T] extends PartiallyOrderingDataType {
 
       // return 1 iff aStart > bEnd
       // return 1 iff aStart = bEnd, aStartInclusive & bEndInclusive are not true at same position
-      if ((aStart != null
-        && bEnd != null)
+      if ((aStart != null && bEnd != null)
         && (aRange.dt.ordering.gt(aStart, bEnd)
-        || (aRange.dt.ordering.eq(aStart, bEnd) && !(aStartInclusive && bEndInclusive)))) {
+        || (aRange.dt.ordering.equiv(aStart, bEnd) && !(aStartInclusive && bEndInclusive)))) {
         Some(1)
       } //Vice versa
-      else if ((bStart != null
-        && aEnd != null)
+      else if ((bStart != null && aEnd != null)
         && (aRange.dt.ordering.gt(bStart, aEnd)
-        || (aRange.dt.ordering.eq(bStart, aEnd) && !(bStartInclusive && aEndInclusive)))) {
+        || (aRange.dt.ordering.equiv(bStart, aEnd) && !(bStartInclusive && aEndInclusive)))) {
         Some(-1)
+      } else if (aRange.dt.ordering.equiv(bStart, aEnd)
+        && aRange.dt.ordering.equiv(aStart, aEnd)
+        && aRange.dt.ordering.equiv(bStart, bEnd)
+        && (aStartInclusive && aEndInclusive && bStartInclusive && bEndInclusive)) {
+        Some(0)
       } else {
         None
       }
