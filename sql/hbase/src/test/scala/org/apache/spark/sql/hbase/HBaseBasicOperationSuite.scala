@@ -60,7 +60,7 @@ class HBaseBasicOperationSuite extends QueryTest {
   }
 
   test("Select test 1") {
-    sql( """SELECT * FROM myTable WHERE col7 > 12346""").foreach(println)
+    sql( """SELECT * FROM myTable WHERE col7 = 1024.0""").foreach(println)
   }
 
   test("Select test 2") {
@@ -69,6 +69,14 @@ class HBaseBasicOperationSuite extends QueryTest {
 
   test("Select test 3") {
     sql( """SELECT col6, col6 FROM myTable""").foreach(println)
+  }
+
+  test("Select test 4") {
+    sql( """SELECT * FROM myTable WHERE col7 = 1024 OR col7 = 2048""").foreach(println)
+  }
+
+  test("Select test 5") {
+    sql( """SELECT * FROM myTable WHERE col7 < 1025 AND col1 ='Upen'""").foreach(println)
   }
 
   test("Alter Add column") {
