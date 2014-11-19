@@ -83,7 +83,8 @@ object HBaseKVHelper {
    * Takes a record, translate it into HBase row key column and value by matching with metadata
    * @param values record that as a sequence of string
    * @param columns metadata that contains KeyColumn and NonKeyColumn
-   * @return 1. array of (key column and its type); 2. array of (column family, column qualifier, value)
+   * @return 1. array of (key column and its type);
+   *         2. array of (column family, column qualifier, value)
    */
   def string2KV(values: Seq[String], columns: Seq[AbstractColumn]):
   (Seq[(Array[Byte], DataType)], Seq[(Array[Byte], Array[Byte], Array[Byte])]) = {
@@ -106,16 +107,18 @@ object HBaseKVHelper {
     (keyBytes, valueBytes)
   }
 
-  private def string2Bytes(v: String, dataType: DataType, bu: BytesUtils): Array[Byte] = dataType match {
-    // todo: handle some complex types
-    case BooleanType => bu.toBytes(v.toBoolean)
-    case ByteType => bu.toBytes(v)
-    case DoubleType => bu.toBytes(v.toDouble)
-    case FloatType => bu.toBytes((v.toFloat))
-    case IntegerType => bu.toBytes(v.toInt)
-    case LongType => bu.toBytes(v.toLong)
-    case ShortType => bu.toBytes(v.toShort)
-    case StringType => bu.toBytes(v)
+  private def string2Bytes(v: String, dataType: DataType, bu: BytesUtils): Array[Byte] = {
+    dataType match {
+      // todo: handle some complex types
+      case BooleanType => bu.toBytes(v.toBoolean)
+      case ByteType => bu.toBytes(v)
+      case DoubleType => bu.toBytes(v.toDouble)
+      case FloatType => bu.toBytes((v.toFloat))
+      case IntegerType => bu.toBytes(v.toInt)
+      case LongType => bu.toBytes(v.toLong)
+      case ShortType => bu.toBytes(v.toShort)
+      case StringType => bu.toBytes(v)
+    }
   }
 }
 

@@ -23,7 +23,7 @@ import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.analysis.SimpleCatalog
-import org.apache.spark.sql.catalyst.expressions.{GenericRow, Row}
+import org.apache.spark.sql.catalyst.expressions.Row
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.hbase.HBaseCatalog._

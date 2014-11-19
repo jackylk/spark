@@ -47,12 +47,12 @@ import scala.collection.JavaConversions._
  */
 @DeveloperApi
 case class HBaseSQLTableScan(
-                              relation: HBaseRelation,
-                              output: Seq[Attribute],
-                              rowKeyPredicate: Option[Expression],
-                              valuePredicate: Option[Expression],
-                              partitionPredicate: Option[Expression],
-                              coProcessorPlan: Option[SparkPlan])(@transient context: HBaseSQLContext)
+                        relation: HBaseRelation,
+                        output: Seq[Attribute],
+                        rowKeyPredicate: Option[Expression],
+                        valuePredicate: Option[Expression],
+                        partitionPredicate: Option[Expression],
+                        coProcessorPlan: Option[SparkPlan])(@transient context: HBaseSQLContext)
   extends LeafNode {
 
   override def outputPartitioning = {
