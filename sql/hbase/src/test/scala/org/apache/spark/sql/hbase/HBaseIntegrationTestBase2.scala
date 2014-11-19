@@ -25,24 +25,37 @@ package org.apache.spark.sql.hbase
 import java.util.Date
 
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.hbase.master.snapshot.SnapshotManager
+import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HBaseConfiguration, HBaseTestingUtility, MiniHBaseCluster}
 import org.apache.hadoop.hbase.client.HBaseAdmin
-import org.apache.spark.{Logging, SparkConf, SparkContext}
+import org.apache.log4j.Logger
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.test.TestSQLContext
+import org.scalacheck.Prop.Exception
 import org.scalatest.{FunSuite, BeforeAndAfterAll, Suite}
+
+import scala.Exception
 
 /**
  * HBaseTestSparkContext used for test.
  *
  */
-trait HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll with Logging { self: Suite =>
+trait HBaseIntegrationTestBase2 extends FunSuite with BeforeAndAfterAll { self: Suite =>
 
-  @transient var sc: SparkContext = null
+  @transient var sc: SparkContext = _
+
   @transient var cluster: MiniHBaseCluster = null
   @transient var config: Configuration = null
   @transient var hbaseAdmin: HBaseAdmin = null
   @transient var hbc: HBaseSQLContext = null
   @transient var catalog: HBaseCatalog = null
   @transient var testUtil: HBaseTestingUtility = null
+  @transient var fs: FileSystem = null
+  @transient var rootDir: Path = null
+
+  @transient val logger = Logger.getLogger(getClass.getName)
 
   def sparkContext: SparkContext = sc
 
@@ -52,20 +65,16 @@ trait HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll with Logg
   val NRegionServers = 1 // 3
   val NDataNodes = 0
 
-  val NWorkers = 1
-
   val startTime = (new Date).getTime
 
   override def beforeAll: Unit = {
-    sc = new SparkContext("local", "hbase sql test")
     ctxSetup
   }
 
   def ctxSetup() {
-    logInfo(s"Setting up context with useMiniCluster=$useMiniCluster")
+    logger.info(s"Setting up context with useMiniCluster=$useMiniCluster")
     if (useMiniCluster) {
-      logInfo(s"Spin up hbase minicluster with $NMasters master, $NRegionServers " +
-        s"region server, $NDataNodes dataNodes")
+      logger.info(s"Spin up hbase minicluster w/ $NMasters mast, $NRegionServers RS, $NDataNodes dataNodes")
       testUtil = new HBaseTestingUtility
       config = testUtil.getConfiguration
     } else {
@@ -74,41 +83,50 @@ trait HBaseIntegrationTestBase extends FunSuite with BeforeAndAfterAll with Logg
     //    cluster = HBaseTestingUtility.createLocalHTU.
     //      startMiniCluster(NMasters, NRegionServers, NDataNodes)
     //    config = HBaseConfiguration.create
-    config.set("hbase.zookeeper.property.clientPort", "21888")
-    config.set("hbase.regionserver.info.port", "-1")
-    config.set("hbase.master.info.port", "-1")
-    config.set("dfs.client.socket-timeout", "240000")
-    config.set("dfs.datanode.socket.write.timeout", "240000")
-    config.set("zookeeper.session.timeout", "240000")
-    config.set("zookeeper.minSessionTimeout", "10")
-    config.set("zookeeper.tickTime", "10")
-    config.set("hbase.rpc.timeout", "240000")
-    config.set("ipc.client.connect.timeout", "240000")
-    config.set("dfs.namenode.stale.datanode.interva", "240000")
-    config.set("hbase.rpc.shortoperation.timeout", "240000")
-    config.set("hbase.zookeeper.quorum", "127.0.0.1")
+
+//    config.set("hbase.zookeeper.property.clientPort", "21888")
+//    config.set("hbase.regionserver.info.port", "-1")
+//    config.set("hbase.master.info.port", "-1")
+//    config.set("dfs.client.socket-timeout", "240000")
+//    config.set("dfs.datanode.socket.write.timeout", "240000")
+//    config.set("zookeeper.session.timeout", "240000")
+//    config.set("zookeeper.minSessionTimeout", "10")
+//    config.set("zookeeper.tickTime", "10")
+//    config.set("hbase.rpc.timeout", "240000")
+//    config.set("ipc.client.connect.timeout", "240000")
+//    config.set("dfs.namenode.stale.datanode.interva", "240000")
+//    config.set("hbase.rpc.shortoperation.timeout", "240000")
 //    config.set("hbase.regionserver.lease.period", "240000")
 
     if (useMiniCluster) {
-      cluster = testUtil.startMiniCluster(NMasters, NRegionServers)
-      logInfo(s"cluster started with ${cluster.countServedRegions} region servers!")
-    }
 
-    // this step cost to much time, need to know why
-    hbc = new HBaseSQLContext(sc, Some(config))
+      cluster = testUtil.startMiniCluster( /* NMasters, */NRegionServers)
+    rootDir = testUtil.getHBaseCluster().getMaster().getMasterFileSystem().getRootDir()
+    fs = rootDir.getFileSystem(testUtil.getConfiguration())
 
+     testUtil.startMiniMapReduceCluster();
+  }
+
+  println(s"# of region servers = ${cluster.countServedRegions}")
+
+    @transient val conf = new SparkConf
+    val SparkPort = 11223
+    conf.set("spark.ui.port", SparkPort.toString)
+    //    @transient val sc = new SparkContext(s"local[$NWorkers]", "HBaseTestsSparkContext", conf)
+    hbc = new HBaseSQLContext(TestSQLContext.sparkContext, Some(config))
     import collection.JavaConverters._
 //    config.iterator.asScala.foreach { entry =>
 //      hbc.setConf(entry.getKey, entry.getValue)
 //    }
     catalog = hbc.catalog
-    hbaseAdmin = new HBaseAdmin(config)
+    hbaseAdmin = testUtil.getHBaseAdmin
   }
 
   override def afterAll: Unit = {
-    logInfo(s"Test ${getClass.getName} completed at ${(new java.util.Date).toString} duration=${((new java.util.Date).getTime - startTime)/1000}")
-    sc.stop()
-    sc = null
+    logger.info(s"Test ${getClass.getName} completed at ${(new java.util.Date).toString} duration=${((new java.util.Date).getTime - startTime)/1000}")
+    testUtil.shutdownMiniCluster()
+    testUtil.shutdownMiniMapReduceCluster();
+    hbc.sparkContext.stop()
     hbc = null
   }
 }

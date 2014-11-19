@@ -32,7 +32,13 @@ class HBaseSQLContext(@transient val sc: SparkContext,
   extends SQLContext(sc) with Serializable {
   self =>
 
-  // TODO: do we need a analyzer?
+  optConfiguration.map { config =>
+    import collection.JavaConverters._
+    config.iterator.asScala.foreach { entry =>
+      setConf(entry.getKey, entry.getValue)
+    }
+  }
+
   override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this)
 
   // TODO: suggest to have our own planner that extends SparkPlanner,

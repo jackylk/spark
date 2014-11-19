@@ -1709,52 +1709,6 @@ class TestHiveContext(HiveContext):
         return self._jvm.TestHiveContext(self._jsc.sc())
 
 
-
-class HBaseContext(SQLContext):
-
-    """A variant of Spark SQL that integrates with data stored in Hive.
-
-    Configuration for Hive is read from hive-site.xml on the classpath.
-    It supports running both SQL and HiveQL commands.
-    """
-
-    def __init__(self, sparkContext, hbaseContext=None):
-        """Create a new HiveContext.
-
-        @param sparkContext: The SparkContext to wrap.
-        @param hiveContext: An optional JVM Scala HiveContext. If set, we do not instatiate a new
-        HiveContext in the JVM, instead we make all calls to this object.
-        """
-        SQLContext.__init__(self, sparkContext)
-
-        if hbaseContext:
-            self._scala_hbaseContext = hbaseContext
-
-    @property
-    def _ssql_ctx(self):
-        try:
-            if not hasattr(self, '_scala_HbaseContext'):
-                self._scala_HBaseContext = self._get_hbase_ctx()
-            return self._scala_HBaseContext
-        except Py4JError as e:
-            raise Exception("You must build Spark with Hbase. "
-                            "Export 'SPARK_HBASE=true' and run "
-                            "sbt/sbt assembly", e)
-
-    def _get_hbase_ctx(self):
-        return self._jvm.HBaseContext(self._jsc.sc())
-
-
-    def sql(self, hqlQuery):
-        """
-        DEPRECATED: Use sql()
-        """
-        warnings.warn("hiveql() is deprecated as the sql function now parses using HiveQL by" +
-                      "default. The SQL dialect for parsing can be set using 'spark.sql.dialect'",
-                      DeprecationWarning)
-        return HBaseSchemaRDD(self._ssql_ctx.sql(hqlQuery).toJavaSchemaRDD(), self)
-
-
 def _create_row(fields, values):
     row = Row(*values)
     row.__FIELDS__ = fields
@@ -2161,14 +2115,6 @@ def _test():
     globs['sc'].stop()
     if failure_count:
         exit(-1)
-
-class HBaseSchemaRDD(SchemaRDD):
-    def createTable(self, tableName, overwrite=False):
-        """Inserts the contents of this SchemaRDD into the specified table.
-
-        Optionally overwriting any existing data.
-        """
-        self._jschema_rdd.createTable(tableName, overwrite)
 
 
 if __name__ == "__main__":

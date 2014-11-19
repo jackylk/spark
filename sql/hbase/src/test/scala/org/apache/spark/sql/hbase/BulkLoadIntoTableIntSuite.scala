@@ -26,7 +26,7 @@ import org.apache.spark.sql.catalyst.types.IntegerType
 import org.apache.spark.sql.hbase.execution.BulkLoadIntoTable
 import org.apache.hadoop.hbase.util.Bytes
 
-class BulkLoadIntoTableIntSuite extends HBaseIntegrationTestBase {
+class BulkLoadIntoTableIntSuite extends HBaseIntegrationTestBase2 {
 
 
   override def beforeAll: Unit = {
@@ -45,12 +45,11 @@ class BulkLoadIntoTableIntSuite extends HBaseIntegrationTestBase {
     } catch {
       case e: IllegalStateException =>
         // do not throw exception here
-        logWarning(e.getMessage)
+        logger.error(e.getMessage)
     }
 
     val sql1 =
-      s"""CREATE TABLE testblk(col1 STRING, col2 STRING, col3 STRING, PRIMARY KEY(col1))
-          MAPPED BY (wf, COLS=[col2=cf1.a, col3=cf1.b])"""
+      s"""CREATE TABLE testblk(col1 STRING, col2 STRING, col3 STRING, PRIMARY KEY (col1)) MAPPED BY (wf, COLS=[col2=cf1.a, col3=cf1.b])"""
         .stripMargin
 
     val sql2 =
