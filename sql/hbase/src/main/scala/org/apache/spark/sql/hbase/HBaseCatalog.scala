@@ -389,7 +389,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       ByteType
     } else if (dataType.equalsIgnoreCase(ShortType.typeName)) {
       ShortType
-    } else if (dataType.equalsIgnoreCase(IntegerType.typeName)) {
+    } else if (dataType.equalsIgnoreCase(IntegerType.typeName) ||
+               dataType.equalsIgnoreCase("int")) {
       IntegerType
     } else if (dataType.equalsIgnoreCase(LongType.typeName)) {
       LongType
