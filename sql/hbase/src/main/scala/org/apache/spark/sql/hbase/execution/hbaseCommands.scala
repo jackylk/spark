@@ -109,9 +109,8 @@ case class ShowTablesCommand(@transient context: HBaseSQLContext)
   extends LeafNode with Command {
 
   override protected[sql] lazy val sideEffectResult = {
-    // TODO: write the output table list into a temp file?
-    //context.catalog.relationMapCache.keySet.foreach(println)
-    Seq.empty[Row]
+    val tables = context.catalog.getAllTableName()
+    Seq(Row.fromSeq(tables))
   }
 
   override def output: Seq[Attribute] = Seq.empty

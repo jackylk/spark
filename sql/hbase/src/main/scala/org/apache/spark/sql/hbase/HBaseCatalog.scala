@@ -28,7 +28,7 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.hbase.HBaseCatalog._
 
-import scala.collection.mutable.{ListBuffer, HashMap, SynchronizedMap}
+import scala.collection.mutable.{ArrayBuffer, ListBuffer, HashMap, SynchronizedMap}
 
 /**
  * Column represent the sql column
@@ -314,16 +314,34 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
           nonKeyColumnList = nonKeyColumnList :+ column
         }
         */
-        val value = values.getValue(ColumnFamily, QualData)
-        val byteArrayInputStream = new ByteArrayInputStream(value)
-        val objectInputStream = new ObjectInputStream(byteArrayInputStream)
-        val hbaseRelation: HBaseRelation
-        = objectInputStream.readObject().asInstanceOf[HBaseRelation]
-        hbaseRelation.configuration = configuration
-        result = Some(hbaseRelation)
+
+        result = Some(getRelationFromResult(values))
       }
     }
     result
+  }
+
+  private def getRelationFromResult(result: Result) : HBaseRelation = {
+    val value = result.getValue(ColumnFamily, QualData)
+    val byteArrayInputStream = new ByteArrayInputStream(value)
+    val objectInputStream = new ObjectInputStream(byteArrayInputStream)
+    val hbaseRelation: HBaseRelation
+    = objectInputStream.readObject().asInstanceOf[HBaseRelation]
+    hbaseRelation.configuration = configuration
+    hbaseRelation
+  }
+
+  def getAllTableName() : Seq[String] = {
+    val tables = new ArrayBuffer[String]()
+    val table = new HTable(configuration, MetaData)
+    val scanner = table.getScanner(ColumnFamily)
+    var result = scanner.next()
+    while (result != null) {
+      val relation = getRelationFromResult(result)
+      tables.append(relation.tableName)
+      result = scanner.next()
+    }
+    tables.toSeq
   }
 
   override def lookupRelation(namespace: Option[String],
