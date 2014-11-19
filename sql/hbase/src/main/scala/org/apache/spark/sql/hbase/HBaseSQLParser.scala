@@ -69,11 +69,12 @@ class HBaseSQLParser extends SqlParser {
       )
 
   override protected lazy val insert: Parser[LogicalPlan] =
-    INSERT ~> INTO ~> relation ~ select <~ opt(";") ^^ {
-      case r ~ s =>
-        InsertIntoTable(
-          r, Map[String, Option[String]](), s, false)
-    }
+    (INSERT ~> INTO ~> relation ~ select <~ opt(";") ^^ {
+      case r ~ s => InsertIntoTable(r, Map[String, Option[String]](), s, false)}
+    |
+     INSERT ~> INTO ~> relation ~ (VALUES ~> "(" ~> keys <~ ")") ^^ {
+      case r ~ valueSeq => InsertValueIntoTable(r, Map[String, Option[String]](), valueSeq)}
+    )
 
   protected lazy val create: Parser[LogicalPlan] =
     CREATE ~> TABLE ~> ident ~
