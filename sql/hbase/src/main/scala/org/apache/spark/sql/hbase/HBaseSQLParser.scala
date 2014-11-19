@@ -48,6 +48,7 @@ class HBaseSQLParser extends SqlParser {
   protected val SHORT = Keyword("SHORT")
   protected val SHOW = Keyword("SHOW")
   protected val TABLES = Keyword("TABLES")
+  protected val VALUES = Keyword("VALUES")
   protected val TERMINATED = Keyword("TERMINATED")
 
   protected val newReservedWords: Seq[String] =

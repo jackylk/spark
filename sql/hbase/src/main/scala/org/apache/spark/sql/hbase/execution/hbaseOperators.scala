@@ -151,7 +151,7 @@ case class InsertValueIntoHBaseTable(relation: HBaseRelation, valueSeq: Seq[Stri
   @transient hbContext: HBaseSQLContext) extends LeafNode {
 
   override def execute() = {
-    val buffer = ArrayBuffer[Byte]()
+    val buffer = ListBuffer[Byte]()
     val (keyBytes, valueBytes) = HBaseKVHelper.string2KV(valueSeq, relation.allColumns)
     val rowKey = HBaseKVHelper.encodingRawKeyColumns(buffer, keyBytes)
     val put = new Put(rowKey)
