@@ -28,7 +28,7 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.hbase.HBaseCatalog._
 
-import scala.collection.mutable.{ArrayBuffer, ListBuffer, HashMap, SynchronizedMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap, ListBuffer, SynchronizedMap}
 
 /**
  * Column represent the sql column

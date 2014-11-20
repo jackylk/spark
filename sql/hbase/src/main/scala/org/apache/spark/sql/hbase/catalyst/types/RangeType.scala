@@ -19,13 +19,11 @@ package org.apache.spark.sql.hbase.catalyst.types
 import java.sql.Timestamp
 
 import org.apache.spark.sql.catalyst.types._
-import org.apache.spark.util.Utils
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.math.PartialOrdering
-import scala.reflect.ClassTag
-import scala.reflect.runtime.universe.{TypeTag, runtimeMirror, typeTag}
+import scala.reflect.runtime.universe.typeTag
 
 class Range[T](val start: Option[T], // None for open ends
                val startInclusive: Boolean,

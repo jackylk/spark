@@ -20,8 +20,8 @@ package org.apache.spark.sql.hbase
 import java.io.File
 
 import jline.{ConsoleReader, History}
-import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SchemaRDD
+import org.apache.spark.{SparkConf, SparkContext}
 
 /**
  * HBaseSQLCliDriver

@@ -17,9 +17,10 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{Path, FileSystem}
 import java.util.concurrent.atomic.AtomicInteger
+
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 
 object Util {
   val iteration = new AtomicInteger(0)

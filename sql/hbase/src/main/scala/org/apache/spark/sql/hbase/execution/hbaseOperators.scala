@@ -17,29 +17,25 @@
 
 package org.apache.spark.sql.hbase.execution
 
-import org.apache.hadoop.hbase.client.HTable
-import org.apache.hadoop.hbase.client.Put
-import org.apache.hadoop.hbase.util.Bytes
-import org.apache.spark.TaskContext
-import org.apache.spark.sql.catalyst.plans.physical.RangePartitioning
-
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-import org.apache.hadoop.mapreduce.Job
-import org.apache.hadoop.hbase.mapreduce.{LoadIncrementalHFiles, HFileOutputFormat}
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.hbase._
+import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
-import org.apache.hadoop.fs.{FileSystem, LocalFileSystem, Path}
-
-import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.rdd.{ShuffledRDD, RDD}
+import org.apache.hadoop.hbase.mapreduce.{HFileOutputFormat, LoadIncrementalHFiles}
+import org.apache.hadoop.hbase.util.Bytes
+import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.SparkContext._
+import org.apache.spark.TaskContext
+import org.apache.spark.annotation.DeveloperApi
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.execution.{LeafNode, UnaryNode, SparkPlan}
+import org.apache.spark.sql.catalyst.plans.physical.RangePartitioning
+import org.apache.spark.sql.execution.{LeafNode, SparkPlan, UnaryNode}
 import org.apache.spark.sql.hbase._
 import org.apache.spark.sql.hbase.HBasePartitioner._
-import org.apache.spark.sql.hbase.BytesUtils
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 /**
  * :: DeveloperApi ::

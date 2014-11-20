@@ -19,9 +19,9 @@ package org.apache.spark.sql.hbase
 import org.apache.hadoop.hbase.client.Result
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.expressions.{Attribute, GenericMutableRow, Expression}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, GenericMutableRow}
 import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.{Logging, InterruptibleIterator, Partition, TaskContext}
+import org.apache.spark.{InterruptibleIterator, Logging, Partition, TaskContext}
 
 
 /**

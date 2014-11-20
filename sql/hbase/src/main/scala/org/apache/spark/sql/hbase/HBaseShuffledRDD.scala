@@ -17,9 +17,9 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.spark.serializer.Serializer
-import org.apache.spark.{Aggregator, Partitioner, Partition}
 import org.apache.spark.rdd.{RDD, ShuffledRDD}
+import org.apache.spark.serializer.Serializer
+import org.apache.spark.{Aggregator, Partition, Partitioner}
 
 // is there a way to not extend shuffledrdd, just reuse the original shuffledrdd?
 class HBaseShuffledRDD[K, V, C](

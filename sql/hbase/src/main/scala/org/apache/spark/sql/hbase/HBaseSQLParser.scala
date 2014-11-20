@@ -18,8 +18,7 @@ package org.apache.spark.sql.hbase
 
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.{SqlLexical, SqlParser}
-import org.apache.spark.sql.catalyst.SparkSQLParser
+import org.apache.spark.sql.catalyst.{SparkSQLParser, SqlLexical, SqlParser}
 import org.apache.spark.sql.hbase.logical._
 
 class HBaseSQLParser extends SqlParser {

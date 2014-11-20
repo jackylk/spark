@@ -17,14 +17,14 @@
 
 package org.apache.spark.sql.hbase
 
-import java.io.{ObjectInputStream, ObjectOutputStream, IOException}
-import scala.reflect.ClassTag
+import java.io.{IOException, ObjectInputStream, ObjectOutputStream}
 
+import org.apache.spark.{Partitioner, SparkEnv}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.SparkEnv
-import org.apache.spark.Partitioner
-import org.apache.spark.util.{Utils, CollectionsUtils}
 import org.apache.spark.serializer.JavaSerializer
+import org.apache.spark.util.{CollectionsUtils, Utils}
+
+import scala.reflect.ClassTag
 
 class HBasePartitioner [K : Ordering : ClassTag, V](
     @transient rdd: RDD[_ <: Product2[K,V]])(splitKeys: Array[K])

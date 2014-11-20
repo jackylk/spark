@@ -16,7 +16,7 @@
  */
 package org.apache.spark.sql.hbase.logical
 
-import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, UnaryNode, Command}
+import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan, UnaryNode}
 
 case class CreateHBaseTablePlan(tableName: String,
                                 nameSpace: String,

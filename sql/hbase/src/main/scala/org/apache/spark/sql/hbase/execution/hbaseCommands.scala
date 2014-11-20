@@ -19,7 +19,7 @@ package org.apache.spark.sql.hbase.execution
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.{Command, LeafNode}
-import org.apache.spark.sql.hbase.{NonKeyColumn, KeyColumn, HBaseSQLContext}
+import org.apache.spark.sql.hbase.{HBaseSQLContext, KeyColumn, NonKeyColumn}
 
 case class CreateHBaseTableCommand(
                                     tableName: String,

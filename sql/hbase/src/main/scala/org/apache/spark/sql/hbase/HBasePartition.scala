@@ -17,7 +17,6 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.spark.Partition
-import org.apache.spark.rdd.ShuffledRDDPartition
 
 private[hbase] class HBasePartition(
     idx: Int,

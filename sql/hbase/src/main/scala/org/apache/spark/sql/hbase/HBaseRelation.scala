@@ -31,8 +31,7 @@ import org.apache.spark.sql.hbase.catalyst.expressions.PartialPredicateOperation
 import org.apache.spark.sql.hbase.catalyst.types.PartitionRange
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.{ListBuffer, ArrayBuffer}
-import scala.util.control.Breaks._
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 private[hbase] case class HBaseRelation(
