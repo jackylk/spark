@@ -76,12 +76,10 @@ private[hbase] case class HBaseRelation(
 
   lazy val partitions: Seq[HBasePartition] = {
     val regionLocations = htable.getRegionLocations.asScala.toSeq
+    log.info("Number of HBase regions for table "+htable.getName.getNameAsString
+      + " : "+regionLocations.size)
     regionLocations.zipWithIndex.map {
       case p =>
-        val a1 = Bytes.toStringBinary(p._1._1.getStartKey)
-        println(a1)
-        val a2 = Bytes.toStringBinary(p._1._1.getEndKey)
-        println(a2)
         new HBasePartition(
           p._2,
           Some(p._1._1.getStartKey),
