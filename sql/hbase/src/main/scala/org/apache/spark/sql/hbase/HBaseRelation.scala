@@ -36,10 +36,10 @@ import scala.util.control.Breaks._
 
 
 private[hbase] case class HBaseRelation(
-                                         tableName: String,
-                                         hbaseNamespace: String,
-                                         hbaseTableName: String,
-                                         allColumns: Seq[AbstractColumn])
+    tableName: String,
+    hbaseNamespace: String,
+    hbaseTableName: String,
+    allColumns: Seq[AbstractColumn])
   extends LeafNode {
 
   @transient lazy val htable: HTable = new HTable(getConf, hbaseTableName)
@@ -76,8 +76,8 @@ private[hbase] case class HBaseRelation(
 
   lazy val partitions: Seq[HBasePartition] = {
     val regionLocations = htable.getRegionLocations.asScala.toSeq
-    log.info("Number of HBase regions for table "+htable.getName.getNameAsString
-      + " : "+regionLocations.size)
+    log.info(s"Number of HBase regions for " +
+      s"table ${htable.getName.getNameAsString}: ${regionLocations.size}")
     regionLocations.zipWithIndex.map {
       case p =>
         new HBasePartition(
