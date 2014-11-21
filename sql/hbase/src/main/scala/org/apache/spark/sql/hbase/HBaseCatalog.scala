@@ -21,6 +21,7 @@ import java.io._
 import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
+import org.apache.log4j.Logger
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.analysis.SimpleCatalog
 import org.apache.spark.sql.catalyst.expressions.Row
@@ -32,8 +33,8 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, ListBuffer, SynchronizedM
 
 /**
  * Column represent the sql column
- * @param sqlName the name of the column
- * @param dataType the data type of the column
+ * sqlName the name of the column
+ * dataType the data type of the column
  */
 sealed abstract class AbstractColumn {
   val sqlName: String
@@ -67,6 +68,7 @@ case class NonKeyColumn(
 private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
   extends SimpleCatalog(false) with Logging with Serializable {
 
+  lazy val logger = Logger.getLogger(getClass.getName)
   lazy val configuration = hbaseContext.optConfiguration
     .getOrElse(HBaseConfiguration.create())
 
@@ -96,6 +98,12 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     val buffer = ListBuffer[Byte]()
     HBaseKVHelper.encodingRawKeyColumns(buffer, rawKeyCol)
   }
+
+  // Use a single HBaseAdmin throughout this instance instad of creating a new one in
+  // each method
+  var hBaseAdmin = new HBaseAdmin(configuration)
+  logger.debug(s"HBaseAdmin.configuration zkPort="
+    + s"${hBaseAdmin.getConfiguration.get("hbase.zookeeper.property.clientPort")}")
 
   private def createHBaseUserTable(tableName: String,
                                    allColumns: Seq[AbstractColumn]): Unit = {
@@ -192,8 +200,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       put.add(ColumnFamily, QualHbaseName, Bytes.toBytes(result.toString))
       */
 
-      val hbaseRelation = HBaseRelation(tableName, hbaseNamespace, hbaseTableName, allColumns)
-      hbaseRelation.configuration = configuration
+      val hbaseRelation = HBaseRelation(tableName, hbaseNamespace, hbaseTableName, allColumns,
+        Some(configuration))
 
       writeObjectToTable(hbaseRelation)
 
@@ -207,8 +215,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       val relation = result.get
       val allColumns = relation.allColumns.filter(!_.sqlName.equals(columnName))
       val hbaseRelation = HBaseRelation(relation.tableName,
-        relation.hbaseNamespace, relation.hbaseTableName, allColumns)
-      hbaseRelation.configuration = configuration
+        relation.hbaseNamespace, relation.hbaseTableName, allColumns, Some(configuration))
 
       writeObjectToTable(hbaseRelation)
 
@@ -222,8 +229,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       val relation = result.get
       val allColumns = relation.allColumns :+ column
       val hbaseRelation = HBaseRelation(relation.tableName,
-        relation.hbaseNamespace, relation.hbaseTableName, allColumns)
-      hbaseRelation.configuration = configuration
+        relation.hbaseNamespace, relation.hbaseTableName, allColumns, Some(configuration))
 
       writeObjectToTable(hbaseRelation)
 
@@ -327,7 +333,6 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     val objectInputStream = new ObjectInputStream(byteArrayInputStream)
     val hbaseRelation: HBaseRelation
     = objectInputStream.readObject().asInstanceOf[HBaseRelation]
-    hbaseRelation.configuration = configuration
     hbaseRelation
   }
 

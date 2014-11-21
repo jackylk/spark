@@ -17,6 +17,7 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.hbase.client.Result
+import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, GenericMutableRow}
@@ -38,6 +39,7 @@ class HBaseSQLReaderRDD(
     @transient hbaseContext: HBaseSQLContext)
   extends RDD[Row](hbaseContext.sparkContext, Nil) with Logging {
 
+  @transient lazy val logger = Logger.getLogger(getClass.getName)
   private final val cachingSize: Int = 100 // To be made configurable
 
   override def getPartitions: Array[Partition] = {
@@ -54,6 +56,8 @@ class HBaseSQLReaderRDD(
     val filters = relation.buildFilter(output, rowKeyPred, valuePred)
     val scan = relation.buildScan(split, filters, output)
     scan.setCaching(cachingSize)
+    logger.debug(s"relation.htable scanner conf="
+      + s"${relation.htable.getConfiguration.get("hbase.zookeeper.property.clientPort")}")
     val scanner = relation.htable.getScanner(scan)
 
     val row = new GenericMutableRow(output.size)

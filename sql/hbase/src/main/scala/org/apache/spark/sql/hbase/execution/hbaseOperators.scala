@@ -24,6 +24,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable
 import org.apache.hadoop.hbase.mapreduce.{HFileOutputFormat, LoadIncrementalHFiles}
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.mapreduce.Job
+import org.apache.log4j.Logger
 import org.apache.spark.SparkContext._
 import org.apache.spark.TaskContext
 import org.apache.spark.annotation.DeveloperApi
@@ -43,12 +44,13 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
  */
 @DeveloperApi
 case class HBaseSQLTableScan(
-                        relation: HBaseRelation,
-                        output: Seq[Attribute],
-                        rowKeyPredicate: Option[Expression],
-                        valuePredicate: Option[Expression],
-                        partitionPredicate: Option[Expression],
-                        coProcessorPlan: Option[SparkPlan])(@transient context: HBaseSQLContext)
+                              relation: HBaseRelation,
+                              output: Seq[Attribute],
+                              rowKeyPredicate: Option[Expression],
+                              valuePredicate: Option[Expression],
+                              partitionPredicate: Option[Expression],
+                              coProcessorPlan: Option[SparkPlan])
+                            (@transient context: HBaseSQLContext)
   extends LeafNode {
 
   override def outputPartitioning = {
@@ -167,6 +169,8 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
                              isLocal: Boolean, delimiter: Option[String])(
                               @transient hbContext: HBaseSQLContext) extends LeafNode {
 
+  val logger = Logger.getLogger(getClass.getName)
+
   val conf = hbContext.sc.hadoopConfiguration
 
   val job = new Job(conf)
@@ -189,9 +193,9 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
     val partitioner = new HBasePartitioner(rdd)(splitKeys)
     // Todo: fix issues with HBaseShuffledRDD
     val shuffled =
-    new HBaseShuffledRDD[ImmutableBytesWritableWrapper, PutWrapper, PutWrapper](rdd, partitioner)
-      .setKeyOrdering(ordering)
-      .setHbasePartitions(relation.partitions)
+      new HBaseShuffledRDD[ImmutableBytesWritableWrapper, PutWrapper, PutWrapper](rdd, partitioner)
+        .setKeyOrdering(ordering)
+        .setHbasePartitions(relation.partitions)
     val bulkLoadRDD = shuffled.mapPartitions { iter =>
       // the rdd now already sort by key, to sort by value
       val map = new java.util.TreeSet[KeyValue](KeyValue.COMPARATOR)
@@ -247,10 +251,11 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
 
   override def execute() = {
     val splitKeys = relation.getRegionStartKeys().toArray
+    logger.debug(s"Starting makeBulkLoad on table ${relation.htable.getName} ...")
     makeBulkLoadRDD(splitKeys)
-    val hbaseConf = HBaseConfiguration.create
     val tablePath = new Path(tmpPath)
-    val load = new LoadIncrementalHFiles(hbaseConf)
+    val load = new LoadIncrementalHFiles(conf)
+    logger.debug(s"Starting doBulkLoad on table ${relation.htable.getName} ...")
     load.doBulkLoad(tablePath, relation.htable)
     hbContext.sc.parallelize(Seq.empty[Row], 1)
   }

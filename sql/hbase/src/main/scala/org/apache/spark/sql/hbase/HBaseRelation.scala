@@ -23,6 +23,7 @@ import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.client.{Get, HTable, Put, Result, Scan}
 import org.apache.hadoop.hbase.filter.{Filter, FilterList, _}
 import org.apache.hadoop.hbase.util.Bytes
+import org.apache.log4j.Logger
 import org.apache.spark.Partition
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
@@ -38,10 +39,12 @@ private[hbase] case class HBaseRelation(
     tableName: String,
     hbaseNamespace: String,
     hbaseTableName: String,
-    allColumns: Seq[AbstractColumn])
+    allColumns: Seq[AbstractColumn],
+   @transient optConfiguration: Option[Configuration] = None)
   extends LeafNode {
 
-  @transient lazy val htable: HTable = new HTable(getConf, hbaseTableName)
+  @transient lazy val logger = Logger.getLogger(getClass.getName)
+
   @transient lazy val keyColumns = allColumns.filter(_.isInstanceOf[KeyColumn])
     .asInstanceOf[Seq[KeyColumn]].sortBy(_.order)
   @transient lazy val nonKeyColumns = allColumns.filter(_.isInstanceOf[NonKeyColumn])
@@ -53,10 +56,32 @@ private[hbase] case class HBaseRelation(
     case nonKey: NonKeyColumn => (nonKey.sqlName, nonKey)
   }.toMap
 
-  @transient var configuration: Configuration = null
+  // Read the configuration from (a) the serialized version if available
+  //  (b) the constructor parameter if available
+  //  (c) otherwise create a default one using HBaseConfiguration.create
+  private var serializedConfiguration: Array[Byte] = optConfiguration.map
+    { conf => Util.serializeHBaseConfiguration(conf)}.orNull
+  @transient private var config: Configuration = _
 
-  private def getConf: Configuration = if (configuration == null) HBaseConfiguration.create
-  else configuration
+  def configuration() = getConf()
+
+  private def getConf(): Configuration = {
+    if (config == null) {
+      config = if (serializedConfiguration != null) {
+        Util.deserializeHBaseConfiguration(serializedConfiguration)
+      } else {
+        optConfiguration.getOrElse {
+          HBaseConfiguration.create
+        }
+      }
+    }
+    config
+  }
+
+  logger.debug(s"HBaseRelation config has zkPort="
+    + s"${getConf.get("hbase.zookeeper.property.clientPort")}")
+
+  @transient lazy val htable: HTable = new HTable(getConf, hbaseTableName)
 
   lazy val attributes = nonKeyColumns.map(col =>
     AttributeReference(col.sqlName, col.dataType, nullable = true)())
