@@ -19,7 +19,10 @@ package org.apache.spark.sql.hbase.execution
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.{Command, LeafNode}
-import org.apache.spark.sql.hbase.{NonKeyColumn, KeyColumn, HBaseSQLContext}
+import org.apache.spark.sql.hbase.{HBaseSQLContext, KeyColumn, NonKeyColumn}
+
+import scala.collection.mutable.ArrayBuffer
+
 
 case class CreateHBaseTableCommand(
                                     tableName: String,
@@ -104,14 +107,24 @@ case class DropHbaseTableCommand(tableName: String)
   override def output: Seq[Attribute] = Seq.empty
 }
 
-
-case class ShowTablesCommand(@transient context: HBaseSQLContext)
+case class DescribeTableCommand(table: String)
+                               (@transient context: HBaseSQLContext)
   extends LeafNode with Command {
 
   override protected[sql] lazy val sideEffectResult = {
-    val tables = context.catalog.getAllTableName()
-    Seq(Row.fromSeq(tables))
+    val buffer = new ArrayBuffer[Row]()
+    val relation = context.catalog.getTable(table).get
+    relation.allColumns.foreach {
+      case keyColumn: KeyColumn =>
+        buffer.append(Row(keyColumn.sqlName, keyColumn.dataType,
+                          "KEY COLUMN", keyColumn.order))
+      case nonKeyColumn: NonKeyColumn =>
+        buffer.append(Row(nonKeyColumn.sqlName, nonKeyColumn.dataType,
+                          "NON KEY COLUMN", nonKeyColumn.family, nonKeyColumn.qualifier))
+    }
+    buffer.toSeq
   }
 
   override def output: Seq[Attribute] = Seq.empty
+
 }

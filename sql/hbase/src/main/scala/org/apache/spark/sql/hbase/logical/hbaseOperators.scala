@@ -53,7 +53,6 @@ case class BulkLoadPlan(path: String, child: LogicalPlan,
   override def toString = s"LogicalPlan: LoadDataIntoTable(LOAD $path INTO $child)"
 }
 
-
 case class InsertValueIntoTable(
                             table: LogicalPlan,
                             partition: Map[String, Option[String]],
@@ -64,3 +63,9 @@ case class InsertValueIntoTable(
   override def output = null
 
 }
+
+/**
+ * Logical plan for DESCRIBE
+ * @param table table to describe
+ */
+case class DescribePlan(table: String) extends Command
