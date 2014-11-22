@@ -93,11 +93,8 @@ object HBaseSQLCLIDriver {
     println(s"processing line: $line")
     try {
 
-      // Since we are using SqlParser to handle 'select' clause, and it does not handle ';',
-      // just work around to omit the ';'
-      val statement =
-        if (line.trim.toLowerCase.startsWith("select")) line.substring(0, line.length - 1)
-        else line
+      // Since we are using SqlParser and it does not handle ';', just work around to omit the ';'
+      val statement = line.substring(0, line.length - 1)
 
       val start = System.currentTimeMillis()
       val rdd = hbaseCtx.sql(statement)

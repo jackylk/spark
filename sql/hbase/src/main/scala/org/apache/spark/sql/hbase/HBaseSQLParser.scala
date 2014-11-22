@@ -30,6 +30,7 @@ class HBaseSQLParser extends SqlParser {
   protected val COLS = Keyword("COLS")
   protected val CREATE = Keyword("CREATE")
   protected val DATA = Keyword("DATA")
+  protected val DESCRIBE = Keyword("DESCRIBE")
   protected val DOUBLE = Keyword("DOUBLE")
   protected val DROP = Keyword("DROP")
   protected val EXISTS = Keyword("EXISTS")
@@ -65,7 +66,7 @@ class HBaseSQLParser extends SqlParser {
         | EXCEPT ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)}
         | UNION ~ DISTINCT.? ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2))}
         )
-      | insert | create | drop | alterDrop | alterAdd | load | show
+      | insert | create | drop | alterDrop | alterAdd | load | show | describe
       )
 
   override protected lazy val insert: Parser[LogicalPlan] =
@@ -187,6 +188,11 @@ class HBaseSQLParser extends SqlParser {
   // SHOW TABLES
   protected lazy val show: Parser[LogicalPlan] =
     ( SHOW ~> TABLES <~ opt(";") ^^^ ShowTablesPlan() )
+
+  protected lazy val describe: Parser[LogicalPlan] =
+    (DESCRIBE ~> ident) ^^ {
+      case tableName => DescribePlan(tableName)
+    }
 
   protected lazy val tableCol: Parser[(String, String)] =
     ident ~ (STRING | BYTE | SHORT | INT | INTEGER | LONG | FLOAT | DOUBLE | BOOLEAN) ^^ {
