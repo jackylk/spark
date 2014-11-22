@@ -147,6 +147,7 @@ class HBaseSQLParser extends SqlParser {
       (DROP ~> ident) <~ opt(";") ^^ {
       case tableName ~ colName => AlterDropColPlan(tableName, colName)
     }
+
   protected lazy val alterAdd: Parser[LogicalPlan] =
     ALTER ~> TABLE ~> ident ~
       (ADD ~> tableCol) ~

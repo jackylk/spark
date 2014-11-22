@@ -54,13 +54,14 @@ case class BulkLoadPlan(path: String, child: LogicalPlan,
 }
 
 case class InsertValueIntoTable(
-                            table: LogicalPlan,
+                            child: LogicalPlan,
                             partition: Map[String, Option[String]],
                             valueSeq: Seq[String])
-  extends LogicalPlan {
+  extends UnaryNode {
 
-  override def children = Nil
   override def output = null
+
+  override def toString = s"LogicalPlan: InsertValueIntoTable($valueSeq INTO $child)"
 
 }
 
@@ -69,4 +70,3 @@ case class InsertValueIntoTable(
  * @param tableName table to describe
  */
 case class DescribePlan(tableName: String) extends Command
-
