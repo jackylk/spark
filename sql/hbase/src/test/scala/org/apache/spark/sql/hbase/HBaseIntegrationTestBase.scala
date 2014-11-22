@@ -101,7 +101,7 @@ abstract class HBaseIntegrationTestBase(useMiniCluster: Boolean = true,
     sc = new SparkContext("local[2]", "TestSQLContext", sconf)
 
     hbaseAdmin = testUtil.getHBaseAdmin
-    hbc = new HBaseSQLContext(sc, Some(config), Some(hbaseAdmin))
+    hbc = new HBaseSQLContext(sc, Some(config))
 //    hbc.catalog.hBaseAdmin = hbaseAdmin
     println(s"In testbase: HBaseAdmin.configuration zkPort="
       + s"${hbaseAdmin.getConfiguration.get("hbase.zookeeper.property.clientPort")}")
