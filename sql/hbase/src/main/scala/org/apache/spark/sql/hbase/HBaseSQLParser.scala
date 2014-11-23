@@ -21,6 +21,16 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SparkSQLParser, SqlLexical, SqlParser}
 import org.apache.spark.sql.hbase.logical._
 
+object HBaseSQLParser {
+  def getKeywords(): Seq[String] = {
+    val hbaseSqlFields = Class.forName("org.apache.spark.sql.hbase.HBaseSQLParser").getDeclaredFields
+    val sparkSqlFields = Class.forName("org.apache.spark.sql.catalyst.SqlParser").getDeclaredFields
+    var keywords = hbaseSqlFields.filter(x => x.getName.charAt(0).isUpper).map(_.getName)
+    keywords ++= sparkSqlFields.filter(x => x.getName.charAt(0).isUpper).map(_.getName)
+    keywords.toSeq
+  }
+}
+
 class HBaseSQLParser extends SqlParser {
 
   protected val ADD = Keyword("ADD")

@@ -19,25 +19,42 @@ package org.apache.spark.sql.hbase
 
 import java.io.File
 
-import jline.{ConsoleReader, History}
-import org.apache.spark.sql.SchemaRDD
-import org.apache.spark.{SparkConf, SparkContext}
+import jline._
+import org.apache.spark.{SparkConf, SparkContext, Logging}
 
 /**
  * HBaseSQLCliDriver
  *
  */
-object HBaseSQLCLIDriver {
+object HBaseSQLCLIDriver extends Logging {
   private val prompt = "spark-hbaseql"
   private val continuedPrompt = "".padTo(prompt.length, ' ')
   private val conf = new SparkConf()
   private val sc = new SparkContext(conf)
   private val hbaseCtx = new HBaseSQLContext(sc)
 
+  private val QUIT = "QUIT"
+  private val EXIT = "EXIT"
+  private val HELP = "HELP"
+
+  def getCompletors(): Seq[Completor] = {
+    val sc: SimpleCompletor = new SimpleCompletor(new Array[String](0))
+
+    // add keywords, including lower-cased versions
+    HBaseSQLParser.getKeywords().foreach { kw =>
+      sc.addCandidateString(kw)
+      sc.addCandidateString(kw.toLowerCase)
+    }
+
+
+    Seq(sc)
+  }
+
   def main(args: Array[String]) {
 
     val reader = new ConsoleReader()
     reader.setBellEnabled(false)
+    getCompletors().foreach(reader.addCompletor)
 
     val historyDirectory = System.getProperty("user.home")
 
@@ -71,7 +88,7 @@ object HBaseSQLCLIDriver {
 
       if (line.trim.endsWith(";") && !line.trim.endsWith("\\;")) {
         line = prefix + line
-        ret = processLine(line, true)
+        processLine(line, true)
         prefix = ""
         currentPrompt = promptPrefix
       } else {
@@ -85,45 +102,83 @@ object HBaseSQLCLIDriver {
     System.exit(0)
   }
 
-  private def processLine(line: String, allowInterrupting: Boolean): Int = {
+  private def processLine(line: String, allowInterrupting: Boolean) = {
+
     // TODO: handle multiple command separated by ;
 
-    processCmd(line)
-    println(s"processing line: $line")
+    // Since we are using SqlParser and it does not handle ';', just work around to omit the ';'
+    val input = line.trim.substring(0, line.length - 1)
+
     try {
-
-      // Since we are using SqlParser and it does not handle ';', just work around to omit the ';'
-      val statement = line.substring(0, line.length - 1)
-
       val start = System.currentTimeMillis()
-      val rdd = hbaseCtx.sql(statement)
+      process(input)
       val end = System.currentTimeMillis()
-      printResult(rdd)
 
       val timeTaken: Double = (end - start) / 1000.0
       println(s"Time taken: $timeTaken seconds")
-      0
     } catch {
       case e: Exception =>
         e.printStackTrace()
-        1
+    }
+
+  }
+
+  private def process(input: String) = {
+    val token = input.split(" ")
+    token(0).toUpperCase match {
+      case QUIT => System.exit(0)
+      case EXIT => System.exit(0)
+      case HELP => printHelp(token)
+      case "!" => //TODO: add support for bash command startwith !
+      case _ => {
+        logInfo(s"Processing $input")
+        hbaseCtx.sql(input).collect().foreach(println)
+      }
     }
   }
 
-  private def printResult(result: SchemaRDD) = {
-    println("===================")
-    println("      result")
-    println("===================")
-    result.collect().foreach(println)
-  }
-
-  private def processCmd(line: String) = {
-    val cmd = line.trim.toLowerCase
-    if (cmd.startsWith("quit") || cmd.startsWith("exit")) {
-      System.exit(0)
+  private def printHelp(token: Array[String]) = {
+    if (token.length > 1) {
+      token(1).toUpperCase match {
+        case "CREATE" => {
+          println( """CREATE TABLE table_name (col_name data_type, ..., PRIMARY KEY(col_name, ...))
+                MAPPED BY (htable_name, COLS=[col_name=family_name.qualifier])""".stripMargin)
+        }
+        case "DROP" => {
+          println("DROP TABLE table_name")
+        }
+        case "ALTER" => {
+          println("ALTER TABLE table_name ADD (col_name data_type, ...) MAPPED BY (expression)")
+          println("ALTER TABLE table_name DROP col_name")
+        }
+        case "LOAD" => {
+          println( """LOAD DATA [LOCAL] INPATH file_path [OVERWRITE] INTO TABLE
+                table_name [FIELDS TERMINATED BY char]""".stripMargin)
+        }
+        case "SELECT" => {
+          println( """SELECT [ALL | DISTINCT] select_expr, select_expr, ...
+                     |FROM table_reference
+                     |[WHERE where_condition]
+                     |[GROUP BY col_list]
+                     |[CLUSTER BY col_list
+                     |  | [DISTRIBUTE BY col_list] [SORT BY col_list]
+                     |]
+                     |[LIMIT number]""")
+        }
+        case "INSERT" => {
+          println("INSERT INTO table_name SELECT clause")
+          println("INSERT INTO table_name VALUES (value, ...)")
+        }
+        case "DESCRIBE" => {
+          println("DESCRIBE table_name")
+        }
+        case "SHOW" => {
+          println("SHOW TABLES")
+        }
+      }
     }
-
-    //TODO: add support for bash command startwith !\
+    0
   }
 
 }
+
