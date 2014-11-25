@@ -19,6 +19,7 @@ package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.SparkContext
+import org.apache.spark.sql.catalyst.types._
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.ArrayBuffer
@@ -28,10 +29,10 @@ import scala.collection.mutable.ArrayBuffer
  */
 private[hbase]
 class HadoopReader(
-    @transient sc: SparkContext,
-    @transient job: Job,
-    path: String,
-    delimiter: Option[String])(columns: Seq[AbstractColumn]) {
+                    @transient sc: SparkContext,
+                    @transient job: Job,
+                    path: String,
+                    delimiter: Option[String])(columns: Seq[AbstractColumn]) {
   // make RDD[(SparkImmutableBytesWritable, SparkKeyValue)] from text file
   private[hbase] def makeBulkLoadRDDFromTextFile = {
 
@@ -40,9 +41,11 @@ class HadoopReader(
     // use to fix serialize issue
     val cls = columns
     // Todo: use mapPartitions more better
+    val keyBytes = ListBuffer[(Array[Byte], DataType)]()
+    val valueBytes = ListBuffer[(Array[Byte], Array[Byte], Array[Byte])]()
     val buffer = ListBuffer[Byte]()
     rdd.map { line =>
-      val (keyBytes, valueBytes) = HBaseKVHelper.string2KV(line.split(splitRegex), cls)
+      HBaseKVHelper.string2KV(line.split(splitRegex), cls, keyBytes, valueBytes)
       val rowKeyData = HBaseKVHelper.encodingRawKeyColumns(buffer, keyBytes)
       val rowKey = new ImmutableBytesWritableWrapper(rowKeyData)
       val put = new PutWrapper(rowKeyData)
