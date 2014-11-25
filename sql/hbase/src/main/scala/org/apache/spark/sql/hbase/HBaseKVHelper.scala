@@ -79,13 +79,20 @@ object HBaseKVHelper {
     listBuffer.toSeq
   }
 
-  def string2KV(values: Seq[String],
-                columns: Seq[AbstractColumn],
-                keyBytes: ListBuffer[(Array[Byte], DataType)],
-                valueBytes: ListBuffer[(Array[Byte], Array[Byte], Array[Byte])]) = {
+  /**
+   * Takes a record, translate it into HBase row key column and value by matching with metadata
+   * @param values record that as a sequence of string
+   * @param columns metadata that contains KeyColumn and NonKeyColumn
+   * @return 1. array of (key column and its type);
+   *         2. array of (column family, column qualifier, value)
+   */
+  def string2KV(values: Seq[String], columns: Seq[AbstractColumn]):
+  (Seq[(Array[Byte], DataType)], Seq[(Array[Byte], Array[Byte], Array[Byte])]) = {
     assert(values.length == columns.length)
-    keyBytes.clear()
-    valueBytes.clear()
+
+    // TODO: better to let caller allocate the buffer to avoid creating a new buffer everytime
+    val keyBytes = new ArrayBuffer[(Array[Byte], DataType)]()
+    val valueBytes = new ArrayBuffer[(Array[Byte], Array[Byte], Array[Byte])]()
     for (i <- 0 until values.length) {
       val value = values(i)
       val column = columns(i)
@@ -97,6 +104,7 @@ object HBaseKVHelper {
         valueBytes += ((Bytes.toBytes(realCol.family), Bytes.toBytes(realCol.qualifier), bytes))
       }
     }
+    (keyBytes, valueBytes)
   }
 
   private def string2Bytes(v: String, dataType: DataType, bu: BytesUtils): Array[Byte] = {
