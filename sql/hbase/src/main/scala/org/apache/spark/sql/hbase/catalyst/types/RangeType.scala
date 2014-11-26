@@ -18,6 +18,7 @@ package org.apache.spark.sql.hbase.catalyst.types
 
 import java.sql.Timestamp
 
+import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.types._
 
 import scala.collection.immutable.HashMap
@@ -39,9 +40,10 @@ class Range[T](val start: Option[T], // None for open ends
 
 // HBase ranges:
 // @param
-// id: partition id to be used to map to a HBase partition
+// id: partition id to be used to map to a HBase physical partition
 class PartitionRange[T](start: Option[T], startInclusive: Boolean,
-                        end: Option[T], endInclusive: Boolean, val id: Int, dt: NativeType)
+                        end: Option[T], endInclusive: Boolean,
+                        val id: Int, dt: NativeType, var pred: Expression)
   extends Range[T](start, startInclusive, end, endInclusive, dt)
 
 // A PointRange is a range of a single point. It is used for convenience when

@@ -29,10 +29,9 @@ import scala.collection.mutable.ArrayBuffer
  */
 private[hbase]
 class HadoopReader(
-                    @transient sc: SparkContext,
-                    @transient job: Job,
-                    path: String,
-                    delimiter: Option[String])(columns: Seq[AbstractColumn]) {
+                   @transient sc: SparkContext,
+                   path: String,
+                   delimiter: Option[String])(columns: Seq[AbstractColumn]) {
   // make RDD[(SparkImmutableBytesWritable, SparkKeyValue)] from text file
   private[hbase] def makeBulkLoadRDDFromTextFile = {
 

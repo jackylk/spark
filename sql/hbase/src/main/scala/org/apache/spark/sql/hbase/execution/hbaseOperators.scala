@@ -45,13 +45,10 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
  */
 @DeveloperApi
 case class HBaseSQLTableScan(
-                              relation: HBaseRelation,
-                              output: Seq[Attribute],
-                              rowKeyPredicate: Option[Expression],
-                              valuePredicate: Option[Expression],
-                              partitionPredicate: Option[Expression],
-                              coProcessorPlan: Option[SparkPlan])
-                            (@transient context: HBaseSQLContext)
+                        relation: HBaseRelation,
+                        output: Seq[Attribute],
+                        filterPredicate: Option[Expression],
+                        coProcessorPlan: Option[SparkPlan])(@transient context: HBaseSQLContext)
   extends LeafNode {
 
   override def outputPartitioning = {
@@ -65,10 +62,9 @@ case class HBaseSQLTableScan(
   override def execute(): RDD[Row] = {
     new HBaseSQLReaderRDD(
       relation,
+      context.codegenEnabled,
       output,
-      rowKeyPredicate, // TODO:convert to column pruning preds
-      valuePredicate,
-      partitionPredicate, // PartitionPred : Option[Expression]
+      filterPredicate, // PartitionPred : Option[Expression]
       None, // coprocSubPlan: SparkPlan
       context
     )
@@ -176,14 +172,14 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
 
   val conf = hbContext.sc.hadoopConfiguration
 
-  val job = new Job(conf)
+  val job = Job.getInstance(conf)
 
   val hadoopReader = if (isLocal) {
     val fs = FileSystem.getLocal(conf)
     val pathString = fs.pathToFile(new Path(path)).getCanonicalPath
-    new HadoopReader(hbContext.sparkContext, job, pathString, delimiter)(relation.allColumns)
+    new HadoopReader(hbContext.sparkContext, pathString, delimiter)(relation.allColumns)
   } else {
-    new HadoopReader(hbContext.sparkContext, job, path, delimiter)(relation.allColumns)
+    new HadoopReader(hbContext.sparkContext, path, delimiter)(relation.allColumns)
   }
 
   // tmp path for storing HFile

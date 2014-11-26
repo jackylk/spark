@@ -66,15 +66,13 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
         val scanBuilder: (Seq[Attribute] => SparkPlan) = HBaseSQLTableScan(
           relation,
           _,
-          None, // row key predicate
-          None, // value predicate
           filterPred, // partition predicate
           None // coprocSubPlan
         )(hbaseSQLContext)
 
         pruneFilterProject(
           projectList,
-          inPredicates,
+          Nil, // all predicates are either pushed down to HBase or to the Scan iterator
           identity[Seq[Expression]], // removeRowKeyPredicates,
           scanBuilder) :: Nil
 

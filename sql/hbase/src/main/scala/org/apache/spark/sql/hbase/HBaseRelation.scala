@@ -21,7 +21,7 @@ import java.util.ArrayList
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.client.{Get, HTable, Put, Result, Scan}
-import org.apache.hadoop.hbase.filter.{Filter, FilterList, _}
+import org.apache.hadoop.hbase.filter._
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.log4j.Logger
 import org.apache.spark.Partition
@@ -30,6 +30,7 @@ import org.apache.spark.sql.catalyst.plans.logical.LeafNode
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.hbase.catalyst.expressions.PartialPredicateOperations._
 import org.apache.spark.sql.hbase.catalyst.types.PartitionRange
+import org.apache.spark.sql.hbase.catalyst.NOTPusher
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
@@ -89,6 +90,14 @@ private[hbase] case class HBaseRelation(
   //  lazy val colFamilies = nonKeyColumns.map(_.family).distinct
   //  lazy val applyFilters = false
 
+  def isNonKey(attr: AttributeReference): Boolean = {
+    attributes.exists(_.exprId == attr.exprId)
+  }
+
+  def keyIndex(attr: AttributeReference): Int = {
+    // -1 if nonexistent
+    partitionKeys.indexWhere(_.exprId == attr.exprId)
+  }
   def closeHTable() = htable.close
 
   val output: Seq[Attribute] = {
@@ -105,14 +114,14 @@ private[hbase] case class HBaseRelation(
     regionLocations.zipWithIndex.map {
       case p =>
         new HBasePartition(
-          p._2,
+          p._2, p._2,
           Some(p._1._1.getStartKey),
           Some(p._1._1.getEndKey),
           Some(p._1._2.getHostname))
     }
   }
 
-  private def generateRange(partition: HBasePartition,
+  private def generateRange(partition: HBasePartition, pred: Expression,
                             index: Int):
   (PartitionRange[_]) = {
     def getData(dt: NativeType,
@@ -134,7 +143,7 @@ private[hbase] case class HBaseRelation(
     val end = getData(dt, buffer, partition.upperBound)
     val startInclusive = !start.isEmpty
     val endInclusive = !end.isEmpty && !isLastKeyIndex
-    new PartitionRange(start, startInclusive, end, endInclusive, partition.index, dt)
+    new PartitionRange(start, startInclusive, end, endInclusive, partition.index, dt, pred)
   }
 
   private def prePruneRanges(ranges: Seq[PartitionRange[_]], keyIndex: Int)
@@ -148,7 +157,7 @@ private[hbase] case class HBaseRelation(
       // the first portion is of those ranges of equal start and end values of the
       // previous dimensions so they can be subject to further checks on the next dimension
       val (p1, p2) = ranges.partition(p => p.start == p.end)
-      (p2, p1.map(p => generateRange(partitions(p.id), keyIndex)))
+      (p2, p1.map(p => generateRange(partitions(p.id), p.pred, keyIndex)))
     }
   }
 
@@ -163,7 +172,7 @@ private[hbase] case class HBaseRelation(
       } yield (keyIndex, predIndex)).toMap
 
       val row = new GenericMutableRow(predRefs.size)
-      var notPrunedRanges = partitions.map(generateRange(_, 0))
+      var notPrunedRanges = partitions.map(generateRange(_, null, 0))
       var prunedRanges: Seq[PartitionRange[_]] = Nil
 
       for (keyIndex <- 0 until keyColumns.size; if (!notPrunedRanges.isEmpty)) {
@@ -192,13 +201,93 @@ private[hbase] case class HBaseRelation(
       } else {
         val prunedRanges: Seq[PartitionRange[_]] = getPrunedRanges(pred)
         println("prunedRanges: " + prunedRanges.length)
-        val result = Some(prunedRanges.map(p => partitions(p.id)))
+        var idx: Int = -1
+        val result = Some(prunedRanges.map(p => {
+          val par = partitions(p.id)
+          idx = idx + 1
+          if (p.pred == null) {
+            new HBasePartition(idx, par.mappedIndex, par.lowerBound, par.upperBound, par.server)
+          } else {
+            new HBasePartition(idx, par.mappedIndex, par.lowerBound, par.upperBound,
+              par.server, Some(p.pred))
+          }
+        }))
         result.foreach(println)
         result
       }
     }
   }
 
+  def getPrunedPartitions2(partitionPred: Option[Expression] = None)
+     : Option[Seq[HBasePartition]] = {
+    def getPrunedRanges(pred: Expression): Seq[PartitionRange[_]] = {
+      val predRefs = pred.references.toSeq
+      val boundPruningPred = BindReferences.bindReference(pred, predRefs)
+      val keyIndexToPredIndex = (for {
+        (keyColumn, keyIndex) <- keyColumns.zipWithIndex
+        (predRef, predIndex) <- predRefs.zipWithIndex
+        if (keyColumn.sqlName == predRef.name)
+      } yield (keyIndex, predIndex)).toMap
+
+      val row = new GenericMutableRow(predRefs.size)
+      var notPrunedRanges = partitions.map(generateRange(_, boundPruningPred, 0))
+      var prunedRanges: Seq[PartitionRange[_]] = Nil
+
+      for (keyIndex <- 0 until keyColumns.size; if (!notPrunedRanges.isEmpty)) {
+        val (passedRanges, toBePrunedRanges) = prePruneRanges(notPrunedRanges, keyIndex)
+        prunedRanges = prunedRanges ++ passedRanges
+        notPrunedRanges =
+          if (keyIndexToPredIndex.contains(keyIndex)) {
+            toBePrunedRanges.filter(
+              range => {
+                val predIndex = keyIndexToPredIndex(keyIndex)
+                row.update(predIndex, range)
+                val partialEvalResult = range.pred.partialReduce(row)
+                range.pred = if (partialEvalResult.isInstanceOf[Expression]) {
+                  // progressively fine tune the constraining predicate
+                  partialEvalResult.asInstanceOf[Expression]
+                } else {
+                  null
+                }
+                // MAYBE is represented by a to-be-qualified-with expression
+                partialEvalResult.isInstanceOf[Expression] ||
+                partialEvalResult.asInstanceOf[Boolean]
+              }
+            )
+          } else toBePrunedRanges
+      }
+      prunedRanges ++ notPrunedRanges
+    }
+
+    partitionPred match {
+      case None => Some(partitions)
+      case Some(pred) => if (pred.references.intersect(AttributeSet(partitionKeys)).isEmpty) {
+        // the predicate does not apply to the partitions at all; just push down the filtering
+        Some(partitions.map(p=>new HBasePartition(p.idx, p.mappedIndex, p.lowerBound,
+                               p.upperBound, p.server, Some(pred))))
+      } else {
+        val prunedRanges: Seq[PartitionRange[_]] = getPrunedRanges(pred)
+        println("prunedRanges: " + prunedRanges.length)
+        var idx: Int = -1
+        val result = Some(prunedRanges.map(p => {
+          val par = partitions(p.id)
+          idx = idx + 1
+          // pruned partitions have the same "physical" partition index, but different
+          // "canonical" index
+          if (p.pred == null) {
+            new HBasePartition(idx, par.mappedIndex, par.lowerBound,
+                               par.upperBound, par.server, None)
+          } else {
+            new HBasePartition(idx, par.mappedIndex, par.lowerBound,
+                               par.upperBound, par.server, Some(p.pred))
+          }
+        }))
+        // TODO: remove/modify the following debug info
+        // result.foreach(println)
+        result
+      }
+    }
+  }
   /**
    * Return the start keys of all of the regions in this table,
    * as a list of SparkImmutableBytesWritable.
@@ -241,6 +330,60 @@ private[hbase] case class HBaseRelation(
 
       Option(new FilterList(FilterList.Operator.MUST_PASS_ONE, filtersList.asJava))
     }
+  }
+
+  def buildFilter2(
+                   projList: Seq[NamedExpression],
+                   pred: Option[Expression]): (Option[FilterList], Option[Expression])  = {
+    var distinctProjList = projList.distinct
+    if (pred.isDefined) {
+      distinctProjList = distinctProjList.filterNot(_.references.subsetOf(pred.get.references))
+    }
+    val projFilterList = if (distinctProjList.size == allColumns.size) {
+      None
+    } else {
+      val filtersList: List[Filter] = nonKeyColumns.filter {
+        case nkc => distinctProjList.exists(nkc == _.name)
+      }.map {
+        case NonKeyColumn(_, _, family, qualifier) => {
+          val columnFilters = new ArrayList[Filter]
+          columnFilters.add(
+            new FamilyFilter(
+              CompareFilter.CompareOp.EQUAL,
+              new BinaryComparator(Bytes.toBytes(family))
+            ))
+          columnFilters.add(
+            new QualifierFilter(
+              CompareFilter.CompareOp.EQUAL,
+              new BinaryComparator(Bytes.toBytes(qualifier))
+            ))
+          new FilterList(FilterList.Operator.MUST_PASS_ALL, columnFilters)
+        }
+      }.toList
+
+      Option(new FilterList(FilterList.Operator.MUST_PASS_ONE, filtersList.asJava))
+    }
+
+    if (pred.isDefined) {
+      val predExp: Expression = pred.get
+      // build pred pushdown filters:
+      // 1. push any NOT through AND/OR
+      val notPushedPred = NOTPusher(predExp)
+      // 2. classify the transformed predicate into pushdownable and non-pushdownable predicates
+      val classfier = new ScanPredClassfier(this, 0) // Right now only on primary key dimension
+      val (pushdownFilterPred, otherPred) = classfier(notPushedPred)
+      // 3. build a FilterList mirroring the pushdownable predicate
+      val predPushdownFilterList = buildFilterListFromPred(pushdownFilterPred)
+      // 4. merge the above FilterList with the one from the projection
+      (predPushdownFilterList, otherPred)
+    } else {
+      (projFilterList, None)
+    }
+  }
+
+  private def buildFilterListFromPred(pred: Option[Expression]): Option[FilterList] = {
+    // TODO: fill in logic here
+    None
   }
 
   def buildPut(row: Row): Put = {

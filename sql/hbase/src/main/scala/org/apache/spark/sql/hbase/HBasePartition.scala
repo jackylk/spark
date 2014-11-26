@@ -17,16 +17,16 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.spark.Partition
+import org.apache.spark.sql.catalyst.expressions.Expression
 
 private[hbase] class HBasePartition(
-    idx: Int,
+    val idx: Int, val mappedIndex: Int,
     val lowerBound: Option[HBaseRawType] = None,
     val upperBound: Option[HBaseRawType] = None,
-    val server: Option[String] = None) extends Partition {
+    val server: Option[String] = None,
+    val filterPred: Option[Expression] = None) extends Partition with IndexMappable {
 
   override def index: Int = idx
 
   override def hashCode(): Int = idx
-
-
 }

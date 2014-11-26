@@ -74,7 +74,7 @@ class HBaseShuffledRDD[K, V, C](
 
   override def getPartitions: Array[Partition] = {
     if (hbPartitions.isEmpty) {
-      Array.tabulate[Partition](partitoner.numPartitions)(i => new HBasePartition(i))
+      Array.tabulate[Partition](partitoner.numPartitions)(i => new HBasePartition(i, i))
     } else {
       hbPartitions.toArray
     }
