@@ -27,7 +27,6 @@ import org.apache.spark.{InterruptibleIterator, Logging, Partition, TaskContext}
 
 /**
  * HBaseSQLReaderRDD
- * Created by sboesch on 9/16/14.
  */
 class HBaseSQLReaderRDD(
     relation: HBaseRelation,
@@ -104,7 +103,8 @@ class HBaseSQLReaderRDD(
 
   // TODO: renamed to compute and add override
   def compute2(split: Partition, context: TaskContext): Iterator[Row] = {
-    val (filters, otherFilters) = relation.buildFilter2(output, filterPred)
+    val (filters, otherFilters) = relation.buildFilter2(output,
+      split.asInstanceOf[HBasePartition].filterPred)
     val scan = relation.buildScan(split, filters, output)
     scan.setCaching(cachingSize)
     val scanner = relation.htable.getScanner(scan)
