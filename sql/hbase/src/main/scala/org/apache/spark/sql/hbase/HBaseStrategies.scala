@@ -72,7 +72,8 @@ private[hbase] trait HBaseStrategies extends QueryPlanner[SparkPlan] {
 
         pruneFilterProject(
           projectList,
-          Nil, // all predicates are either pushed down to HBase or to the Scan iterator
+          inPredicates, // TODO: replaced with the line below for enabled predicate pushdown
+          // Nil, // all predicates are either pushed down to HBase or to the Scan iterator
           identity[Seq[Expression]], // removeRowKeyPredicates,
           scanBuilder) :: Nil
 
