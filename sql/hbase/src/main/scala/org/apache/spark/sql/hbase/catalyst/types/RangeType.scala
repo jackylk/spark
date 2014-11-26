@@ -100,7 +100,8 @@ class RangeType[T] extends PartiallyOrderingDataType {
         && (aRange.dt.ordering.gt(bStart, aEnd)
         || (aRange.dt.ordering.equiv(bStart, aEnd) && !(bStartInclusive && aEndInclusive)))) {
         Some(-1)
-      } else if (aRange.dt.ordering.equiv(bStart, aEnd)
+      } else if (aStart != null && aEnd != null && bStart != null && bEnd != null &&
+        aRange.dt.ordering.equiv(bStart, aEnd)
         && aRange.dt.ordering.equiv(aStart, aEnd)
         && aRange.dt.ordering.equiv(bStart, bEnd)
         && (aStartInclusive && aEndInclusive && bStartInclusive && bEndInclusive)) {
@@ -194,9 +195,16 @@ object RangeType {
   object TimestampRangeType extends RangeType[Timestamp]
 
   val primitiveToPODataTypeMap: HashMap[NativeType, PartiallyOrderingDataType] =
-    HashMap(IntegerType -> IntegerRangeType, LongType -> LongRangeType,
-      DoubleType -> DoubleRangeType, FloatType -> FloatRangeType,
-      ByteType -> ByteRangeType, ShortType -> ShortRangeType,
-      BooleanType -> BooleanRangeType, DecimalType -> DecimalRangeType,
-      TimestampType -> TimestampRangeType)
+    HashMap(
+      IntegerType -> IntegerRangeType,
+      LongType -> LongRangeType,
+      DoubleType -> DoubleRangeType,
+      FloatType -> FloatRangeType,
+      ByteType -> ByteRangeType,
+      ShortType -> ShortRangeType,
+      BooleanType -> BooleanRangeType,
+      DecimalType -> DecimalRangeType,
+      TimestampType -> TimestampRangeType,
+      StringType -> StringRangeType
+    )
 }
