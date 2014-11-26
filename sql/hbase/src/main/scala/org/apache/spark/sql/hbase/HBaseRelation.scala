@@ -382,8 +382,104 @@ private[hbase] case class HBaseRelation(
   }
 
   private def buildFilterListFromPred(pred: Option[Expression]): Option[FilterList] = {
-    // TODO: fill in logic here
-    None
+    var result: Option[FilterList] = None
+    val filters = new ArrayList[Filter]
+    if (pred.isDefined) {
+      val expression = pred.get
+      expression match {
+        case And(left, right) => {
+          if (left != null) {
+            val leftFilterList = buildFilterListFromPred(Some(left))
+            if (leftFilterList.isDefined) {
+              filters.add(leftFilterList.get)
+            }
+          }
+          if (right != null) {
+            val rightFilterList = buildFilterListFromPred(Some(right))
+            if (rightFilterList.isDefined) {
+              filters.add(rightFilterList.get)
+            }
+          }
+          result = Option(new FilterList(FilterList.Operator.MUST_PASS_ALL, filters))
+        }
+        case Or(left, right) => {
+          if (left != null) {
+            val leftFilterList = buildFilterListFromPred(Some(left))
+            if (leftFilterList.isDefined) {
+              filters.add(leftFilterList.get)
+            }
+          }
+          if (right != null) {
+            val rightFilterList = buildFilterListFromPred(Some(right))
+            if (rightFilterList.isDefined) {
+              filters.add(rightFilterList.get)
+            }
+          }
+          result = Option(new FilterList(FilterList.Operator.MUST_PASS_ONE, filters))
+        }
+        case GreaterThan(left: AttributeReference, right: Literal) => {
+          if (keyColumns.map(_.sqlName).contains(left.name)) {
+            val filter = new RowFilter(CompareFilter.CompareOp.GREATER,
+              new BinaryComparator(Bytes.toBytes(right.value.toString)))
+            result = Option(new FilterList(filter))
+          }
+          else if (nonKeyColumns.map(_.sqlName).contains(left.name)) {
+            val filter = new RowFilter(CompareFilter.CompareOp.GREATER,
+              new BinaryComparator(Bytes.toBytes(right.value.toString)))
+            result = Option(new FilterList(filter))
+          }
+        }
+        case GreaterThanOrEqual(left: AttributeReference, right: Literal) => {
+          if (keyColumns.map(_.sqlName).contains(left.name)) {
+            val filter = new RowFilter(CompareFilter.CompareOp.GREATER_OR_EQUAL,
+              new BinaryComparator(Bytes.toBytes(right.value.toString)))
+            result = Option(new FilterList(filter))
+          }
+          else if (nonKeyColumns.map(_.sqlName).contains(left.name)) {
+            val filter = new RowFilter(CompareFilter.CompareOp.GREATER_OR_EQUAL,
+              new BinaryComparator(Bytes.toBytes(right.value.toString)))
+            result = Option(new FilterList(filter))
+          }
+        }
+        case EqualTo(left: AttributeReference, right: Literal) => {
+          if (keyColumns.map(_.sqlName).contains(left.name)) {
+            val filter = new RowFilter(CompareFilter.CompareOp.EQUAL,
+              new BinaryComparator(Bytes.toBytes(right.value.toString)))
+            result = Option(new FilterList(filter))
+          }
+          else if (nonKeyColumns.map(_.sqlName).contains(left.name)) {
+            val filter = new RowFilter(CompareFilter.CompareOp.EQUAL,
+              new BinaryComparator(Bytes.toBytes(right.value.toString)))
+            result = Option(new FilterList(filter))
+          }
+        }
+        case LessThan(left: AttributeReference, right: Literal) => {
+          if (keyColumns.map(_.sqlName).contains(left.name)) {
+            val filter = new RowFilter(CompareFilter.CompareOp.LESS,
+              new BinaryComparator(Bytes.toBytes(right.value.toString)))
+            result = Option(new FilterList(filter))
+          }
+          else if (nonKeyColumns.map(_.sqlName).contains(left.name)) {
+            val filter = new RowFilter(CompareFilter.CompareOp.LESS,
+              new BinaryComparator(Bytes.toBytes(right.value.toString)))
+            result = Option(new FilterList(filter))
+          }
+        }
+        case LessThanOrEqual(left: AttributeReference, right: Literal) => {
+          if (keyColumns.map(_.sqlName).contains(left.name)) {
+            val filter = new RowFilter(CompareFilter.CompareOp.LESS_OR_EQUAL,
+              new BinaryComparator(Bytes.toBytes(right.value.toString)))
+            result = Option(new FilterList(filter))
+          }
+          else if (nonKeyColumns.map(_.sqlName).contains(left.name)) {
+            val filter = new RowFilter(CompareFilter.CompareOp.LESS_OR_EQUAL,
+              new BinaryComparator(Bytes.toBytes(right.value.toString)))
+            result = Option(new FilterList(filter))
+          }
+        }
+      }
+    }
+    result
   }
 
   def buildPut(row: Row): Put = {
