@@ -24,15 +24,56 @@ import org.scalatest.FunSuite
 /**
  * scala test unit
  * using Practical Machine Learning Book data test the apriori algorithm result by minSupport from 0.9 to 0.1
- * Created by z00143870 on 2014/8/26.
  */
 class AprioriSuite extends FunSuite with LocalSparkContext {
 
-  test("test FIM with Apriori dataset 1")
+  test("test FIM with AprioriByBroadcast dataset 1")
   {
     val arr = AprioriSuite.createFIMDataSet1()
-    //val target: (RDD[Array[String]], Double, SparkContext) => Array[(String, Int)]= AprioriArray.apriori
-    val target: (RDD[Array[String]], Double, SparkContext) => Array[(Set[String], Int)]= AprioriCartesian.apriori
+    val target: (RDD[Array[String]], Double, SparkContext) => Array[(Set[String], Int)]= AprioriByBroadcast.apriori
+
+    val dataSet = sc.parallelize(arr)
+    val rdd = dataSet.map(line => line.split(" "))
+
+    for (i <- 1 to 9){
+      println(s"frequent item set with support ${i/10d}")
+      target(rdd, i/10d, sc).foreach(x => print("(" + x._1 + "), "))
+      println()
+    }
+  }
+
+  test("test FIM with AprioriByBroadcast dataset 2")
+  {
+    val arr = AprioriSuite.createFIMDataSet2()
+    val target: (RDD[Array[String]], Double, SparkContext) => Array[(Set[String], Int)]= AprioriByBroadcast.apriori
+
+    val dataSet = sc.parallelize(arr)
+    val rdd = dataSet.map(line => line.split(" "))
+
+    assert(target(rdd,0.9,sc).length == 0)
+
+    assert(target(rdd,0.8,sc).length == 1)
+
+    assert(target(rdd,0.7,sc).length == 1)
+
+    assert(target(rdd,0.6,sc).length == 2)
+
+    assert(target(rdd,0.5,sc).length == 18)
+
+    assert(target(rdd,0.4,sc).length == 18)
+
+    assert(target(rdd,0.3,sc).length == 54)
+
+    assert(target(rdd,0.2,sc).length == 54)
+
+    assert(target(rdd,0.1,sc).length == 625)
+
+  }
+
+  test("test FIM with AprioriByCartesian dataset 1")
+  {
+    val arr = AprioriSuite.createFIMDataSet1()
+    val target: (RDD[Array[String]], Double, SparkContext) => Array[(Set[String], Int)]= AprioriByCartesian.apriori
 
     val dataSet = sc.parallelize(arr)
     val rdd = dataSet.map(line => line.split(" "))
@@ -45,11 +86,10 @@ class AprioriSuite extends FunSuite with LocalSparkContext {
 
     
   }
-  test("test FIM with Apriori dataset 2")
+  test("test FIM with AprioriByCartesian dataset 2")
   {
     val arr = AprioriSuite.createFIMDataSet2()
-    //val target: (RDD[Array[String]], Double, SparkContext) => Array[(String, Int)]= AprioriArray.apriori
-    val target: (RDD[Array[String]], Double, SparkContext) => Array[(Set[String], Int)]= AprioriCartesian.apriori
+    val target: (RDD[Array[String]], Double, SparkContext) => Array[(Set[String], Int)]= AprioriByCartesian.apriori
 
     val dataSet = sc.parallelize(arr)
     val rdd = dataSet.map(line => line.split(" "))

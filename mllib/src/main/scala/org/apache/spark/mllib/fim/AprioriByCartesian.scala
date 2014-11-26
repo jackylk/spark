@@ -1,13 +1,33 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.spark.mllib.fim
 
-import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext._
+import org.apache.spark.rdd.RDD
 import org.apache.spark.{Logging, SparkContext}
 
 /**
- * Created by l00215684 on 2014/10/18.
+ * Calculate frequent item set using Apriori algorithm with minSupport.
+ * The apriori algorithm have two steps:
+ * step one is scan the data set to get L1 by minSuppprt
+ * step two is scan the data set multiple to get Lk
  */
-object AprioriCartesian  extends Logging with Serializable {
+object AprioriByCartesian extends Logging with Serializable {
 
   /**
    * create L1
@@ -16,7 +36,7 @@ object AprioriCartesian  extends Logging with Serializable {
    * @return L1
    */
   def aprioriStepOne(dataSet: RDD[Set[String]],
-                        minCount: Double): RDD[(Set[String], Int)] = {
+                     minCount: Double): RDD[(Set[String], Int)] = {
     dataSet.flatMap(line => line)
       .map(v => (v, 1))
       .reduceByKey(_ + _)
@@ -31,16 +51,16 @@ object AprioriCartesian  extends Logging with Serializable {
    * @return Lk
    */
   def scanD(dataSet: RDD[Set[String]],
-               Ck: RDD[Set[String]],
-               minCount: Double,
-               sc: SparkContext): RDD[(Set[String], Int)] = {
+            Ck: RDD[Set[String]],
+            minCount: Double,
+            sc: SparkContext): RDD[(Set[String], Int)] = {
 
     dataSet.cartesian(Ck).map(x =>
       if (x._2.subsetOf(x._1)) {
         (x._2, 1)
       } else {
         (x._2, 0)
-      }).reduceByKey(_+_).filter(x => x._2 >= minCount)
+      }).reduceByKey(_ + _).filter(x => x._2 >= minCount)
   }
 
   /**
@@ -68,8 +88,8 @@ object AprioriCartesian  extends Logging with Serializable {
    * @return frequent item sets
    */
   def apriori(input: RDD[Array[String]],
-                 minSupport: Double,
-                 sc: SparkContext): Array[(Set[String], Int)] = {
+              minSupport: Double,
+              sc: SparkContext): Array[(Set[String], Int)] = {
 
     //dataSet length
     val dataSetLen: Long = input.count()
@@ -82,34 +102,34 @@ object AprioriCartesian  extends Logging with Serializable {
     val L = collection.mutable.ArrayBuffer[RDD[(Set[String], Int)]]()
 
     val L1: RDD[(Set[String], Int)] = aprioriStepOne(dataSet, minCount)
-    if (L1.count() < 0) {
-      return Array[(Set[String], Int)]()
+    if (L1.count() > 0) {
+      L += L1
+      var Lk = L1
+
+      // step counter
+      var k = 2
+
+      while (L(k - 2).count() > 1) {
+
+        // get candidate of frequent item set
+        val Ck: RDD[Set[String]] = aprioriGen(L(k - 2).map(x => x._1), k)
+
+        // scan input data set to calculate degree of support for each candidate,
+        // and filter out the one not ineligible
+        Lk = scanD(dataSet, Ck, minCount, sc)
+
+        k = k + 1
+        L += Lk
+      }
+      //return all result in L
+      val retArr = collection.mutable.ArrayBuffer[(Set[String], Int)]()
+      for (l <- L) {
+        retArr.appendAll(l.collect())
+      }
+      retArr.toArray
+    } else {
+      Array[(Set[String], Int)]()
     }
-
-    L += L1
-    var Lk = L1
-
-    // step counter
-    var k = 2
-
-    while (L(k - 2).count() > 1) {
-
-      // get candidate of frequent item set
-      val Ck: RDD[Set[String]] = aprioriGen(L(k - 2).map(x => x._1), k)
-
-      // scan input data set to calculate degree of support for each candidate,
-      // and filter out the one not ineligible
-      Lk = scanD(dataSet, Ck, minCount, sc)
-
-      k = k + 1
-      L += Lk
-    }
-    //return all result in L
-    val retArr = collection.mutable.ArrayBuffer[(Set[String], Int)]()
-    for (l <- L) {
-      retArr.appendAll(l.collect())
-    }
-    retArr.toArray
   }
 
   def printLk(Lk: RDD[(Set[String], Int)], k: Int) {
@@ -117,8 +137,9 @@ object AprioriCartesian  extends Logging with Serializable {
     Lk.collect().foreach(x => print("(" + x._1 + ", " + x._2 + ") "))
     println()
   }
+
   def printCk(Ck: RDD[Set[String]], k: Int) {
-    print("C" + (k - 2) + " size "+ Ck.count() + " value: ")
+    print("C" + (k - 2) + " size " + Ck.count() + " value: ")
     Ck.collect().foreach(print)
     println()
   }

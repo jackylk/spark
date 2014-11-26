@@ -22,7 +22,6 @@ import org.apache.spark.mllib.util.LocalSparkContext
 /**
  * scala test unit
  * using Practical Machine Learning Book data test the FPGrowth algorithm result by minSupport from 0.9 to 0.1
- * Created by z00143870 on 2014/8/26.
  */
 class FPGrowthSuite  extends FunSuite with LocalSparkContext {
 

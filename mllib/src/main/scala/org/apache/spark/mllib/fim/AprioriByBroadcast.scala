@@ -16,7 +16,6 @@
  */
 package org.apache.spark.mllib.fim
 
-
 import org.apache.spark.SparkContext._
 import org.apache.spark.broadcast._
 import org.apache.spark.rdd.RDD
@@ -28,8 +27,7 @@ import org.apache.spark.{Logging, SparkContext}
  * step one is scan the data set to get L1 by minSuppprt
  * step two is scan the data set multiple to get Lk
  */
-object AprioriArray extends Logging with Serializable {
-
+object AprioriByBroadcast extends Logging with Serializable {
 
   /**
    * Create C1 which contains all of single item in data Set.
@@ -49,8 +47,7 @@ object AprioriArray extends Logging with Serializable {
       itemArrCollection += Array[String](item)
     }
 
-    return itemArrCollection.toArray
-
+    itemArrCollection.toArray
   }
 
 
@@ -78,7 +75,6 @@ object AprioriArray extends Logging with Serializable {
       .collect()
 
     Lk
-
   }
 
 
@@ -106,15 +102,12 @@ object AprioriArray extends Logging with Serializable {
         dbLineArrayBuffer ++= Array[(String)](bdString)
         k = k + 1
       }
-
     }
 
     if (k == 0) {
       dbLineArrayBuffer ++= Array[(String)]("")
     }
-
-    return dbLineArrayBuffer.toArray.array
-
+    dbLineArrayBuffer.toArray.array
   }
 
   /**
@@ -142,16 +135,13 @@ object AprioriArray extends Logging with Serializable {
         if (L1.mkString.equals(L2.mkString)) {
           CkBuffer.append((Lk(i)._1.toSet ++ Lk(j)._1.toSet).toArray)
         }
-
       }
 
-
     if (CkBuffer.length > 0) {
-      return CkBuffer.toArray.array
+      CkBuffer.toArray.array
     } else {
-      return null
+      null
     }
-
   }
 
   /**
@@ -176,8 +166,7 @@ object AprioriArray extends Logging with Serializable {
    * @return line tpye (Array[String],Int)
    */
   def line2Array(line: (String, Int)): (Array[String], Int) = {
-    val arr = Array[String](line._1)
-    return (arr, line._2)
+    (Array[String](line._1), line._2)
   }
 
   /**
@@ -191,8 +180,8 @@ object AprioriArray extends Logging with Serializable {
    * @return frequent item sets
    */
   def apriori(dataSet: RDD[Array[String]],
-                   minSupport: Double,
-                   sc: SparkContext): Array[(String, Int)] = {
+              minSupport: Double,
+              sc: SparkContext): Array[(Set[String], Int)] = {
 
     //dataSet length
     val dataSetLen: Long = dataSet.count()
@@ -201,7 +190,7 @@ object AprioriArray extends Logging with Serializable {
 
     //definite L collection that using save all of frequent item set
     val L = collection.mutable.ArrayBuffer[Array[(Array[String], Int)]]()
-    val FIS = collection.mutable.ArrayBuffer[(String, Int)]()
+    val FIS = collection.mutable.ArrayBuffer[(Set[String], Int)]()
 
     //call aprioriStepOne method to get L1
     val L1: Array[(Array[String], Int)] = aprioriStepOne(dataSet, minCount)
@@ -213,7 +202,7 @@ object AprioriArray extends Logging with Serializable {
       L += L1
 
       for (arr <- L1) {
-        FIS += ((arr._1.mkString(" "), arr._2))
+        FIS.append((arr._1.toSet, arr._2))
       }
 
       // step counter
@@ -236,23 +225,19 @@ object AprioriArray extends Logging with Serializable {
           L += Lk
 
           for (arr <- Lk) {
-            FIS += ((arr._1.mkString(" "), arr._2))
+            FIS.append((arr._1.toSet, arr._2))
           }
 
           k = k + 1
-
         }
         else {
           k = -1
         }
       }
-
-      //return L.toArray.array
-      FIS.toArray.array
+      FIS.toArray
     }
     else {
-      //return Array[Array[(Array[String], Int)]]()
-      Array[(String, Int)]()
+      Array[(Set[String], Int)]()
     }
   }
 

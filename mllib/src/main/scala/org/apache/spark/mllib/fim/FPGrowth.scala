@@ -14,23 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.mllib.fim
 
+package org.apache.spark.mllib.fim
 
 import org.apache.spark.{Logging, SparkContext}
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.broadcast._
 
-
 /**
- * Created by z00143870 on 2014/7/30.
  * calculate frequent item set using FPGrowth algorithm with dada set and minSupport
  * the FPGrowth algorithm have two step task
  * step one is scaning data db to get L1 by minSuppprt
  * step two is scan data db once to get Lk
  */
-class FPGrowth extends Logging with Serializable{
+class FPGrowth extends Logging with Serializable {
 
   /**
    * FPGrowth algorithm：
@@ -41,22 +39,21 @@ class FPGrowth extends Logging with Serializable{
    * @param minSuport The minimum degree of support
    * @return frequent item sets
    */
-  def FPGrowth(RDD:RDD[Array[String]],
-               minSuport:Double,
-               sc: SparkContext):Array[(String,Int)]=
-  {
+  def FPGrowth(RDD: RDD[Array[String]],
+               minSuport: Double,
+               sc: SparkContext): Array[(String, Int)] = {
     val count = RDD.count()
     logDebug("data set count:" + count)
     val minCount = minSuport * count
     logDebug("minSuppot count:" + minSuport)
 
     //one times scan data db to get L1
-    val L1 = FPGStepOne(RDD,minCount)
+    val L1 = FPGStepOne(RDD, minCount)
     logDebug("L1 length:" + L1.length)
     logDebug("L1:" + L1)
 
     //two times scan data db to get Ln
-    val Ln = FPGStepTwo(sc,RDD,minCount,L1)
+    val Ln = FPGStepTwo(sc, RDD, minCount, L1)
     //add L1 and Ln to get fim
     val fim = L1 ++ Ln
 
@@ -70,17 +67,15 @@ class FPGrowth extends Logging with Serializable{
    * @param minCount The minimum degree of support
    * @return L1
    */
-  def FPGStepOne(RDD:RDD[Array[String]],
-                 minCount:Double):Array[(String,Int)]=
-  {
+  def FPGStepOne(RDD: RDD[Array[String]],
+                 minCount: Double): Array[(String, Int)] = {
     RDD.flatMap(v => v)
-      .map(v => (v,1))
-      .reduceByKey(_+_)
+      .map(v => (v, 1))
+      .reduceByKey(_ + _)
       .filter(_._2 >= minCount)
       .collect()
       .distinct
       .sortWith(_._2 > _._2)
-
   }
 
   /**
@@ -92,17 +87,16 @@ class FPGrowth extends Logging with Serializable{
    * @return Ln
    */
   def FPGStepTwo(sc: SparkContext,
-                 RDD:RDD[Array[String]],
-                 minCount:Double,
-                 L1:Array[(String,Int)]):Array[(String,Int)]=
-  {
+                 RDD: RDD[Array[String]],
+                 minCount: Double,
+                 L1: Array[(String, Int)]): Array[(String, Int)] = {
     //broadcast L1
     val bdL1 = sc.broadcast(L1)
     //val bdL1List = bdL1.value
 
-    RDD.flatMap(line => L12LineMap(line,bdL1))
+    RDD.flatMap(line => L12LineMap(line, bdL1))
       .groupByKey()
-      .flatMap(line => FPTree(line,minCount))
+      .flatMap(line => FPTree(line, minCount))
       .collect()
 
   }
@@ -118,21 +112,18 @@ class FPGrowth extends Logging with Serializable{
    * @param bdL1 L1
    * @return CFP-Tree
    */
-  def L12LineMap(line:Array[String],
-                 bdL1:Broadcast[Array[(String,Int)]]):Array[(String,Array[String])]=
-  {
+  def L12LineMap(line: Array[String],
+                 bdL1: Broadcast[Array[(String, Int)]]): Array[(String, Array[String])] = {
     // broadcast value
     val bdL1List = bdL1.value
     // the result variable
-    var lineArrayBuffer = collection.mutable.ArrayBuffer[(String,Int)]()
+    var lineArrayBuffer = collection.mutable.ArrayBuffer[(String, Int)]()
 
-    for (item <- line)
-    {
+    for (item <- line) {
 
       val opt = bdL1List.find(_._1.equals(item))
 
-      if(opt != None)
-      {
+      if (opt != None) {
         lineArrayBuffer ++= opt
       }
 
@@ -145,7 +136,7 @@ class FPGrowth extends Logging with Serializable{
       .toArray
 
 
-    var arrArrayBuffer = collection.mutable.ArrayBuffer[(String,Array[String])]()
+    var arrArrayBuffer = collection.mutable.ArrayBuffer[(String, Array[String])]()
 
     /**
      * give (a,4) (b 3),(c,3),after
@@ -153,20 +144,17 @@ class FPGrowth extends Logging with Serializable{
      * c，（(a,4) (b 3)）
      */
     var arrBuffer = collection.mutable.ArrayBuffer[String]()
-    for (item <- lineArray)
-    {
-      val arr =lineArray.take(lineArray.indexOf(item))
+    for (item <- lineArray) {
+      val arr = lineArray.take(lineArray.indexOf(item))
 
       arrBuffer.clear()
 
-      if (arr.length > 0)
-      {
-        for (tempArr <- arr)
-        {
+      if (arr.length > 0) {
+        for (tempArr <- arr) {
           //remain key
           arrBuffer += tempArr._1
         }
-        arrArrayBuffer += ((item._1,arrBuffer.toArray))
+        arrArrayBuffer += ((item._1, arrBuffer.toArray))
       }
 
     }
@@ -181,45 +169,38 @@ class FPGrowth extends Logging with Serializable{
    * @param minCount The minimum degree of support
    * @return fim
    */
-  def FPTree(line:(String,Iterable[Array[String]]),minCount:Double):Array[(String,Int)]=
-  {
+  def FPTree(line: (String, Iterable[Array[String]]), minCount: Double): Array[(String, Int)] = {
     // frequently item
     val key = line._1
     // the set of construction CPFTree
     val value = line._2
 
-    val _lineBuffer = collection.mutable.ArrayBuffer[(String,Int)]()
+    val _lineBuffer = collection.mutable.ArrayBuffer[(String, Int)]()
     val map = scala.collection.mutable.Map[String, Int]()
     // tree step
     var k = 1
     // loop the data set while k>0
-    while(k > 0)
-    {
+    while (k > 0) {
       map.clear()
 
       // loop data set
-      for (it <- value)
-      {
-        if (it.length >= k)
-        {
+      for (it <- value) {
+        if (it.length >= k) {
           // from m get n combinations,using scala method
           val lineCom = it.toList.combinations(k).toList
 
           // add key to combination
-          for (item <- lineCom)
-          {
+          for (item <- lineCom) {
             // sort array
-            val list2key:List[String] = (item :+ key)
+            val list2key: List[String] = (item :+ key)
               .sortWith(_ > _)
 
             val s = list2key.mkString(" ")
 
-            if (map.get(s) == None)
-            {
-              map(s) =1
+            if (map.get(s) == None) {
+              map(s) = 1
             }
-            else
-            {
+            else {
               map(s) = map.apply(s) + 1
             }
           }
@@ -228,13 +209,11 @@ class FPGrowth extends Logging with Serializable{
 
       var line: Array[(String, Int)] = null
 
-      if (map.size!=0)
-      {
+      if (map.size != 0) {
         // get fim set
         val lineTemp = map.filter(_._2 >= minCount)
 
-        if (lineTemp.size != 0)
-        {
+        if (lineTemp.size != 0) {
           line = lineTemp.toArray.array
           _lineBuffer ++= line
         }
@@ -242,12 +221,10 @@ class FPGrowth extends Logging with Serializable{
       }
 
       // reset k value
-      if ((line == null)||(line.length == 0))
-      {
+      if ((line == null) || (line.length == 0)) {
         k = 0
       }
-      else
-      {
+      else {
         k = k + 1
       }
 
