@@ -16,53 +16,84 @@
  */
 package org.apache.spark.sql.hbase
 
+import scala.collection.mutable.Set
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.types.{NativeType, DataType}
+import org.apache.spark.sql.hbase.CriticalPointType.CriticalPointType
+
+object CriticalPointType extends Enumeration {
+  type CriticalPointType = Value
+  val upInclusive = Value("Up Inclusive: (...)[...)")
+  val lowInclusive = Value("Low Inclusive: (...](...)")
+  val bothInclusive = Value("Both Inclusive: (...)[](...)")
+}
+
+case class CriticalPoint[T](value: T, ctype: CriticalPointType, dt: DataType) {
+  override def hashCode() = value.hashCode()
+  override def equals(other: Any): Boolean = other match {
+    case cp: CriticalPoint[T] => value.equals(cp.value)
+    case _ => false
+  }
+}
 
 /**
- * find the critical points in the given expression
+ * find the critical points in the given expressiona: not really a transformer
+ * Must be called before reference binding
  */
-case class HBaseCriticalPointsFinder(input: Row, keyColumns: Seq[KeyColumn]) {
-  var pointSet = Set[Literal]()
-
-  def findPoints(e: Expression): Unit = {
-    e match {
-      case LessThan(left, right) => {
-        extract(left, right)
-      }
-      case EqualTo(left, right) => {
-        extract(left, right)
-      }
-      case LessThan(left, right) => {
-        extract(left, right)
-      }
-      case LessThanOrEqual(left, right) => {
-        extract(left, right)
-      }
-      case GreaterThan(left, right) => {
-        extract(left, right)
-      }
-      case GreaterThanOrEqual(left, right) => {
-       extract(left, right)
-      }
-      case And(left, right)  => {
-        findPoints(left)
-        findPoints(right)
-      }
-      case Or(left, right)  => {
-        findPoints(left)
-        findPoints(right)
-      }
-      case Not(child)  => {
-        findPoints(child)
+object RangeCriticalPointsFinder {
+  def apply(expression: Expression, key: AttributeReference): Set[CriticalPoint[_]] = {
+    val pointSet = Set[CriticalPoint[_]]()
+    val dt: NativeType = expression.dataType.asInstanceOf[NativeType]
+    type JvmType = dt.JvmType
+    def checkAndAdd(value: Any, ct: CriticalPointType): Unit = {
+      val cp = CriticalPoint[JvmType](value.asInstanceOf[JvmType], ct, dt)
+      if (!pointSet.add(cp)) {
+        val oldCp = pointSet.find(_.value==value).get
+        if (oldCp.ctype != ct && oldCp.ctype != CriticalPointType.bothInclusive) {
+          pointSet.remove(cp)
+          if (ct == CriticalPointType.bothInclusive) {
+            pointSet.add(cp)
+          } else {
+            pointSet.add(CriticalPoint[JvmType](value.asInstanceOf[JvmType],
+                         CriticalPointType.bothInclusive, dt))
+          }
+        }
       }
     }
-  }
-
-  def extract(left: Expression, right: Expression) = {
-    if (left.isInstanceOf[Literal]) {
-      pointSet = pointSet + left.asInstanceOf[Literal]
-    } else if (right.isInstanceOf[Literal]) {
-      pointSet = pointSet + right.asInstanceOf[Literal]
+    expression transform {
+      case a@EqualTo(AttributeReference(_,_,_), Literal(value, _)) => {
+        if (a.left.equals(key)) checkAndAdd(value, CriticalPointType.bothInclusive)
+        a
+      }
+      case a@EqualTo(Literal(value, _), AttributeReference(_,_,_)) => {
+        if (a.right.equals(key)) checkAndAdd(value, CriticalPointType.bothInclusive)
+        a
+      }
+      case a@LessThan(AttributeReference(_,_,_), Literal(value, _)) => {
+        if (a.left.equals(key)) checkAndAdd(value, CriticalPointType.upInclusive)
+        a
+      }
+      case a@LessThan(Literal(value, _), AttributeReference(_,_,_)) => {
+        if (a.right.equals(key)) checkAndAdd(value, CriticalPointType.lowInclusive)
+        a
+      }
+      case a@LessThanOrEqual(AttributeReference(_,_,_), Literal(value, _)) => {
+        if (a.left.equals(key)) checkAndAdd(value, CriticalPointType.lowInclusive)
+        a
+      }
+      case a@LessThanOrEqual(Literal(value, _), AttributeReference(_,_,_)) => {
+        if (a.right.equals(key)) checkAndAdd(value, CriticalPointType.upInclusive)
+        a
+      }
+      case a@GreaterThanOrEqual(AttributeReference(_,_,_), Literal(value, _)) => {
+        if (a.left.equals(key)) checkAndAdd(value, CriticalPointType.upInclusive)
+        a
+      }
+      case a@GreaterThanOrEqual(Literal(value, _), AttributeReference(_,_,_)) => {
+        if (a.right.equals(key)) checkAndAdd(value, CriticalPointType.lowInclusive)
+        a
+      }
     }
+    pointSet
   }
 }
