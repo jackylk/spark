@@ -36,8 +36,9 @@ trait CreateTableAndLoadData {
   val DefaultHbaseColFamiles = Seq("cf1","cf2")
   val DefaultLoadFile = "./sql/hbase/src/test/resources/testTable.csv"
 
+  var AvoidRowkeyBug = true
   def createTableAndLoadData(hbc: HBaseSQLContext) = {
-    createTables(hbc)
+    createTables(AvoidRowkeyBug, hbc)
     loadData(hbc)
   }
 
@@ -48,37 +49,51 @@ trait CreateTableAndLoadData {
     hbaseAdmin.createTable(hdesc)
   }
 
-  def createTables(hbc: HBaseSQLContext, stagingTableName: String = DefaultStagingTableName, tableName: String = DefaultTableName) = {
+  def createTables(avoidRowkeyBug: Boolean, hbc: HBaseSQLContext, stagingTableName: String = DefaultStagingTableName, tableName: String = DefaultTableName) = {
     // this need to local test with hbase, so here to ignore this
 
     val hbaseAdmin = hbc.catalog.hBaseAdmin
     createNativeHbaseTable(hbc, DefaultHbaseStagingTabName,DefaultHbaseColFamiles)
     createNativeHbaseTable(hbc, DefaultHbaseTabName,DefaultHbaseColFamiles)
 
-    val hbaseStagingSql = s"""create '$DefaultHbaseStagingTabName',['cf1','cf2']"""
-    val hbaseSql = s"""create '$DefaultHbaseTabName',['cf1','cf2']"""
-    var sql1 =
-      s"""CREATE TABLE $stagingTableName(strcol STRING, bytecol String, shortcol String, intcol String,
-          longcol string, floatcol string, doublecol string, PRIMARY KEY(doublecol, strcol, intcol))
-          MAPPED BY ($DefaultHbaseStagingTabName, COLS=[bytecol=cf1.hbytecol,
-          shortcol=cf1.hshortcol, longcol=cf2.hlongcol, floatcol=cf2.hfloatcol])"""
+    val (stagingSql, tabSql) = if (avoidRowkeyBug) {
+      ( s"""CREATE TABLE $stagingTableName(strcol STRING, bytecol String, shortcol String, intcol String,
+            longcol string, floatcol string, doublecol string,
+            PRIMARY KEY(strcol, intcol,doublecol))
+            MAPPED BY ($DefaultHbaseStagingTabName, COLS=[bytecol=cf1.hbytecol,
+            shortcol=cf1.hshortcol, longcol=cf2.hlongcol, floatcol=cf2.hfloatcol])"""
         .stripMargin
-
-    var executeSql1 = hbc.executeSql(sql1)
+        ,
+        s"""CREATE TABLE $tableName(strcol STRING, bytecol BYTE, shortcol SHORT, intcol INTEGER,
+            longcol LONG, floatcol FLOAT, doublecol DOUBLE,
+            PRIMARY KEY(strcol, intcol,doublecol))
+            MAPPED BY ($DefaultHbaseTabName, COLS=[bytecol=cf1.hbytecol,
+            shortcol=cf1.hshortcol, longcol=cf2.hlongcol, floatcol=cf2.hfloatcol])"""
+          .stripMargin
+        )
+    } else {
+      (s"""CREATE TABLE $stagingTableName(strcol STRING, bytecol String, shortcol String, intcol String,
+            longcol string, floatcol string, doublecol string, PRIMARY KEY(doublecol, strcol, intcol))
+            MAPPED BY ($DefaultHbaseStagingTabName, COLS=[bytecol=cf1.hbytecol,
+            shortcol=cf1.hshortcol, longcol=cf2.hlongcol, floatcol=cf2.hfloatcol])"""
+          .stripMargin
+       ,
+        s"""CREATE TABLE $tableName(strcol STRING, bytecol BYTE, shortcol SHORT, intcol INTEGER,
+            longcol LONG, floatcol FLOAT, doublecol DOUBLE, PRIMARY KEY(doublecol, strcol, intcol))
+            MAPPED BY ($DefaultHbaseTabName, COLS=[bytecol=cf1.hbytecol,
+            shortcol=cf1.hshortcol, longcol=cf2.hlongcol, floatcol=cf2.hfloatcol])"""
+          .stripMargin
+        )
+      }
+    var executeSql1 = hbc.executeSql(stagingSql)
     executeSql1.toRdd.collect().foreach(println)
 
         logger.debug(s"Created table $tableName: " +
       s"isTableAvailable= ${hbaseAdmin.isTableAvailable(s2b(DefaultHbaseStagingTabName))}" +
       s" tableDescriptor= ${hbaseAdmin.getTableDescriptor(s2b(DefaultHbaseStagingTabName))}")
 
-    sql1 =
-      s"""CREATE TABLE $tableName(strcol STRING, bytecol BYTE, shortcol SHORT, intcol INTEGER,
-          longcol LONG, floatcol FLOAT, doublecol DOUBLE, PRIMARY KEY(doublecol, strcol, intcol))
-          MAPPED BY ($DefaultHbaseTabName, COLS=[bytecol=cf1.hbytecol,
-          shortcol=cf1.hshortcol, longcol=cf2.hlongcol, floatcol=cf2.hfloatcol])"""
-        .stripMargin
 
-    executeSql1 = hbc.executeSql(sql1)
+    executeSql1 = hbc.executeSql(tabSql)
     executeSql1.toRdd.collect().foreach(println)
 
   }
