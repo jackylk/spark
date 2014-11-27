@@ -96,9 +96,6 @@ case class InsertIntoHBaseTable(
     def writeToHbase(context: TaskContext, iterator: Iterator[Row]) = {
       val htable = relation.htable
       val colWithIndex = relation.allColumns.zipWithIndex.toMap
-      val bu = Array.fill[BytesUtils](BatchMaxSize, relation.allColumns.length) {
-        new BytesUtils
-      }
       var rowIndexInBatch = 0
       var colIndexInBatch = 0
 
@@ -109,7 +106,7 @@ case class InsertIntoHBaseTable(
         val rawKeyCol = relation.keyColumns.map {
           case kc: KeyColumn => {
             val rowColumn = DataTypeUtils.getRowColumnFromHBaseRawType(
-              row, colWithIndex(kc), kc.dataType, bu(rowIndexInBatch)(colIndexInBatch))
+              row, colWithIndex(kc), kc.dataType)
             colIndexInBatch += 1
             (rowColumn, kc.dataType)
           }
@@ -119,7 +116,7 @@ case class InsertIntoHBaseTable(
         relation.nonKeyColumns.foreach {
           case nkc: NonKeyColumn => {
             val rowVal = DataTypeUtils.getRowColumnFromHBaseRawType(
-              row, colWithIndex(nkc), nkc.dataType, bu(rowIndexInBatch)(colIndexInBatch))
+              row, colWithIndex(nkc), nkc.dataType)
             colIndexInBatch += 1
             put.add(Bytes.toBytes(nkc.family), Bytes.toBytes(nkc.qualifier), rowVal)
           }

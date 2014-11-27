@@ -129,10 +129,9 @@ private[hbase] case class HBaseRelation(
                 bound: Option[HBaseRawType]): Option[Any] = {
       if (Bytes.toStringBinary(bound.get) == "") None
       else {
-        val bytesUtils = new BytesUtils
         Some(DataTypeUtils.bytesToData(
           HBaseKVHelper.decodingRawKeyColumns(buffer, bound.get, keyColumns)(index),
-          dt, bytesUtils).asInstanceOf[dt.JvmType])
+          dt).asInstanceOf[dt.JvmType])
       }
     }
 
@@ -543,8 +542,7 @@ private[hbase] case class HBaseRelation(
 
   def buildRow(projections: Seq[(Attribute, Int)],
                result: Result,
-               row: MutableRow,
-               bytesUtils: BytesUtils): Row = {
+               row: MutableRow): Row = {
     assert(projections.size == row.length, "Projection size and row size mismatched")
     // TODO: replaced with the new Key method
     val buffer = ListBuffer[HBaseRawType]()
@@ -554,13 +552,13 @@ private[hbase] case class HBaseRelation(
         case column: NonKeyColumn => {
           val colValue = result.getValue(column.familyRaw, column.qualifierRaw)
           DataTypeUtils.setRowColumnFromHBaseRawType(row, p._2, colValue,
-            column.dataType, bytesUtils)
+            column.dataType)
         }
         case ki => {
           val keyIndex = ki.asInstanceOf[Int]
           val rowKey = rowKeys(keyIndex)
           DataTypeUtils.setRowColumnFromHBaseRawType(row, p._2, rowKey,
-            keyColumns(keyIndex).dataType, bytesUtils)
+            keyColumns(keyIndex).dataType)
         }
       }
     }

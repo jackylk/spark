@@ -90,8 +90,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     //    val row = new GenericRow(Array(col7, col1, col3))
     val rawKeyCol = dataTypeOfKeys.zipWithIndex.map {
       case (dataType, index) => {
-        (DataTypeUtils.getRowColumnFromHBaseRawType(row, index, dataType, new BytesUtils),
-          dataType)
+        (DataTypeUtils.getRowColumnFromHBaseRawType(row, index, dataType), dataType)
       }
     }
 

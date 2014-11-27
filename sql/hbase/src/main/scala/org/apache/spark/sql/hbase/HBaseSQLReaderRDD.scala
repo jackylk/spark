@@ -61,7 +61,6 @@ class HBaseSQLReaderRDD(
 
     val row = new GenericMutableRow(output.size)
     val projections = output.zipWithIndex
-    val bytesUtils = new BytesUtils
 
     var finished: Boolean = false
     var gotNext: Boolean = false
@@ -85,7 +84,7 @@ class HBaseSQLReaderRDD(
       override def next(): Row = {
         if (hasNext) {
           gotNext = false
-          relation.buildRow(projections, result, row, bytesUtils)
+          relation.buildRow(projections, result, row)
         } else {
           null
         }
@@ -118,7 +117,6 @@ class HBaseSQLReaderRDD(
 
     val row = new GenericMutableRow(output.size)
     val projections = output.zipWithIndex
-    val bytesUtils = new BytesUtils
 
     var finished: Boolean = false
     var gotNext: Boolean = false
@@ -142,7 +140,7 @@ class HBaseSQLReaderRDD(
       override def next(): Row = {
         if (hasNext) {
           gotNext = false
-          relation.buildRow(projections, result, row, bytesUtils)
+          relation.buildRow(projections, result, row)
         } else {
           null
         }

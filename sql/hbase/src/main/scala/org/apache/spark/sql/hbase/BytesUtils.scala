@@ -18,7 +18,7 @@ package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.hbase.util.Bytes
 
-class BytesUtils {
+object BytesUtils {
   lazy val booleanArray: HBaseRawType = new HBaseRawType(Bytes.SIZEOF_BOOLEAN)
   lazy val byteArray: HBaseRawType = new HBaseRawType(Bytes.SIZEOF_BYTE)
   lazy val charArray: HBaseRawType = new HBaseRawType(Bytes.SIZEOF_CHAR)

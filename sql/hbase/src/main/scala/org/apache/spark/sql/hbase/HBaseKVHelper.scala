@@ -96,7 +96,7 @@ object HBaseKVHelper {
     for (i <- 0 until values.length) {
       val value = values(i)
       val column = columns(i)
-      val bytes = string2Bytes(value, column.dataType, new BytesUtils)
+      val bytes = string2Bytes(value, column.dataType)
       if (column.isKeyColum()) {
         keyBytes += ((bytes, column.dataType))
       } else {
@@ -106,17 +106,17 @@ object HBaseKVHelper {
     }
   }
 
-  private def string2Bytes(v: String, dataType: DataType, bu: BytesUtils): Array[Byte] = {
+  private def string2Bytes(v: String, dataType: DataType): Array[Byte] = {
     dataType match {
       // todo: handle some complex types
-      case BooleanType => bu.toBytes(v.toBoolean)
-      case ByteType => bu.toBytes(v)
-      case DoubleType => bu.toBytes(v.toDouble)
-      case FloatType => bu.toBytes((v.toFloat))
-      case IntegerType => bu.toBytes(v.toInt)
-      case LongType => bu.toBytes(v.toLong)
-      case ShortType => bu.toBytes(v.toShort)
-      case StringType => bu.toBytes(v)
+      case BooleanType => BytesUtils.toBytes(v.toBoolean)
+      case ByteType => BytesUtils.toBytes(v)
+      case DoubleType => BytesUtils.toBytes(v.toDouble)
+      case FloatType => BytesUtils.toBytes(v.toFloat)
+      case IntegerType => BytesUtils.toBytes(v.toInt)
+      case LongType => BytesUtils.toBytes(v.toLong)
+      case ShortType => BytesUtils.toBytes(v.toShort)
+      case StringType => BytesUtils.toBytes(v)
     }
   }
 }
