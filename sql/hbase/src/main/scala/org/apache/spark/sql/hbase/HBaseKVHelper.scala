@@ -20,6 +20,7 @@ package org.apache.spark.sql.hbase
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.sql.catalyst.types._
 
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 object HBaseKVHelper {
@@ -90,20 +91,26 @@ object HBaseKVHelper {
                 columns: Seq[AbstractColumn],
                 keyBytes: ListBuffer[(Array[Byte], DataType)],
                 valueBytes: ListBuffer[(Array[Byte], Array[Byte], Array[Byte])]) = {
-    assert(values.length == columns.length)
+    assert(values.length == columns.length,
+      s"values length ${values.length} not equals lolumns length ${columns.length}")
     keyBytes.clear()
     valueBytes.clear()
+    val map = mutable.HashMap[Int, (Array[Byte], DataType)]()
+    var index = 0
     for (i <- 0 until values.length) {
       val value = values(i)
       val column = columns(i)
       val bytes = string2Bytes(value, column.dataType, new BytesUtils)
       if (column.isKeyColum()) {
-        keyBytes += ((bytes, column.dataType))
+        map(column.asInstanceOf[KeyColumn].order) = ((bytes, column.dataType))
+        index = index + 1
       } else {
         val realCol = column.asInstanceOf[NonKeyColumn]
         valueBytes += ((Bytes.toBytes(realCol.family), Bytes.toBytes(realCol.qualifier), bytes))
       }
     }
+
+    (0 until index).foreach(k => keyBytes += map.get(k).get)
   }
 
   private def string2Bytes(v: String, dataType: DataType, bu: BytesUtils): Array[Byte] = {

@@ -28,7 +28,7 @@ import org.apache.log4j.Logger
 import org.apache.spark.SparkContext._
 import org.apache.spark.TaskContext
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.{ShuffledRDD, RDD}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.physical.RangePartitioning
 import org.apache.spark.sql.catalyst.types.DataType
@@ -192,9 +192,9 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
     val partitioner = new HBasePartitioner(rdd)(splitKeys)
     // Todo: fix issues with HBaseShuffledRDD
     val shuffled =
-      new HBaseShuffledRDD[ImmutableBytesWritableWrapper, PutWrapper, PutWrapper](rdd, partitioner)
+      new ShuffledRDD[ImmutableBytesWritableWrapper, PutWrapper, PutWrapper](rdd, partitioner)
         .setKeyOrdering(ordering)
-        .setHbasePartitions(relation.partitions)
+        //.setHbasePartitions(relation.partitions)
     val bulkLoadRDD = shuffled.mapPartitions { iter =>
       // the rdd now already sort by key, to sort by value
       val map = new java.util.TreeSet[KeyValue](KeyValue.COMPARATOR)

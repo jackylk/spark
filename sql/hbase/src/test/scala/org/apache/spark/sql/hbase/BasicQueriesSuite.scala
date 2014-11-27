@@ -36,6 +36,7 @@ class BasicQueriesSuite extends HBaseIntegrationTestBase with CreateTableAndLoad
 
     val execQuery1 = hbc.executeSql(query1)
     val result1 = execQuery1.toRdd.collect()
+    result1.foreach(println)
     assert(result1.size == 3)
     assert(result1.mkString(",").equals("[row4,4,8],[row5,5,10],[row6,6,12]"))
     println(s"Select * from $tabName limit 3 came back with ${result1.size} results")
