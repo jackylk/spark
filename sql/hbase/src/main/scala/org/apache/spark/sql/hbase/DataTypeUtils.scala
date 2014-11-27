@@ -16,7 +16,9 @@
 */
 package org.apache.spark.sql.hbase
 
-import org.apache.spark.sql.catalyst.expressions.{MutableRow, Row}
+import org.apache.hadoop.hbase.filter.BinaryComparator
+import org.apache.hadoop.hbase.util.Bytes
+import org.apache.spark.sql.catalyst.expressions.{Literal, MutableRow, Row}
 import org.apache.spark.sql.catalyst.types._
 
 /**
@@ -73,6 +75,35 @@ object DataTypeUtils {
       case LongType => bu.toBytes(row.getLong(index))
       case ShortType => bu.toBytes(row.getShort(index))
       case _ => throw new Exception("Unsupported HBase SQL Data Type")
+    }
+  }
+
+  def getComparator(expression: Literal): BinaryComparator = {
+    expression.dataType match {
+      case DoubleType => {
+        new BinaryComparator(Bytes.toBytes(expression.value.asInstanceOf[Double]))
+      }
+      case FloatType => {
+        new BinaryComparator(Bytes.toBytes(expression.value.asInstanceOf[Float]))
+      }
+      case IntegerType => {
+        new BinaryComparator(Bytes.toBytes(expression.value.asInstanceOf[Int]))
+      }
+      case LongType => {
+        new BinaryComparator(Bytes.toBytes(expression.value.asInstanceOf[Long]))
+      }
+      case ShortType => {
+        new BinaryComparator(Bytes.toBytes(expression.value.asInstanceOf[Short]))
+      }
+      case StringType => {
+        new BinaryComparator(Bytes.toBytes(expression.value.asInstanceOf[String]))
+      }
+      case BooleanType => {
+        new BinaryComparator(Bytes.toBytes(expression.value.asInstanceOf[Boolean]))
+      }
+      case _ => {
+        throw new Exception("Cannot convert the data type using BinaryComparator")
+      }
     }
   }
 }
