@@ -17,14 +17,16 @@
 
 package org.apache.spark.sql.hbase
 
+import scala.Some
+
 import org.apache.spark.rdd.{RDD, ShuffledRDD}
 import org.apache.spark.serializer.Serializer
-import org.apache.spark.{Aggregator, Partition, Partitioner}
+import org.apache.spark._
 
 // is there a way to not extend shuffledrdd, just reuse the original shuffledrdd?
 class HBaseShuffledRDD[K, V, C](
     @transient var prevRdd: RDD[_ <: Product2[K, V]],
-    partitoner: Partitioner) extends ShuffledRDD(prevRdd, partitoner){
+    _partitioner: Partitioner) extends ShuffledRDD(prevRdd, _partitioner){
 
   private var serializer: Option[Serializer] = None
 
@@ -45,6 +47,9 @@ class HBaseShuffledRDD[K, V, C](
   def setHbasePartitions(hbPartitions: Seq[HBasePartition]): HBaseShuffledRDD[K, V, C]  = {
     this.hbPartitions = hbPartitions
     this
+  }
+  override def getDependencies: Seq[Dependency[_]] = {
+    List(new ShuffleDependency(prevRdd, _partitioner, serializer, keyOrdering, aggregator, mapSideCombine))
   }
 
   /** Set a serializer for this RDD's shuffle, or null to use the default (spark.serializer) */
@@ -74,9 +79,24 @@ class HBaseShuffledRDD[K, V, C](
 
   override def getPartitions: Array[Partition] = {
     if (hbPartitions.isEmpty) {
-      Array.tabulate[Partition](partitoner.numPartitions)(i => new HBasePartition(i, i))
+      Array.tabulate[Partition](_partitioner.numPartitions)(i => new HBasePartition(i, i))
     } else {
       hbPartitions.toArray
     }
   }
+
+  override val partitioner = Some(_partitioner)
+
+//  override def compute(split: Partition, context: TaskContext): Iterator[(K, C)] = {
+//    val dep = dependencies.head.asInstanceOf[ShuffleDependency[K, V, C]]
+//    SparkEnv.get.shuffleManager.getReader(dep.shuffleHandle, split.index, split.index + 1, context)
+//      .read()
+//      .asInstanceOf[Iterator[(K, C)]]
+//  }
+
+  override def clearDependencies() {
+    super.clearDependencies()
+    prevRdd = null
+  }
+
 }
