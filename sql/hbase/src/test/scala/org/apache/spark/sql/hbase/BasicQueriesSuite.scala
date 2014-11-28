@@ -17,39 +17,7 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.log4j.Logger
-import org.scalatest.{BeforeAndAfterEach, ConfigMap, FunSuiteLike}
-
-class BasicQueriesSuite extends HBaseIntegrationTestBase with CreateTableAndLoadData {
-  self : HBaseIntegrationTestBase =>
-
- override protected def beforeAll(configMap: ConfigMap): Unit = {
-   super.beforeAll(configMap)
-    createTableAndLoadData(hbc)
-  }
-
-  val tabName = DefaultTableName
-  
-  private val logger = Logger.getLogger(getClass.getName)
-
-  val CompareTol = 1e-6
-  def compareWithTol(actarr: Seq[Any], exparr: Seq[Any], emsg: String): Boolean = {
-    actarr.zip(exparr).forall { case (a,e) =>
-      (a, e) match {
-        case (a, e) =>
-          val eq = if (a.isInstanceOf[Float] || a.isInstanceOf[Double]) {
-                   Math.abs(a.asInstanceOf[Double]-e.asInstanceOf[Double]) < CompareTol
-          } else {
-            a == e
-          }
-          if (!eq) {
-            logger.error(s"$emsg: Mismatch- act=$a exp=$e")
-          }
-          eq
-        case _ => throw new IllegalArgumentException("Expected tuple")
-      }
-    }
-  }
+class BasicQueriesSuite extends QueriesSuiteBase {
 
   var testnm = "StarOperator * with limit"
   test(testnm) {
@@ -59,19 +27,18 @@ class BasicQueriesSuite extends HBaseIntegrationTestBase with CreateTableAndLoad
 
     val execQuery1 = hbc.executeSql(query1)
     val result1 = execQuery1.toRdd.collect()
-    assert(result1.size == 3,s"$testnm failed on size")
-    val exparr = Array(Array("Row1",'a',12345,23456789,3456789012345L,45657.89, 5678912.345678),
-      Array("Row2",'b',12342,23456782,3456789012342L,45657.82, 5678912.345682),
-Array("Row3",'c',12343,23456783,3456789012343L,45657.83, 5678912.345683))
+    assert(result1.size == 3, s"$testnm failed on size")
+    val exparr = Array(Array("Row1", 'a', 12345, 23456789, 3456789012345L, 45657.89F, 5678912.345678),
+      Array("Row2", 'b', 12342, 23456782, 3456789012342L, 45657.82F, 5678912.345682),
+      Array("Row3", 'c', 12343, 23456783, 3456789012343L, 45657.83F, 5678912.345683))
 
-    val res = {
+    var res = {
       for (rx <- 0 until 3)
       yield compareWithTol(result1(rx).toSeq, exparr(rx), s"Row$rx failed")
-    }.foldLeft(false){ case (res, newres) => (res && newres)}
+    }.foldLeft(true) { case (res1, newres) => res1 && newres}
+    assert(res, "One or more rows did not match expected")
 
-    assert(res,"One or more rows did not match expected")
-
-    println(s"Select * from $tabName limit 3 came back with ${result1.size} results")
+    println(s"$query1 came back with ${result1.size} results")
     println(result1.mkString)
 
     val sql2 =
@@ -80,39 +47,69 @@ Array("Row3",'c',12343,23456783,3456789012343L,45657.83, 5678912.345683))
 
     val executeSql2 = hbc.executeSql(sql2)
     val results = executeSql2.toRdd.collect()
-    println(s"Select * from $tabName limit 2 came back with ${results.size} results")
+    println(s"$sql2 came back with ${results.size} results")
     assert(results.size == 2, s"$testnm failed assertion on size")
-    assert(results.mkString(",").equals("[row4,4,8],[row5,5,10]"), s"$testnm failed assertion on compare")
+    res = {
+      for (rx <- 0 until 2)
+      yield compareWithTol(result1(rx).toSeq, exparr(rx), s"Row$rx failed")
+    }.foldLeft(true) { case (res1, newres) => res1 && newres}
+    assert(res, "One or more rows did not match expected")
     println(results.mkString)
 
-    println("Test load data into HBase completed successfully")
+    println(s"Test $testnm completed successfully")
   }
 
-  testnm = "All fields * query with limit"
+  testnm = "Select all cols with filter"
   test(testnm) {
     val query1 =
-      s"""select * from $tabName limit 3"""
+      s"""select * from $tabName where shortcol < 12345 limit 2"""
         .stripMargin
 
     val execQuery1 = hbc.executeSql(query1)
     val result1 = execQuery1.toRdd.collect()
-    assert(result1.size == 3)
-    assert(result1.mkString(",").equals("[row4,4,8],[row5,5,10],[row6,6,12]"))
-    println(s"Select * from $tabName limit 3 came back with ${result1.size} results")
-    println(result1.mkString)
+    assert(result1.size == 2, s"$testnm failed on size")
+    val exparr = Array(
+      Array("Row2", 'b', 12342, 23456782, 3456789012342L, 45657.82F, 5678912.345682),
+      Array("Row3", 'c', 12343, 23456783, 3456789012343L, 45657.83F, 5678912.345683))
 
-    val sql2 =
-      s"""select * from $tabName limit 2"""
-        .stripMargin
-
-    val executeSql2 = hbc.executeSql(sql2)
+    val executeSql2 = hbc.executeSql(query1)
     val results = executeSql2.toRdd.collect()
-    println(s"Select * from $tabName limit 2 came back with ${results.size} results")
-    assert(results.size == 2)
-    assert(results.mkString(",").equals("[row4,4,8],[row5,5,10]"))
+    println(s"$query1 came back with ${results.size} results")
+    assert(results.size == 2, s"$testnm failed assertion on size")
+    val res = {
+      for (rx <- 0 until 2)
+      yield compareWithTol(result1(rx).toSeq, exparr(rx), s"Row$rx failed")
+    }.foldLeft(true) { case (res1, newres) => res1 && newres}
+    assert(res, "One or more rows did not match expected")
     println(results.mkString)
 
-    println("Test load data into HBase completed successfully")
+    println(s"Test $testnm completed successfully")
+  }
+
+  testnm = "Select specific cols with filter"
+  test(testnm) {
+    val query1 =
+      s"""select doublecol, strcol, bytecol, shortcol, intcol, longcol, floatcol from $tabName where strcol like '%Row%' and shortcol < 12345 and doublecol > 5678912.345681 and doublecol < 5678912.345683 limit 2"""
+        .stripMargin
+
+    val execQuery1 = hbc.executeSql(query1)
+    val result1 = execQuery1.toRdd.collect()
+    assert(result1.size == 1, s"$testnm failed on size")
+    val exparr = Array(
+      Array(5678912.345682, "Row2", 'b', 12342, 23456782, 3456789012342L, 45657.82F))
+
+    val executeSql2 = hbc.executeSql(query1)
+    val results = executeSql2.toRdd.collect()
+    println(s"$query1 came back with ${results.size} results")
+    assert(results.size == 1, s"$testnm failed assertion on size")
+    val res = {
+      for (rx <- 0 until 1)
+      yield compareWithTol(result1(rx).toSeq, exparr(rx), s"Row$rx failed")
+    }.foldLeft(true) { case (res1, newres) => res1 && newres}
+    assert(res, "One or more rows did not match expected")
+    println(results.mkString)
+
+    println(s"Test $testnm completed successfully")
   }
 
 }

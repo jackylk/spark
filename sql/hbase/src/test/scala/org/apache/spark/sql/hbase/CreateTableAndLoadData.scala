@@ -1,8 +1,7 @@
 package org.apache.spark.sql.hbase
 
-import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor}
-import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.hadoop.hbase.util.Bytes
+import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor}
 import org.apache.log4j.Logger
 
 /*
@@ -33,30 +32,31 @@ trait CreateTableAndLoadData {
   val DefaultTableName = "TestTable"
   val DefaultHbaseStagingTabName = "stageTab"
   val DefaultHbaseTabName = "testTab"
-  val DefaultHbaseColFamiles = Seq("cf1","cf2")
+  val DefaultHbaseColFamiles = Seq("cf1", "cf2")
   val DefaultLoadFile = "./sql/hbase/src/test/resources/testTable.csv"
 
-  var AvoidRowkeyBug = true
+  var AvoidRowkeyBug = false
+
   def createTableAndLoadData(hbc: HBaseSQLContext) = {
-    createTables(AvoidRowkeyBug, hbc)
+    createTables(hbc)
     loadData(hbc)
   }
 
   def createNativeHbaseTable(hbc: HBaseSQLContext, tableName: String, families: Seq[String]) = {
     val hbaseAdmin = hbc.catalog.hBaseAdmin
     val hdesc = new HTableDescriptor(tableName)
-    families.foreach{ f => hdesc.addFamily(new HColumnDescriptor(f))}
+    families.foreach { f => hdesc.addFamily(new HColumnDescriptor(f))}
     hbaseAdmin.createTable(hdesc)
   }
 
-  def createTables(avoidRowkeyBug: Boolean, hbc: HBaseSQLContext, stagingTableName: String = DefaultStagingTableName, tableName: String = DefaultTableName) = {
+  def createTables(hbc: HBaseSQLContext, stagingTableName: String = DefaultStagingTableName, tableName: String = DefaultTableName) = {
     // this need to local test with hbase, so here to ignore this
 
     val hbaseAdmin = hbc.catalog.hBaseAdmin
-    createNativeHbaseTable(hbc, DefaultHbaseStagingTabName,DefaultHbaseColFamiles)
-    createNativeHbaseTable(hbc, DefaultHbaseTabName,DefaultHbaseColFamiles)
+    createNativeHbaseTable(hbc, DefaultHbaseStagingTabName, DefaultHbaseColFamiles)
+    createNativeHbaseTable(hbc, DefaultHbaseTabName, DefaultHbaseColFamiles)
 
-    val (stagingSql, tabSql) = if (avoidRowkeyBug) {
+    val (stagingSql, tabSql) = if (AvoidRowkeyBug) {
       ( s"""CREATE TABLE $stagingTableName(strcol STRING, bytecol String, shortcol String, intcol String,
             longcol string, floatcol string, doublecol string,
             PRIMARY KEY(strcol, intcol,doublecol))
@@ -72,23 +72,23 @@ trait CreateTableAndLoadData {
           .stripMargin
         )
     } else {
-      (s"""CREATE TABLE $stagingTableName(strcol STRING, bytecol String, shortcol String, intcol String,
+      ( s"""CREATE TABLE $stagingTableName(strcol STRING, bytecol String, shortcol String, intcol String,
             longcol string, floatcol string, doublecol string, PRIMARY KEY(doublecol, strcol, intcol))
             MAPPED BY ($DefaultHbaseStagingTabName, COLS=[bytecol=cf1.hbytecol,
             shortcol=cf1.hshortcol, longcol=cf2.hlongcol, floatcol=cf2.hfloatcol])"""
-          .stripMargin
-       ,
+        .stripMargin
+        ,
         s"""CREATE TABLE $tableName(strcol STRING, bytecol BYTE, shortcol SHORT, intcol INTEGER,
             longcol LONG, floatcol FLOAT, doublecol DOUBLE, PRIMARY KEY(doublecol, strcol, intcol))
             MAPPED BY ($DefaultHbaseTabName, COLS=[bytecol=cf1.hbytecol,
             shortcol=cf1.hshortcol, longcol=cf2.hlongcol, floatcol=cf2.hfloatcol])"""
           .stripMargin
         )
-      }
+    }
     var executeSql1 = hbc.executeSql(stagingSql)
     executeSql1.toRdd.collect().foreach(println)
 
-        logger.debug(s"Created table $tableName: " +
+    logger.debug(s"Created table $tableName: " +
       s"isTableAvailable= ${hbaseAdmin.isTableAvailable(s2b(DefaultHbaseStagingTabName))}" +
       s" tableDescriptor= ${hbaseAdmin.getTableDescriptor(s2b(DefaultHbaseStagingTabName))}")
 
