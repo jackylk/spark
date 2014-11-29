@@ -27,15 +27,16 @@ object DataTypeUtils {
   //  TODO: more data types support?
   def bytesToData (src: HBaseRawType,
                   dt: DataType): Any = {
+    val bu = BytesUtils.create(dt)
     dt match {
-      case StringType => BytesUtils.toString(src)
-      case IntegerType => BytesUtils.toInt(src)
-      case BooleanType => BytesUtils.toBoolean(src)
+      case StringType => bu.toString(src)
+      case IntegerType => bu.toInt(src)
+      case BooleanType => bu.toBoolean(src)
       case ByteType => src(0)
-      case DoubleType => BytesUtils.toDouble(src)
-      case FloatType => BytesUtils.toFloat(src)
-      case LongType => BytesUtils.toLong(src)
-      case ShortType => BytesUtils.toShort(src)
+      case DoubleType => bu.toDouble(src)
+      case FloatType => bu.toFloat(src)
+      case LongType => bu.toLong(src)
+      case ShortType => bu.toShort(src)
       case _ => throw new Exception("Unsupported HBase SQL Data Type")
     }
   }
@@ -44,15 +45,16 @@ object DataTypeUtils {
                                    index: Int,
                                    src: HBaseRawType,
                                    dt: DataType): Unit = {
+    val bu = BytesUtils.create(dt)
     dt match {
-      case StringType => row.setString(index, BytesUtils.toString(src))
-      case IntegerType => row.setInt(index, BytesUtils.toInt(src))
-      case BooleanType => row.setBoolean(index, BytesUtils.toBoolean(src))
-      case ByteType => row.setByte(index, BytesUtils.toByte(src))
-      case DoubleType => row.setDouble(index, BytesUtils.toDouble(src))
-      case FloatType => row.setFloat(index, BytesUtils.toFloat(src))
-      case LongType => row.setLong(index, BytesUtils.toLong(src))
-      case ShortType => row.setShort(index, BytesUtils.toShort(src))
+      case StringType => row.setString(index, bu.toString(src))
+      case IntegerType => row.setInt(index, bu.toInt(src))
+      case BooleanType => row.setBoolean(index, bu.toBoolean(src))
+      case ByteType => row.setByte(index, bu.toByte(src))
+      case DoubleType => row.setDouble(index, bu.toDouble(src))
+      case FloatType => row.setFloat(index, bu.toFloat(src))
+      case LongType => row.setLong(index, bu.toLong(src))
+      case ShortType => row.setShort(index, bu.toShort(src))
       case _ => throw new Exception("Unsupported HBase SQL Data Type")
     }
   }
@@ -60,15 +62,16 @@ object DataTypeUtils {
   def getRowColumnFromHBaseRawType(row: Row,
                                    index: Int,
                                    dt: DataType): HBaseRawType = {
+    val bu = BytesUtils.create(dt)
     dt match {
-      case StringType => BytesUtils.toBytes(row.getString(index))
-      case IntegerType => BytesUtils.toBytes(row.getInt(index))
-      case BooleanType => BytesUtils.toBytes(row.getBoolean(index))
-      case ByteType => BytesUtils.toBytes(row.getByte(index))
-      case DoubleType => BytesUtils.toBytes(row.getDouble(index))
-      case FloatType => BytesUtils.toBytes(row.getFloat(index))
-      case LongType => BytesUtils.toBytes(row.getLong(index))
-      case ShortType => BytesUtils.toBytes(row.getShort(index))
+      case StringType => bu.toBytes(row.getString(index))
+      case IntegerType => bu.toBytes(row.getInt(index))
+      case BooleanType => bu.toBytes(row.getBoolean(index))
+      case ByteType => bu.toBytes(row.getByte(index))
+      case DoubleType => bu.toBytes(row.getDouble(index))
+      case FloatType => bu.toBytes(row.getFloat(index))
+      case LongType => bu.toBytes(row.getLong(index))
+      case ShortType => bu.toBytes(row.getShort(index))
       case _ => throw new Exception("Unsupported HBase SQL Data Type")
     }
   }

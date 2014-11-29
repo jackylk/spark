@@ -88,6 +88,7 @@ object HBaseKVHelper {
    */
   def string2KV(values: Seq[String],
                 columns: Seq[AbstractColumn],
+                lineBuffer: Array[BytesUtils],
                 keyBytes: ListBuffer[(Array[Byte], DataType)],
                 valueBytes: ListBuffer[(Array[Byte], Array[Byte], Array[Byte])]) = {
     assert(values.length == columns.length)
@@ -96,7 +97,8 @@ object HBaseKVHelper {
     for (i <- 0 until values.length) {
       val value = values(i)
       val column = columns(i)
-      val bytes = string2Bytes(value, column.dataType)
+      assert(column.dataType == lineBuffer(i).dataType)
+      val bytes = string2Bytes(value, lineBuffer(i))
       if (column.isKeyColum()) {
         keyBytes += ((bytes, column.dataType))
       } else {
@@ -106,18 +108,31 @@ object HBaseKVHelper {
     }
   }
 
-  private def string2Bytes(v: String, dataType: DataType): Array[Byte] = {
-    dataType match {
+  private def string2Bytes(v: String, bu: BytesUtils): Array[Byte] = {
+    bu.dataType match {
       // todo: handle some complex types
-      case BooleanType => BytesUtils.toBytes(v.toBoolean)
-      case ByteType => BytesUtils.toBytes(v)
-      case DoubleType => BytesUtils.toBytes(v.toDouble)
-      case FloatType => BytesUtils.toBytes(v.toFloat)
-      case IntegerType => BytesUtils.toBytes(v.toInt)
-      case LongType => BytesUtils.toBytes(v.toLong)
-      case ShortType => BytesUtils.toBytes(v.toShort)
-      case StringType => BytesUtils.toBytes(v)
+      case BooleanType => bu.toBytes(v.toBoolean)
+      case ByteType => bu.toBytes(v)
+      case DoubleType => bu.toBytes(v.toDouble)
+      case FloatType => bu.toBytes(v.toFloat)
+      case IntegerType => bu.toBytes(v.toInt)
+      case LongType => bu.toBytes(v.toLong)
+      case ShortType => bu.toBytes(v.toShort)
+      case StringType => bu.toBytes(v)
     }
+  }
+
+  /**
+   * create a array of buffer that to be used for creating HBase Put object
+   * @param relation HBase relation
+   * @return
+   */
+  private[hbase] def createLineBuffer(relation: HBaseRelation): Array[BytesUtils] = {
+    val buffer = ArrayBuffer[BytesUtils]()
+    relation.allColumns.foreach { x =>
+      buffer.append(BytesUtils.create(x.dataType))
+    }
+    buffer.toArray
   }
 }
 

@@ -146,7 +146,8 @@ case class InsertValueIntoHBaseTable(relation: HBaseRelation, valueSeq: Seq[Stri
     val buffer = ListBuffer[Byte]()
     val keyBytes = ListBuffer[(Array[Byte], DataType)]()
     val valueBytes = ListBuffer[(Array[Byte], Array[Byte], Array[Byte])]()
-    HBaseKVHelper.string2KV(valueSeq, relation.allColumns, keyBytes, valueBytes)
+    val lineBuffer = HBaseKVHelper.createLineBuffer(relation)
+    HBaseKVHelper.string2KV(valueSeq, relation.allColumns, lineBuffer, keyBytes, valueBytes)
     val rowKey = HBaseKVHelper.encodingRawKeyColumns(buffer, keyBytes)
     val put = new Put(rowKey)
     valueBytes.foreach { case (family, qualifier, value) =>
@@ -174,9 +175,9 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
   val hadoopReader = if (isLocal) {
     val fs = FileSystem.getLocal(conf)
     val pathString = fs.pathToFile(new Path(path)).getCanonicalPath
-    new HadoopReader(hbContext.sparkContext, pathString, delimiter)(relation.allColumns)
+    new HadoopReader(hbContext.sparkContext, pathString, delimiter)(relation)
   } else {
-    new HadoopReader(hbContext.sparkContext, path, delimiter)(relation.allColumns)
+    new HadoopReader(hbContext.sparkContext, path, delimiter)(relation)
   }
 
   // tmp path for storing HFile
