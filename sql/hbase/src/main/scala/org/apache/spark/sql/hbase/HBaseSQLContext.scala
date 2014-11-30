@@ -28,21 +28,39 @@ import org.apache.spark.sql.execution._
  * Configuration for Hive is read from hive-site.xml on the classpath.
  */
 class HBaseSQLContext(@transient val sc: SparkContext,
-                      val optConfiguration : Option[Configuration] = None)
+                      val optConfiguration: Option[Configuration] = None)
   extends SQLContext(sc) with Serializable {
   self =>
 
   // TODO: do we need a analyzer?
   override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this)
 
-  // TODO: suggest to have our own planner that extends SparkPlanner,
-  // so we can reuse SparkPlanner's strategies
-  @transient val hBasePlanner = new SparkPlanner with HBaseStrategies {
+  // Change the default SQL dialect to HiveQL
+  override private[spark] def dialect: String = getConf(SQLConf.DIALECT, "hbaseql")
 
+  // TODO: can we use SparkSQLParser directly instead of HBaseSparkSQLParser?
+  @transient
+  override protected[sql] val sqlParser = {
+    val fallback = new HBaseSQLParser
+    new HBaseSparkSQLParser(fallback(_))
+  }
+
+  override def sql(sqlText: String): SchemaRDD = {
+    if (dialect == "sql") {
+      sys.error(s"SQL dialect in HBase context")
+    } else if (dialect == "hbaseql") {
+      new SchemaRDD(this, sqlParser(sqlText))
+    } else {
+      sys.error(s"Unsupported SQL dialect: $dialect.  Try 'sql' or 'hbaseql'")
+    }
+  }
+
+  protected[sql] class HBasePlanner extends SparkPlanner with HBaseStrategies {
     val hbaseSQLContext = self
     SparkPlan.currentContext.set(self)
 
-    // TODO: suggest to append our strategies to parent's strategies using ::
+    // TODO: suggest to append our strategies to parent's strategies using ++, currently there
+    // is compilation problem using super.strategies
     override val strategies: Seq[Strategy] = Seq(
       CommandStrategy(self),
       HBaseOperations,
@@ -59,34 +77,9 @@ class HBaseSQLContext(@transient val sc: SparkContext,
   }
 
   @transient
-  override protected[sql] val planner = hBasePlanner
-
-  // TODO: YZ: removed and use the one in SQLConf
-  override private[spark] val dialect: String = "hbaseql"
-
-  override protected[sql] def executePlan(plan: LogicalPlan): this.QueryExecution =
-    new this.QueryExecution { val logical = plan }
+  override protected[sql] val planner = new HBasePlanner
 
   /** Extends QueryExecution with HBase specific features. */
-  protected[sql] abstract class QueryExecution extends super.QueryExecution {
-  }
+  protected[sql] abstract class QueryExecution extends super.QueryExecution
 
-  // TODO: can we use SparkSQLParser directly instead of HBaseSparkSQLParser?
-  @transient
-  override protected[sql] val sqlParser = {
-    val fallback = new HBaseSQLParser
-    new HBaseSparkSQLParser(fallback(_))
-  }
-
-  override def parseSql(sql: String): LogicalPlan = sqlParser(sql)
-
-  override def sql(sqlText: String): SchemaRDD = {
-    if (dialect == "sql") {
-      sys.error(s"SQL dialect in HBase context")
-    } else if (dialect == "hbaseql") {
-      new SchemaRDD(this, sqlParser(sqlText))
-    } else {
-      sys.error(s"Unsupported SQL dialect: $dialect.  Try 'sql' or 'hbaseql'")
-    }
-  }
 }
