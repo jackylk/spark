@@ -63,13 +63,14 @@ class HBaseSQLContext(@transient val sc: SparkContext,
     // is compilation problem using super.strategies
     override val strategies: Seq[Strategy] = Seq(
       CommandStrategy(self),
-      HBaseOperations,
+      HBaseCommandStrategy(self),
       TakeOrdered,
-      InMemoryScans,
-      HBaseTableScans,
       HashAggregation,
       LeftSemiJoin,
       HashJoin,
+      InMemoryScans,
+      HBaseTableScans,
+      DataSink,
       BasicOperators,
       CartesianProduct,
       BroadcastNestedLoopJoin
