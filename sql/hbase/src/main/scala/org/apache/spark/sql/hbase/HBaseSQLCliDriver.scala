@@ -124,7 +124,7 @@ object HBaseSQLCLIDriver extends Logging {
   }
 
   private def process(input: String) = {
-    val token = input.split(" ")
+    val token = input.split("\\s")
     token(0).toUpperCase match {
       case QUIT => System.exit(0)
       case EXIT => System.exit(0)
