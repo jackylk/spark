@@ -49,7 +49,8 @@ class HBaseShuffledRDD[K, V, C](
     this
   }
   override def getDependencies: Seq[Dependency[_]] = {
-    List(new ShuffleDependency(prevRdd, _partitioner, serializer, keyOrdering, aggregator, mapSideCombine))
+    List(new ShuffleDependency(prevRdd, _partitioner, serializer, keyOrdering,
+                               aggregator, mapSideCombine))
   }
 
   /** Set a serializer for this RDD's shuffle, or null to use the default (spark.serializer) */
@@ -89,7 +90,8 @@ class HBaseShuffledRDD[K, V, C](
 
 //  override def compute(split: Partition, context: TaskContext): Iterator[(K, C)] = {
 //    val dep = dependencies.head.asInstanceOf[ShuffleDependency[K, V, C]]
-//    SparkEnv.get.shuffleManager.getReader(dep.shuffleHandle, split.index, split.index + 1, context)
+//    SparkEnv.get.shuffleManager.getReader(dep.shuffleHandle, split.index,
+//                                          split.index + 1, context)
 //      .read()
 //      .asInstanceOf[Iterator[(K, C)]]
 //  }

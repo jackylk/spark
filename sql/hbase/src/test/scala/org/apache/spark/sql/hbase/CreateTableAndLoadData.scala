@@ -1,5 +1,6 @@
 package org.apache.spark.sql.hbase
 
+import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor}
 import org.apache.log4j.Logger
@@ -48,7 +49,7 @@ trait CreateTableAndLoadData {
 
   def createNativeHbaseTable(hbc: HBaseSQLContext, tableName: String, families: Seq[String]) = {
     val hbaseAdmin = hbc.catalog.hBaseAdmin
-    val hdesc = new HTableDescriptor(tableName)
+    val hdesc = new HTableDescriptor(TableName.valueOf(tableName))
     families.foreach { f => hdesc.addFamily(new HColumnDescriptor(f))}
     hbaseAdmin.createTable(hdesc)
   }

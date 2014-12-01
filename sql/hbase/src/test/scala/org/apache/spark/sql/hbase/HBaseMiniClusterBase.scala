@@ -19,7 +19,7 @@ package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.util.Bytes
-import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, MiniHBaseCluster, HBaseTestingUtility}
+import org.apache.hadoop.hbase.{TableName, HColumnDescriptor, HTableDescriptor, MiniHBaseCluster, HBaseTestingUtility}
 import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.spark.{Logging, SparkContext}
 import org.scalatest.{Suite, BeforeAndAfterAll, FunSuite}
@@ -49,7 +49,7 @@ class HBaseMiniClusterBase extends FunSuite with BeforeAndAfterAll with Logging 
     val hbaseAdmin = new HBaseAdmin(config)
     println(s"1: ${hbaseAdmin.tableExists("wf")}")
 
-    val desc = new HTableDescriptor("wf")
+    val desc = new HTableDescriptor(TableName.valueOf("wf"))
     val farmily = Bytes.toBytes("fam")
     val hcd = new HColumnDescriptor(farmily)
       .setMaxVersions(10)
