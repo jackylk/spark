@@ -205,14 +205,14 @@ object PartialPredicateOperations {
   // There are 3 possible results: TRUE, FALSE, and MAYBE represented by a predicate
   // which will be used to further filter the results
   implicit class partialPredicateReducer(e: Expression) {
-    def partialReduce(input: Row): Any = {
+    def partialReduce(input: Row, schema: Seq[Attribute]): Any = {
       e match {
         case And(left, right)  => {
-          val l = left.partialReduce(input)
+          val l = left.partialReduce(input, schema)
           if (l == false) {
             false
           } else {
-            val r = right.partialReduce(input)
+            val r = right.partialReduce(input, schema)
             if (r == false) {
               false
             } else {
@@ -233,11 +233,11 @@ object PartialPredicateOperations {
           }
         }
         case Or(left, right)  => {
-          val l = left.partialReduce(input)
+          val l = left.partialReduce(input, schema)
           if (l == true) {
             true
           } else {
-            val r = right.partialReduce(input)
+            val r = right.partialReduce(input, schema)
             if (r == true) {
               true
             } else {
@@ -258,21 +258,21 @@ object PartialPredicateOperations {
           }
         }
         case Not(child)  => {
-          child.partialReduce(input) match {
+          child.partialReduce(input, schema) match {
             case b: Boolean => !b
             case ec: Expression => if (ec fastEquals child) { e } else { Not(ec) }
           }
         }
         case In(value, list) => {
-          val evaluatedValue = value.partialReduce(input)
+          val evaluatedValue = value.partialReduce(input, schema)
           if (evaluatedValue.isInstanceOf[Expression]) {
-            val evaluatedList = list.map(e=>e.partialReduce(input) match {
+            val evaluatedList = list.map(e=>e.partialReduce(input, schema) match {
               case e: Expression => e
               case d => Literal(d, e.dataType)
             })
             In(evaluatedValue.asInstanceOf[Expression], evaluatedList)
           } else {
-            val evaluatedList = list.map(_.partialReduce(input))
+            val evaluatedList = list.map(_.partialReduce(input, schema))
             if (evaluatedList.exists(e=> e == evaluatedValue)) {
               true
             } else {
@@ -287,7 +287,7 @@ object PartialPredicateOperations {
           }
         }
         case InSet(value, hset, child) => {
-          val evaluatedValue = value.partialReduce(input)
+          val evaluatedValue = value.partialReduce(input, schema)
           if (evaluatedValue.isInstanceOf[Expression]) {
             InSet(evaluatedValue.asInstanceOf[Expression], hset, child)
           } else {
@@ -301,7 +301,7 @@ object PartialPredicateOperations {
         case b: BoundReference => {
           val res = b.eval(input)
           // If the result is a MAYBE, returns the original expression
-          if (res == null) { b } else {res}
+          if (res == null) { schema(b.ordinal) } else {res}
         }
         case n: NamedExpression => {
           val res = n.eval(input)
@@ -313,8 +313,8 @@ object PartialPredicateOperations {
         // case BinaryArithmetic => null
         case UnaryMinus(_) => e
         case EqualTo(left, right) => {
-          val evalL = left.partialReduce(input)
-          val evalR = right.partialReduce(input)
+          val evalL = left.partialReduce(input, schema)
+          val evalR = right.partialReduce(input, schema)
           if (evalL.isInstanceOf[Expression] && evalR.isInstanceOf[Expression]) {
             EqualTo(evalL.asInstanceOf[Expression], evalR.asInstanceOf[Expression])
           } else  if (evalL.isInstanceOf[Expression]) {
@@ -331,8 +331,8 @@ object PartialPredicateOperations {
           }
         }
         case LessThan(left, right) => {
-          val evalL = left.partialReduce(input)
-          val evalR = right.partialReduce(input)
+          val evalL = left.partialReduce(input, schema)
+          val evalR = right.partialReduce(input, schema)
           if (evalL.isInstanceOf[Expression] && evalR.isInstanceOf[Expression]) {
             EqualTo(evalL.asInstanceOf[Expression], evalR.asInstanceOf[Expression])
           } else  if (evalL.isInstanceOf[Expression]) {
@@ -349,8 +349,8 @@ object PartialPredicateOperations {
           }
         }
         case LessThanOrEqual(left, right) => {
-          val evalL = left.partialReduce(input)
-          val evalR = right.partialReduce(input)
+          val evalL = left.partialReduce(input, schema)
+          val evalR = right.partialReduce(input, schema)
           if (evalL.isInstanceOf[Expression] && evalR.isInstanceOf[Expression]) {
             EqualTo(evalL.asInstanceOf[Expression], evalR.asInstanceOf[Expression])
           } else  if (evalL.isInstanceOf[Expression]) {
@@ -367,8 +367,8 @@ object PartialPredicateOperations {
           }
         }
         case GreaterThan(left, right) => {
-          val evalL = left.partialReduce(input)
-          val evalR = right.partialReduce(input)
+          val evalL = left.partialReduce(input, schema)
+          val evalR = right.partialReduce(input, schema)
           if (evalL.isInstanceOf[Expression] && evalR.isInstanceOf[Expression]) {
             EqualTo(evalL.asInstanceOf[Expression], evalR.asInstanceOf[Expression])
           } else  if (evalL.isInstanceOf[Expression]) {
@@ -385,8 +385,8 @@ object PartialPredicateOperations {
           }
         }
         case GreaterThanOrEqual(left, right) => {
-          val evalL = left.partialReduce(input)
-          val evalR = right.partialReduce(input)
+          val evalL = left.partialReduce(input, schema)
+          val evalR = right.partialReduce(input, schema)
           if (evalL.isInstanceOf[Expression] && evalR.isInstanceOf[Expression]) {
             EqualTo(evalL.asInstanceOf[Expression], evalR.asInstanceOf[Expression])
           } else  if (evalL.isInstanceOf[Expression]) {
@@ -403,15 +403,15 @@ object PartialPredicateOperations {
           }
         }
         case If(predicate, trueE, falseE) => {
-          val v = predicate.partialReduce(input)
+          val v = predicate.partialReduce(input, schema)
           if (v.isInstanceOf[Expression]) {
            If(v.asInstanceOf[Expression],
-              trueE.partialReduce(input).asInstanceOf[Expression],
-              falseE.partialReduce(input).asInstanceOf[Expression])
+              trueE.partialReduce(input, schema).asInstanceOf[Expression],
+              falseE.partialReduce(input, schema).asInstanceOf[Expression])
           } else if (v.asInstanceOf[Boolean]) {
-            trueE.partialReduce(input)
+            trueE.partialReduce(input, schema)
           } else {
-            falseE.partialReduce(input)
+            falseE.partialReduce(input, schema)
           }
         }
         case _ => e

@@ -46,15 +46,6 @@ class PartitionRange[T](start: Option[T], startInclusive: Boolean,
                         val id: Int, dt: NativeType, var pred: Expression)
   extends Range[T](start, startInclusive, end, endInclusive, dt)
 
-// A PointRange is a range of a single point. It is used for convenience when
-// do comparison on two values of the same type. An alternatively would be to
-// use multiple (overloaded) comparison methods, which could be more natural
-// but also more codes
-
-//class PointRange[T](value: T, dt:NativeType)
-//  extends Range[T](Some(value), true, Some(value), true, dt)
-
-
 class RangeType[T] extends PartiallyOrderingDataType {
   private[sql] type JvmType = Range[T]
   @transient private[sql] val tag = typeTag[JvmType]

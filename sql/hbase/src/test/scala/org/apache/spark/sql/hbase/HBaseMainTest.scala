@@ -1,21 +1,16 @@
 package org.apache.spark.sql.hbase
 
-import java.io.{ObjectOutputStream, ByteArrayOutputStream, DataOutputStream}
+import java.io.{ByteArrayOutputStream, DataOutputStream}
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase._
 import org.apache.hadoop.hbase.client._
 import org.apache.log4j.Logger
-import org.apache.spark
 import org.apache.spark.sql.SchemaRDD
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.types._
-import org.apache.spark.sql.hbase.DataTypeUtils._
-import org.apache.spark.sql.hbase.HBaseCatalog._
-import org.apache.spark.sql.hbase.KeyColumn
 import org.apache.spark.sql.test.TestSQLContext
-import org.apache.spark.sql.test.TestSQLContext._
-import org.apache.spark.{Logging, SparkConf, sql}
+import org.apache.spark.{Logging, SparkConf}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.apache.spark.sql.catalyst.expressions.Row
 import org.apache.hadoop.hbase.util.Bytes

@@ -86,9 +86,9 @@ class HBasePartitionerSuite extends FunSuite with HBaseTestSparkContext {
         , ((new BytesUtils).toBytes(6), IntegerType))
     )
 
-    val partition1 = new HBasePartition(0, 0, Some(rowkey1),
+    val partition1 = new HBasePartition(0, 0, -1, Some(rowkey1),
       Some(rowkey2))
-    val partition2 = new HBasePartition(1, 1, Some(rowkey3),
+    val partition2 = new HBasePartition(1, 1, -1, Some(rowkey3),
       Some(rowkey4))
 
     var allColumns = List[AbstractColumn]()

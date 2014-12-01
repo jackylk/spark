@@ -43,6 +43,23 @@ object DataTypeUtils {
     }
   }
 
+  def dataToBytes (src: Any,
+                  dt: DataType): HBaseRawType = {
+    // TODO: avoid new instance per invocation
+    val bu = new BytesUtils
+    dt match {
+      case StringType => bu.toBytes(src.asInstanceOf[String])
+      case IntegerType => bu.toBytes(src.asInstanceOf[Int])
+      case BooleanType => bu.toBytes(src.asInstanceOf[Boolean])
+      case ByteType => bu.toBytes(src.asInstanceOf[Byte])
+      case DoubleType => bu.toBytes(src.asInstanceOf[Double])
+      case FloatType => bu.toBytes(src.asInstanceOf[Float])
+      case LongType => bu.toBytes(src.asInstanceOf[Long])
+      case ShortType => bu.toBytes(src.asInstanceOf[Short])
+      case _ => throw new Exception("Unsupported HBase SQL Data Type")
+    }
+  }
+
   def setRowColumnFromHBaseRawType(row: MutableRow,
                                    index: Int,
                                    src: HBaseRawType,

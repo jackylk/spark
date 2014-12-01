@@ -60,13 +60,13 @@ private[hbase] case class HBaseRelation(
   // Read the configuration from (a) the serialized version if available
   //  (b) the constructor parameter if available
   //  (c) otherwise create a default one using HBaseConfiguration.create
-  private var serializedConfiguration: Array[Byte] = optConfiguration.map
+  private val serializedConfiguration: Array[Byte] = optConfiguration.map
     { conf => Util.serializeHBaseConfiguration(conf)}.orNull
   @transient private var config: Configuration = _
 
-  def configuration() = getConf()
+  def configuration() = getConf
 
-  private def getConf(): Configuration = {
+  private def getConf: Configuration = {
     if (config == null) {
       config = if (serializedConfiguration != null) {
         Util.deserializeHBaseConfiguration(serializedConfiguration)
@@ -114,14 +114,14 @@ private[hbase] case class HBaseRelation(
     regionLocations.zipWithIndex.map {
       case p =>
         new HBasePartition(
-          p._2, p._2,
+          p._2, p._2, -1,
           Some(p._1._1.getStartKey),
           Some(p._1._1.getEndKey),
           Some(p._1._2.getHostname))
     }
   }
 
-  private def generateRange(partition: HBasePartition, pred: Expression,
+  private[hbase] def generateRange(partition: HBasePartition, pred: Expression,
                             index: Int):
   (PartitionRange[_]) = {
     def getData(dt: NativeType,
@@ -141,8 +141,8 @@ private[hbase] case class HBaseRelation(
     val buffer = ListBuffer[HBaseRawType]()
     val start = getData(dt, buffer, partition.lowerBound)
     val end = getData(dt, buffer, partition.upperBound)
-    val startInclusive = !start.isEmpty
-    val endInclusive = !end.isEmpty && !isLastKeyIndex
+    val startInclusive = start.nonEmpty
+    val endInclusive = end.nonEmpty && !isLastKeyIndex
     new PartitionRange(start, startInclusive, end, endInclusive, partition.index, dt, pred)
   }
 
@@ -206,9 +206,9 @@ private[hbase] case class HBaseRelation(
           val par = partitions(p.id)
           idx = idx + 1
           if (p.pred == null) {
-            new HBasePartition(idx, par.mappedIndex, par.lowerBound, par.upperBound, par.server)
+            new HBasePartition(idx, par.mappedIndex, -1, par.lowerBound, par.upperBound, par.server)
           } else {
-            new HBasePartition(idx, par.mappedIndex, par.lowerBound, par.upperBound,
+            new HBasePartition(idx, par.mappedIndex, -1, par.lowerBound, par.upperBound,
               par.server, Some(p.pred))
           }
         }))
@@ -242,7 +242,7 @@ private[hbase] case class HBaseRelation(
               range => {
                 val predIndex = keyIndexToPredIndex(keyIndex)
                 row.update(predIndex, range)
-                val partialEvalResult = range.pred.partialReduce(row)
+                val partialEvalResult = range.pred.partialReduce(row, predRefs)
                 range.pred = if (partialEvalResult.isInstanceOf[Expression]) {
                   // progressively fine tune the constraining predicate
                   partialEvalResult.asInstanceOf[Expression]
@@ -263,8 +263,8 @@ private[hbase] case class HBaseRelation(
       case None => Some(partitions)
       case Some(pred) => if (pred.references.intersect(AttributeSet(partitionKeys)).isEmpty) {
         // the predicate does not apply to the partitions at all; just push down the filtering
-        Some(partitions.map(p=>new HBasePartition(p.idx, p.mappedIndex, p.lowerBound,
-                               p.upperBound, p.server, Some(pred))))
+        Some(partitions.map(p=>new HBasePartition(p.idx, p.mappedIndex, p.keyPartialEvalIndex,
+                             p.lowerBound, p.upperBound, p.server, Some(pred))))
       } else {
         val prunedRanges: Seq[PartitionRange[_]] = getPrunedRanges(pred)
         println("prunedRanges: " + prunedRanges.length)
@@ -275,10 +275,10 @@ private[hbase] case class HBaseRelation(
           // pruned partitions have the same "physical" partition index, but different
           // "canonical" index
           if (p.pred == null) {
-            new HBasePartition(idx, par.mappedIndex, par.lowerBound,
+            new HBasePartition(idx, par.mappedIndex, par.keyPartialEvalIndex, par.lowerBound,
                                par.upperBound, par.server, None)
           } else {
-            new HBasePartition(idx, par.mappedIndex, par.lowerBound,
+            new HBasePartition(idx, par.mappedIndex, par.keyPartialEvalIndex, par.lowerBound,
                                par.upperBound, par.server, Some(p.pred))
           }
         }))
@@ -668,17 +668,15 @@ private[hbase] case class HBaseRelation(
     val rowKeys = HBaseKVHelper.decodingRawKeyColumns(buffer, result.getRow, keyColumns)
     projections.foreach { p =>
       columnMap.get(p._1.name).get match {
-        case column: NonKeyColumn => {
+        case column: NonKeyColumn =>
           val colValue = result.getValue(column.familyRaw, column.qualifierRaw)
           DataTypeUtils.setRowColumnFromHBaseRawType(row, p._2, colValue,
             column.dataType, bytesUtils)
-        }
-        case ki => {
+        case ki =>
           val keyIndex = ki.asInstanceOf[Int]
           val rowKey = rowKeys(keyIndex)
           DataTypeUtils.setRowColumnFromHBaseRawType(row, p._2, rowKey,
             keyColumns(keyIndex).dataType, bytesUtils)
-        }
       }
     }
     row

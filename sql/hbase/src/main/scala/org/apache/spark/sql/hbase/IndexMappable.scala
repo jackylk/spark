@@ -17,5 +17,5 @@
 package org.apache.spark.sql.hbase
 
 private[hbase] trait IndexMappable {
-    val mappedIndex: Int
+    def mappedIndex: Int
 }

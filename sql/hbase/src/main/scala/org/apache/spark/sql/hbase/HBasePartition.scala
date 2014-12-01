@@ -18,13 +18,17 @@ package org.apache.spark.sql.hbase
 
 import org.apache.spark.Partition
 import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.types.BinaryType
+import org.apache.spark.sql.hbase.catalyst.types.Range
 
 private[hbase] class HBasePartition(
     val idx: Int, val mappedIndex: Int,
+    val keyPartialEvalIndex: Int = -1,
     val lowerBound: Option[HBaseRawType] = None,
     val upperBound: Option[HBaseRawType] = None,
     val server: Option[String] = None,
-    val filterPred: Option[Expression] = None) extends Partition with IndexMappable {
+    val filterPred: Option[Expression] = None) extends Range[HBaseRawType](lowerBound, true,
+               upperBound, false, BinaryType) with Partition with IndexMappable {
 
   override def index: Int = idx
 
