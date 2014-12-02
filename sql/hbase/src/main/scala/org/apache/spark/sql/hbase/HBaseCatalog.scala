@@ -200,8 +200,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       put.add(ColumnFamily, QualHbaseName, Bytes.toBytes(result.toString))
       */
 
-      val hbaseRelation = HBaseRelation(tableName, hbaseNamespace, hbaseTableName, allColumns,
-        Some(configuration))
+      val hbaseRelation = HBaseRelation(tableName, hbaseNamespace, hbaseTableName, allColumns)
+      hbaseRelation.config = configuration
 
       writeObjectToTable(hbaseRelation)
 
@@ -215,7 +215,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       val relation = result.get
       val allColumns = relation.allColumns.filter(!_.sqlName.equals(columnName))
       val hbaseRelation = HBaseRelation(relation.tableName,
-        relation.hbaseNamespace, relation.hbaseTableName, allColumns, Some(configuration))
+        relation.hbaseNamespace, relation.hbaseTableName, allColumns)
+      hbaseRelation.config = configuration
 
       writeObjectToTable(hbaseRelation)
 
@@ -229,7 +230,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       val relation = result.get
       val allColumns = relation.allColumns :+ column
       val hbaseRelation = HBaseRelation(relation.tableName,
-        relation.hbaseNamespace, relation.hbaseTableName, allColumns, Some(configuration))
+        relation.hbaseNamespace, relation.hbaseTableName, allColumns)
+      hbaseRelation.config = configuration
 
       writeObjectToTable(hbaseRelation)
 
@@ -333,6 +335,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     val objectInputStream = new ObjectInputStream(byteArrayInputStream)
     val hbaseRelation: HBaseRelation
     = objectInputStream.readObject().asInstanceOf[HBaseRelation]
+    hbaseRelation.config = configuration
     hbaseRelation
   }
 

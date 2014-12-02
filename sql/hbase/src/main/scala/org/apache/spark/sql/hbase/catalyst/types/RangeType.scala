@@ -30,7 +30,7 @@ class Range[T](val start: Option[T], // None for open ends
                val startInclusive: Boolean,
                val end: Option[T], // None for open ends
                val endInclusive: Boolean,
-               val dt: NativeType) {
+               val dt: NativeType) extends Serializable {
   require(dt != null && !(start.isDefined && end.isDefined &&
     ((dt.ordering.eq(start.get, end.get) &&
       (!startInclusive || !endInclusive)) ||

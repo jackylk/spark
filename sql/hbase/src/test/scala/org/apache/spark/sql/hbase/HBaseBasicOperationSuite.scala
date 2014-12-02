@@ -56,7 +56,7 @@ class HBaseBasicOperationSuite extends QueryTest {
   }
 
   test("Select test 0") {
-    sql( """SELECT * FROM tableName ORDER BY col7 DESC""").foreach(println)
+    sql( """SELECT * FROM myTable ORDER BY col7 DESC""").foreach(println)
   }
 
   test("Select test 1") {
