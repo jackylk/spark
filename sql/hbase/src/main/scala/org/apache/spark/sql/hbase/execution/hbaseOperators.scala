@@ -95,7 +95,6 @@ case class InsertIntoHBaseTable(
 
     def writeToHbase(context: TaskContext, iterator: Iterator[Row]) = {
       val htable = relation.htable
-      val colWithIndex = relation.allColumns.zipWithIndex.toMap
       val bu = Array.fill[BytesUtils](BatchMaxSize, relation.allColumns.length) {
         new BytesUtils
       }
@@ -106,24 +105,24 @@ case class InsertIntoHBaseTable(
       val buffer = ListBuffer[Byte]()
       while (iterator.hasNext) {
         val row = iterator.next()
-        val rawKeyCol = relation.keyColumns.map {
-          case kc: KeyColumn => {
+        val rawKeyCol = relation.keyColumns.map (
+          kc => {
             val rowColumn = DataTypeUtils.getRowColumnFromHBaseRawType(
-              row, colWithIndex(kc), kc.dataType, bu(rowIndexInBatch)(colIndexInBatch))
+              row, kc.ordinal, kc.dataType, bu(rowIndexInBatch)(colIndexInBatch))
             colIndexInBatch += 1
             (rowColumn, kc.dataType)
           }
-        }
+        )
         val key = HBaseKVHelper.encodingRawKeyColumns(buffer, rawKeyCol)
         val put = new Put(key)
-        relation.nonKeyColumns.foreach {
-          case nkc: NonKeyColumn => {
+        relation.nonKeyColumns.foreach (
+          nkc => {
             val rowVal = DataTypeUtils.getRowColumnFromHBaseRawType(
-              row, colWithIndex(nkc), nkc.dataType, bu(rowIndexInBatch)(colIndexInBatch))
+              row, nkc.ordinal, nkc.dataType, bu(rowIndexInBatch)(colIndexInBatch))
             colIndexInBatch += 1
             put.add(Bytes.toBytes(nkc.family), Bytes.toBytes(nkc.qualifier), rowVal)
           }
-        }
+        )
 
         puts += put
         colIndexInBatch = 0

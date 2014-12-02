@@ -39,6 +39,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, ListBuffer, SynchronizedM
 sealed abstract class AbstractColumn {
   val sqlName: String
   val dataType: DataType
+  var ordinal: Int = -1
 
   def isKeyColum(): Boolean = false
 
@@ -113,12 +114,6 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
         val nonKeyColumn = x.asInstanceOf[NonKeyColumn]
         tableDescriptor.addFamily(new HColumnDescriptor(nonKeyColumn.family))
       })
-//    val splitKeys: Array[Array[Byte]] = Array(
-//        new GenericRow(Array(1024.0, "Upen", 128: Short)),
-//        new GenericRow(Array(1024.0, "Upen", 256: Short)),
-//        new GenericRow(Array(4096.0, "SF", 512: Short))
-//      ).map(makeRowKey(_, Seq(DoubleType, StringType, ShortType)))
-//    hBaseAdmin.createTable(tableDescriptor, splitKeys);
     admin.createTable(tableDescriptor, null);
   }
 
@@ -157,51 +152,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       throw new Exception(s"row key $tableName exists")
     }
     else {
-      /*
-      // construct key columns
-      val result = new StringBuilder()
-      for (column <- keyColumns) {
-        result.append(column.sqlName)
-        result.append(",")
-        result.append(column.dataType.typeName)
-        result.append(";")
-      }
-      put.add(ColumnFamily, QualKeyColumns, Bytes.toBytes(result.toString))
-
-      // construct non-key columns
-      result.clear()
-      for (column <- nonKeyColumns) {
-        result.append(column.sqlName)
-        result.append(",")
-        result.append(column.dataType.typeName)
-        result.append(",")
-        result.append(column.family)
-        result.append(",")
-        result.append(column.qualifier)
-        result.append(";")
-      }
-      put.add(ColumnFamily, QualNonKeyColumns, Bytes.toBytes(result.toString))
-
-      // construct all columns
-      result.clear()
-      for (column <- allColumns) {
-        result.append(column.sqlName)
-        result.append(",")
-        result.append(column.dataType.typeName)
-        result.append(";")
-      }
-      put.add(ColumnFamily, QualAllColumns, Bytes.toBytes(result.toString))
-
-      // construct HBase table name and namespace
-      result.clear()
-      result.append(hbaseNamespace)
-      result.append(",")
-      result.append(hbaseTableName)
-      put.add(ColumnFamily, QualHbaseName, Bytes.toBytes(result.toString))
-      */
-
-      val hbaseRelation = HBaseRelation(tableName, hbaseNamespace, hbaseTableName, allColumns)
-      hbaseRelation.config = configuration
+      val hbaseRelation = HBaseRelation(tableName, hbaseNamespace, hbaseTableName, allColumns,
+        Some(configuration))
 
       writeObjectToTable(hbaseRelation)
 
@@ -267,62 +219,6 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       if (values == null || values.isEmpty) {
         result = None
       } else {
-        /*
-        // get HBase table name and namespace
-        val hbaseName = Bytes.toString(values.getValue(ColumnFamily, QualHbaseName))
-        val hbaseNameArray = hbaseName.split(",")
-        val hbaseNamespace = hbaseNameArray(0)
-        val hbaseTableName = hbaseNameArray(1)
-
-        // get all of the columns
-        var allColumns = Bytes.toString(values.getValue(ColumnFamily, QualAllColumns))
-        if (allColumns.length > 0) {
-          allColumns = allColumns.substring(0, allColumns.length - 1)
-        }
-        val allColumnArray = allColumns.split(";")
-        var allColumnList = List[KeyColumn]()
-        for (allColumn <- allColumnArray) {
-          val index = allColumn.indexOf(",")
-          val sqlName = allColumn.substring(0, index)
-          val dataType = getDataType(allColumn.substring(index + 1))
-          val column = KeyColumn(sqlName, dataType)
-          allColumnList = allColumnList :+ column
-        }
-
-        // get the key columns
-        var keyColumns = Bytes.toString(values.getValue(ColumnFamily, QualKeyColumns))
-        if (keyColumns.length > 0) {
-          keyColumns = keyColumns.substring(0, keyColumns.length - 1)
-        }
-        val keyColumnArray = keyColumns.split(";")
-        var keyColumnList = List[KeyColumn]()
-        for (keyColumn <- keyColumnArray) {
-          val index = keyColumn.indexOf(",")
-          val sqlName = keyColumn.substring(0, index)
-          val dataType = getDataType(keyColumn.substring(index + 1))
-          val column = KeyColumn(sqlName, dataType)
-          keyColumnList = keyColumnList :+ column
-        }
-
-        // get the non-key columns
-        var nonKeyColumns = Bytes.toString(values.getValue(ColumnFamily, QualNonKeyColumns))
-        if (nonKeyColumns.length > 0) {
-          nonKeyColumns = nonKeyColumns.substring(0, nonKeyColumns.length - 1)
-        }
-        var nonKeyColumnList = List[NonKeyColumn]()
-        val nonKeyColumnArray = nonKeyColumns.split(";")
-        for (nonKeyColumn <- nonKeyColumnArray) {
-          val nonKeyColumnInfo = nonKeyColumn.split(",")
-          val sqlName = nonKeyColumnInfo(0)
-          val dataType = getDataType(nonKeyColumnInfo(1))
-          val family = nonKeyColumnInfo(2)
-          val qualifier = nonKeyColumnInfo(3)
-
-          val column = NonKeyColumn(sqlName, dataType, family, qualifier)
-          nonKeyColumnList = nonKeyColumnList :+ column
-        }
-        */
-
         result = Some(getRelationFromResult(values))
       }
     }

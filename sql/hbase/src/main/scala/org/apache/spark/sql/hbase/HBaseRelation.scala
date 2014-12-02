@@ -55,6 +55,8 @@ private[hbase] case class HBaseRelation(
     case nonKey: NonKeyColumn => (nonKey.sqlName, nonKey)
   }.toMap
 
+  allColumns.zipWithIndex.foreach(pi=> pi._1.ordinal = pi._2)
+
   // Read the configuration from (a) the serialized version if available
   //  (b) the constructor parameter if available
   //  (c) otherwise create a default one using HBaseConfiguration.create
