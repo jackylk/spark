@@ -27,8 +27,8 @@ class JoinsSuiteBase extends QueriesSuiteBase with CreateTableAndLoadData {
     super.beforeAll(configMap)
     for (tx <- 1 to 4) {
       val JoinTable = s"JoinTable$tx"
-      val JoinTableStg = s"JoinTable$tx"
       val HBaseJoinTable = s"Hb$JoinTable"
+      val JoinTableStg = s"JoinTableStg$tx"
       val HBaseJoinTableStg = s"Hb$JoinTableStg"
       val JoinTableCsv: String = s"$CsvPath/JoinTable$tx.csv"
       createTables(hbc, JoinTableStg, JoinTable, HBaseJoinTableStg, HBaseJoinTable)

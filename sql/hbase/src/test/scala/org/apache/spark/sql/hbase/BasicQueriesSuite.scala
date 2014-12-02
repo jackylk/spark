@@ -53,8 +53,8 @@ class BasicQueriesSuite extends QueriesSuiteBase {
       for (rx <- 0 until 2)
       yield compareWithTol(result1(rx).toSeq, exparr(rx), s"Row$rx failed")
     }.foldLeft(true) { case (res1, newres) => res1 && newres}
-    assert(res, "One or more rows did not match expected")
     println(results.mkString)
+    assert(res, "One or more rows did not match expected")
 
     println(s"Test $testnm completed successfully")
   }
@@ -80,23 +80,53 @@ class BasicQueriesSuite extends QueriesSuiteBase {
       for (rx <- 0 until 2)
       yield compareWithTol(result1(rx).toSeq, exparr(rx), s"Row$rx failed")
     }.foldLeft(true) { case (res1, newres) => res1 && newres}
-    assert(res, "One or more rows did not match expected")
     println(results.mkString)
+    assert(res, "One or more rows did not match expected")
 
     println(s"Test $testnm completed successfully")
   }
 
-  testnm = "Select specific cols with filter"
+  testnm = "Select all cols with order by"
   test(testnm) {
     val query1 =
-      s"""select doublecol, strcol, bytecol, shortcol, intcol, longcol, floatcol from $tabName where strcol like '%Row%' and shortcol < 12345 and doublecol > 5678912.345681 and doublecol < 5678912.345683 limit 2"""
+      s"""select * from $tabName where shortcol < 12344 order by strcol desc limit 2"""
+//      s"""select * from $tabName order by strcol desc"""
+        .stripMargin
+
+    val execQuery1 = hbc.executeSql(query1)
+    val result1 = execQuery1.toRdd.collect()
+    assert(result1.size == 2, s"$testnm failed on size")
+    val exparr = Array(
+      Array("Row3", 'c', 12343, 23456783, 3456789012343L, 45657.83F, 5678912.345683),
+       Array("Row2", 'b', 12342, 23456782, 3456789012342L, 45657.82F, 5678912.345682))
+
+    val executeSql2 = hbc.executeSql(query1)
+    val results = executeSql2.toRdd.collect()
+    println(s"$query1 came back with ${results.size} results")
+    assert(results.size == 2, s"$testnm failed assertion on size")
+    val res = {
+      for (rx <- 0 until 2)
+      yield compareWithTol(result1(rx).toSeq, exparr(rx), s"Row$rx failed")
+    }.foldLeft(true) { case (res1, newres) => res1 && newres}
+    println(results.mkString)
+    assert(res, "One or more rows did not match expected")
+
+    println(s"Test $testnm completed successfully")
+  }
+
+  testnm = "Select same column twice"
+  test(testnm) {
+    val query1 =
+      s"""select doublecol as double1, doublecol as doublecol
+             | from $tabName
+     | where doublecol > 5678912.345681 and doublecol < 5678912.345683"""
         .stripMargin
 
     val execQuery1 = hbc.executeSql(query1)
     val result1 = execQuery1.toRdd.collect()
     assert(result1.size == 1, s"$testnm failed on size")
     val exparr = Array(
-      Array(5678912.345682, "Row2", 'b', 12342, 23456782, 3456789012342L, 45657.82F))
+      Array(5678912.345682, 5678912.345682))
 
     val executeSql2 = hbc.executeSql(query1)
     val results = executeSql2.toRdd.collect()
@@ -106,10 +136,40 @@ class BasicQueriesSuite extends QueriesSuiteBase {
       for (rx <- 0 until 1)
       yield compareWithTol(result1(rx).toSeq, exparr(rx), s"Row$rx failed")
     }.foldLeft(true) { case (res1, newres) => res1 && newres}
-    assert(res, "One or more rows did not match expected")
     println(results.mkString)
+    assert(res, "One or more rows did not match expected")
 
     println(s"Test $testnm completed successfully")
   }
 
+  testnm = "Select specific cols with filter"
+  test(testnm) {
+    val query1 =
+      s"""select doublecol as double1, -1 * doublecol as minusdouble,
+         | substr(strcol, 2) as substrcol, doublecol, strcol,
+         | bytecol, shortcol, intcol, longcol, floatcol from $tabName where strcol like
+         |  '%Row%' and shortcol < 12345
+         |  and doublecol > 5678912.345681 and doublecol < 5678912.345683 limit 2"""
+        .stripMargin
+
+    val execQuery1 = hbc.executeSql(query1)
+    val result1 = execQuery1.toRdd.collect()
+    assert(result1.size == 1, s"$testnm failed on size")
+    val exparr = Array(
+      Array(5678912.345682, -5678912.345682, "ow2", 5678912.345682,
+        "Row2", 'b', 12342, 23456782, 3456789012342L, 45657.82F))
+
+    val executeSql2 = hbc.executeSql(query1)
+    val results = executeSql2.toRdd.collect()
+    println(s"$query1 came back with ${results.size} results")
+    assert(results.size == 1, s"$testnm failed assertion on size")
+    val res = {
+      for (rx <- 0 until 1)
+      yield compareWithTol(result1(rx).toSeq, exparr(rx), s"Row$rx failed")
+    }.foldLeft(true) { case (res1, newres) => res1 && newres}
+    println(results.mkString)
+    assert(res, "One or more rows did not match expected")
+
+    println(s"Test $testnm completed successfully")
+  }
 }

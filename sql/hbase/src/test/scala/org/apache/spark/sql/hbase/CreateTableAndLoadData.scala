@@ -31,7 +31,6 @@ trait CreateTableAndLoadData {
   private val logger = Logger.getLogger(getClass.getName)
   val DefaultStagingTableName = "StageTable"
   val DefaultTableName = "TestTable"
-  val DefaultHbaseStagingTabName = "stageTab"
   val DefaultHbaseStagingTableName = s"Hb$DefaultStagingTableName"
   val DefaultHbaseTabName = s"Hb$DefaultTableName"
   val DefaultHbaseColFamiles = Seq("cf1", "cf2")
@@ -58,8 +57,8 @@ trait CreateTableAndLoadData {
                    hbaseStagingTable: String, hbaseTable: String) = {
 
     val hbaseAdmin = hbc.catalog.hBaseAdmin
-    createNativeHbaseTable(hbc, DefaultHbaseStagingTabName, DefaultHbaseColFamiles)
-    createNativeHbaseTable(hbc, DefaultHbaseTabName, DefaultHbaseColFamiles)
+    createNativeHbaseTable(hbc, hbaseStagingTable, DefaultHbaseColFamiles)
+    createNativeHbaseTable(hbc, hbaseTable, DefaultHbaseColFamiles)
 
     val (stagingSql, tabSql) =
       ( s"""CREATE TABLE $stagingTableName(strcol STRING, bytecol String, shortcol String, intcol String,
