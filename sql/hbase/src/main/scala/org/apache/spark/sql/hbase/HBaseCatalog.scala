@@ -36,7 +36,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, ListBuffer, SynchronizedM
  * sqlName the name of the column
  * dataType the data type of the column
  */
-sealed abstract class AbstractColumn {
+sealed abstract class AbstractColumn extends Serializable {
   val sqlName: String
   val dataType: DataType
   var ordinal: Int = -1

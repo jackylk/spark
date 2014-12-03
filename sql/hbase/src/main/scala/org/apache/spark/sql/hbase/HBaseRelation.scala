@@ -42,6 +42,8 @@ private[hbase] case class HBaseRelation(
     hbaseTableName: String,
     allColumns: Seq[AbstractColumn])
   extends LeafNode {
+  allColumns.zipWithIndex.foreach(pi=> pi._1.ordinal = pi._2)
+
   @transient lazy val logger = Logger.getLogger(getClass.getName)
 
   @transient lazy val keyColumns = allColumns.filter(_.isInstanceOf[KeyColumn])
@@ -54,8 +56,6 @@ private[hbase] case class HBaseRelation(
     case key: KeyColumn => (key.sqlName, key.order)
     case nonKey: NonKeyColumn => (nonKey.sqlName, nonKey)
   }.toMap
-
-  allColumns.zipWithIndex.foreach(pi=> pi._1.ordinal = pi._2)
 
   // Read the configuration from (a) the serialized version if available
   //  (b) the constructor parameter if available
