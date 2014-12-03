@@ -20,7 +20,9 @@ package org.apache.spark.sql.hbase
 import org.apache.log4j.Logger
 import org.scalatest.ConfigMap
 
-class QueriesSuiteBase extends HBaseIntegrationTestBase with CreateTableAndLoadData {
+class QueriesSuiteBase() extends HBaseIntegrationTestBase(
+    System.getProperty("spark.testing.use-external-hbase","false") == "false")
+    with CreateTableAndLoadData {
   self: HBaseIntegrationTestBase =>
 
   var AvoidByteDataTypeBug = true

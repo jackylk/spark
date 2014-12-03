@@ -41,7 +41,7 @@ sealed abstract class AbstractColumn extends Serializable {
   val dataType: DataType
   var ordinal: Int = -1
 
-  def isKeyColum(): Boolean = false
+  def isKeyColumn(): Boolean = false
 
   override def toString: String = {
     s"$sqlName , $dataType.typeName"
@@ -50,7 +50,7 @@ sealed abstract class AbstractColumn extends Serializable {
 
 case class KeyColumn(val sqlName: String, val dataType: DataType, val order: Int)
   extends AbstractColumn {
-  override def isKeyColum() = true
+  override def isKeyColumn() = true
 }
 
 case class NonKeyColumn(
@@ -160,8 +160,9 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       throw new Exception(s"row key $tableName exists")
     }
     else {
-      val hbaseRelation = HBaseRelation(tableName, hbaseNamespace, hbaseTableName, allColumns,
-        Some(configuration))
+      val hbaseRelation = HBaseRelation(tableName, hbaseNamespace, hbaseTableName,
+        allColumns, Some(configuration))
+//      hbaseRelation.config = configuration
 
       writeObjectToTable(hbaseRelation)
 
@@ -175,8 +176,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       val relation = result.get
       val allColumns = relation.allColumns.filter(!_.sqlName.equals(columnName))
       val hbaseRelation = HBaseRelation(relation.tableName,
-        relation.hbaseNamespace, relation.hbaseTableName, allColumns)
-      hbaseRelation.config = configuration
+        relation.hbaseNamespace, relation.hbaseTableName, allColumns, Some(configuration))
+//      hbaseRelation.config = configuration
 
       writeObjectToTable(hbaseRelation)
 
@@ -190,8 +191,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       val relation = result.get
       val allColumns = relation.allColumns :+ column
       val hbaseRelation = HBaseRelation(relation.tableName,
-        relation.hbaseNamespace, relation.hbaseTableName, allColumns)
-      hbaseRelation.config = configuration
+        relation.hbaseNamespace, relation.hbaseTableName, allColumns, Some(configuration))
+//      hbaseRelation.config = configuration
 
       writeObjectToTable(hbaseRelation)
 
@@ -239,7 +240,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     val objectInputStream = new ObjectInputStream(byteArrayInputStream)
     val hbaseRelation: HBaseRelation
     = objectInputStream.readObject().asInstanceOf[HBaseRelation]
-    hbaseRelation.config = configuration
+//    hbaseRelation.config = configuration
     hbaseRelation
   }
 

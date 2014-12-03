@@ -20,71 +20,14 @@ import scala.collection.mutable.ArrayBuffer
  * HBaseIntegrationTest
  * Created by sboesch on 9/27/14.
  */
-object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
+object HBaseMainTest extends HBaseIntegrationTestBase(false) with CreateTableAndLoadData
+    with Logging {
   @transient val logger = Logger.getLogger(getClass.getName)
 
-  val useMiniCluster: Boolean = false
+  val useMiniCluster = false
 
-  val NMasters = 1
-  val NRegionServers = 1
-  // 3
-  val NDataNodes = 0
-
-  val NWorkers = 1
-
-  @transient var cluster: MiniHBaseCluster = null
-  @transient var config: Configuration = null
-  @transient var hbaseAdmin: HBaseAdmin = null
-  @transient var hbContext: HBaseSQLContext = null
-  @transient var catalog: HBaseCatalog = null
-  @transient var testUtil: HBaseTestingUtility = null
-
-  case class MyTable(col1: String, col2: Byte, col3: Short, col4: Int, col5: Long,
-                     col6: Float, col7: Double)
-
-  val DbName = "mynamespace"
-  val TabName = "myTable"
-  val HbaseTabName = "hbaseTableName"
-
-  def ctxSetup() {
-    if (useMiniCluster) {
-      logger.info(s"Spin up hbase minicluster w/ $NMasters mast, $NRegionServers RS, $NDataNodes dataNodes")
-      testUtil = new HBaseTestingUtility
-      config = testUtil.getConfiguration
-    } else {
-      config = HBaseConfiguration.create
-    }
-    //    cluster = HBaseTestingUtility.createLocalHTU.
-    //      startMiniCluster(NMasters, NRegionServers, NDataNodes)
-    //    config = HBaseConfiguration.create
-    config.set("hbase.regionserver.info.port", "-1")
-    config.set("hbase.master.info.port", "-1")
-    config.set("dfs.client.socket-timeout", "240000")
-    config.set("dfs.datanode.socket.write.timeout", "240000")
-    config.set("zookeeper.session.timeout", "240000")
-    config.set("zookeeper.minSessionTimeout", "10")
-    config.set("zookeeper.tickTime", "10")
-    config.set("hbase.rpc.timeout", "240000")
-    config.set("ipc.client.connect.timeout", "240000")
-    config.set("dfs.namenode.stale.datanode.interva", "240000")
-    config.set("hbase.rpc.shortoperation.timeout", "240000")
-//    config.set("hbase.regionserver.lease.period", "240000")
-
-    if (useMiniCluster) {
-      cluster = testUtil.startMiniCluster(NMasters, NRegionServers)
-      println(s"# of region servers = ${cluster.countServedRegions}")
-    }
-
-    @transient val conf = new SparkConf
-    val SparkPort = 11223
-    conf.set("spark.ui.port", SparkPort.toString)
-    //    @transient val sc = new SparkContext(s"local[$NWorkers]", "HBaseTestsSparkContext", conf)
-    hbContext = new HBaseSQLContext(TestSQLContext.sparkContext)
-
-    catalog = hbContext.catalog
-    hbaseAdmin = new HBaseAdmin(config)
-
-  }
+  val TabName = DefaultTableName
+  val HbaseTabName = DefaultHbaseTabName
 
   def tableSetup() = {
     createTable()
@@ -95,11 +38,7 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
     val createTable = !useMiniCluster
     if (createTable) {
       try {
-        hbContext.sql( s"""CREATE TABLE $TabName(col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
-          col5 LONG, col6 FLOAT, col7 DOUBLE, PRIMARY KEY(col7, col1, col3))
-          MAPPED BY ($HbaseTabName, COLS=[col2=cf1.cq11,
-          col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])"""
-          .stripMargin)
+        createTables(hbc)
       } catch {
         case e: TableExistsException =>
           e.printStackTrace
@@ -175,90 +114,6 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
 
     insertTestData
 
-//    var results: SchemaRDD = null
-//    var data: Array[sql.Row] = null
-//
-//    results = hbContext.sql( s"""SELECT * FROM $TabName """.stripMargin)
-//    printResults("Star* operator", results)
-//    data = results.collect
-//    assert(data.size >= 2)
-//
-//    results = hbContext.sql(
-//      s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
-//             """.stripMargin)
-//    printResults("Limit Op", results)
-//    data = results.collect
-//    assert(data.size == 1)
-//
-//    results = hbContext.sql(
-//      s"""SELECT col3, col2, col1, col4, col7 FROM $TabName order by col7 desc
-//             """.stripMargin)
-//    printResults("Ordering with nonkey columns", results)
-//    data = results.collect
-//    assert(data.size >= 2)
-//
-//    try {
-//      results = hbContext.sql(
-//        s"""SELECT col3, col1, col7 FROM $TabName LIMIT 1
-//             """.stripMargin)
-//      printResults("Limit Op", results)
-//    } catch {
-//      case e: Exception => "Query with Limit failed"
-//        e.printStackTrace
-//    }
-//
-//    results = hbContext.sql( s"""SELECT col3, col1, col7 FROM $TabName ORDER  by col7 DESC
-//      """.stripMargin)
-//    printResults("Order by", results)
-//
-//    if (runMultiTests) {
-//      results = hbContext.sql( s"""SELECT col3, col2, col1, col7, col4 FROM $TabName
-//          WHERE col1 ='Michigan'
-//          """.stripMargin)
-//      printResults("Where/filter on rowkey", results)
-//      data = results.collect
-//      assert(data.size >= 1)
-//
-//      results = hbContext.sql( s"""SELECT col7, col3, col2, col1, col4 FROM $TabName
-//          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 3500 and col3 <= 5000
-//          """.stripMargin)
-//      printResults("Where/filter on rowkeys change", results)
-//
-//      results = hbContext.sql( s"""SELECT col3, col2, col1, col7, col4 FROM $TabName
-//          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 3500 and col3 <= 5000
-//          """.stripMargin)
-//      printResults("Where/filter on rowkeys", results)
-//
-//
-//      results = hbContext.sql( s"""SELECT col1, col3, col7 FROM $TabName
-//          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col3 != 7.0
-//          """.stripMargin)
-//      printResults("Where with notequal", results)
-//
-//      results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
-//          WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and cast(col2 as double) != 7.0
-//          """.stripMargin)
-//      printResults("Include non-rowkey cols in project", results)
-//    }
-//    if (runMultiTests) {
-//      results = hbContext.sql( s"""SELECT col1, col2, col3, col7 FROM $TabName
-//        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
-//        """.stripMargin)
-//      printResults("Include non-rowkey cols in filter", results)
-//
-//      results = hbContext.sql( s"""SELECT sum(col3) as col3sum, col1, col3 FROM $TabName
-//        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50 and col2 != 7.0
-//        group by col1,  col3
-//        """.stripMargin)
-//      printResults("Aggregates on rowkeys", results)
-//
-//
-//      results = hbContext.sql( s"""SELECT sum(col2) as col2sum, col4, col1, col3, col2 FROM $TabName
-//        WHERE col1 ='Michigan' and col7 >= 2500.0 and col3 >= 35 and col3 <= 50
-//        group by col1, col2, col4, col3
-//        """.stripMargin)
-//      printResults("Aggregates on non-rowkeys", results)
-//    }
   }
 
   def printResults(msg: String, results: SchemaRDD) = {
@@ -322,7 +177,6 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
   }
 
   def addRowVals(put: Put, rowValue: Any, rowType: DataType, colFamily: String, colQulifier: String) = {
-    //put: Put, col2: Byte, col4: Int, col5: Long, col6: Float) = {
     val bos = new ByteArrayOutputStream()
     val dos = new DataOutputStream(bos)
     rowType match {
@@ -337,23 +191,6 @@ object HBaseMainTest extends FunSuite with BeforeAndAfterAll with Logging {
       case _ => throw new Exception("Unsupported HBase SQL Data Type")
     }
     put.add(Bytes.toBytes(colFamily), Bytes.toBytes(colQulifier), bos.toByteArray)
-    //      val barr = new Array[Byte](size)
-    //    var bos = new ByteArrayOutputStream()
-    //    var dos = new DataOutputStream(bos)
-    //    dos.writeByte(col2)
-    //    put.add(Bytes.toBytes("cf1"), Bytes.toBytes("cq11"), bos.toByteArray)
-    //    bos = new ByteArrayOutputStream()
-    //    dos = new DataOutputStream(bos)
-    //    dos.writeInt(col4)
-    //    put.add(Bytes.toBytes("cf1"), Bytes.toBytes("cq12"), bos.toByteArray)
-    //    bos = new ByteArrayOutputStream()
-    //    dos = new DataOutputStream(bos)
-    //    dos.writeLong(col5)
-    //    put.add(Bytes.toBytes("cf2"), Bytes.toBytes("cq21"), bos.toByteArray)
-    //    bos = new ByteArrayOutputStream()
-    //    dos = new DataOutputStream(bos)
-    //    dos.writeFloat(col6)
-    //    put.add(Bytes.toBytes("cf2"), Bytes.toBytes("cq22"), bos.toByteArray)
   }
 
   def testHBaseScanner() = {

@@ -92,7 +92,7 @@ object HBaseKVHelper {
                 keyBytes: ListBuffer[(Array[Byte], DataType)],
                 valueBytes: ListBuffer[(Array[Byte], Array[Byte], Array[Byte])]) = {
     assert(values.length == columns.length,
-      s"values length ${values.length} not equals lolumns length ${columns.length}")
+      s"values length ${values.length} not equals columns length ${columns.length}")
     keyBytes.clear()
     valueBytes.clear()
     val map = mutable.HashMap[Int, (Array[Byte], DataType)]()
@@ -101,7 +101,7 @@ object HBaseKVHelper {
       val value = values(i)
       val column = columns(i)
       val bytes = string2Bytes(value, column.dataType, new BytesUtils)
-      if (column.isKeyColum()) {
+      if (column.isKeyColumn()) {
         map(column.asInstanceOf[KeyColumn].order) = ((bytes, column.dataType))
         index = index + 1
       } else {
@@ -111,6 +111,7 @@ object HBaseKVHelper {
     }
 
     (0 until index).foreach(k => keyBytes += map.get(k).get)
+    keyBytes
   }
 
   private def string2Bytes(v: String, dataType: DataType, bu: BytesUtils): Array[Byte] = {

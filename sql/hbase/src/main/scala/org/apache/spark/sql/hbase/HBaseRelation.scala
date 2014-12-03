@@ -40,8 +40,10 @@ private[hbase] case class HBaseRelation(
     tableName: String,
     hbaseNamespace: String,
     hbaseTableName: String,
-    allColumns: Seq[AbstractColumn])
+    allColumns: Seq[AbstractColumn],
+   @transient optConfiguration: Option[Configuration] = None)
   extends LeafNode {
+
   allColumns.zipWithIndex.foreach(pi=> pi._1.ordinal = pi._2)
 
   @transient lazy val logger = Logger.getLogger(getClass.getName)
@@ -60,25 +62,18 @@ private[hbase] case class HBaseRelation(
   // Read the configuration from (a) the serialized version if available
   //  (b) the constructor parameter if available
   //  (c) otherwise create a default one using HBaseConfiguration.create
-  private val serializedConfiguration: Array[Byte] = {
+  private var serializedConfiguration: Array[Byte] = optConfiguration.map
+    { conf => Util.serializeHBaseConfiguration(conf)}.orNull
+  @transient private var config: Configuration = _
+
+  def configuration() = getConf()
+
+  private def getConf(): Configuration = {
     if (config == null) {
-      null
-    } else {
-      Util.serializeHBaseConfiguration(config)
-    }
-  }
-
-  @transient var config: Configuration = _
-
-  def configuration() = getConf
-
-  private def getConf: Configuration = {
-    if (config == null) {
-      config = {
-        if (serializedConfiguration != null) {
-          Util.deserializeHBaseConfiguration(serializedConfiguration)
-        }
-        else {
+      config = if (serializedConfiguration != null) {
+        Util.deserializeHBaseConfiguration(serializedConfiguration)
+      } else {
+        optConfiguration.getOrElse {
           HBaseConfiguration.create
         }
       }

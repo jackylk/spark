@@ -35,7 +35,7 @@ trait CreateTableAndLoadData {
   val DefaultHbaseTabName = s"Hb$DefaultTableName"
   val DefaultHbaseColFamiles = Seq("cf1", "cf2")
 
-  val CsvPath = "./sql/hbase/src/test/resources"
+  val CsvPath = "sql/hbase/src/test/resources"
   val DefaultLoadFile = s"$CsvPath/testTable.csv"
 
   var AvoidRowkeyBug = false
@@ -44,6 +44,11 @@ trait CreateTableAndLoadData {
     createTables(hbc, DefaultStagingTableName, DefaultTableName,
       DefaultHbaseStagingTableName, DefaultHbaseTabName)
     loadData(hbc, DefaultStagingTableName, DefaultTableName, DefaultLoadFile)
+  }
+
+  def createTables(hbc: HBaseSQLContext) : Unit = {
+    createTables(hbc, DefaultStagingTableName, DefaultTableName,
+      DefaultHbaseStagingTableName, DefaultHbaseTabName)
   }
 
   def createNativeHbaseTable(hbc: HBaseSQLContext, tableName: String, families: Seq[String]) = {
@@ -57,8 +62,26 @@ trait CreateTableAndLoadData {
                    hbaseStagingTable: String, hbaseTable: String) = {
 
     val hbaseAdmin = hbc.catalog.hBaseAdmin
-    createNativeHbaseTable(hbc, hbaseStagingTable, DefaultHbaseColFamiles)
-    createNativeHbaseTable(hbc, hbaseTable, DefaultHbaseColFamiles)
+    if (!hbaseAdmin.tableExists(TableName.valueOf(hbaseStagingTable))) {
+      createNativeHbaseTable(hbc, hbaseStagingTable, DefaultHbaseColFamiles)
+    }
+    if (!hbaseAdmin.tableExists(TableName.valueOf(hbaseTable))) {
+      createNativeHbaseTable(hbc, hbaseTable, DefaultHbaseColFamiles)
+    }
+
+    if (hbc.catalog.checkLogicalTableExist(stagingTableName)) {
+      val dropSql = s"drop table $stagingTableName"
+      println(dropSql)
+      val execsql = hbc.executeSql(dropSql)
+      execsql.toRdd.collect().foreach(println)
+    }
+
+    if (hbc.catalog.checkLogicalTableExist(tableName)) {
+      val dropSql = s"drop table $tableName"
+      println(dropSql)
+      val execsql = hbc.executeSql(dropSql)
+      execsql.toRdd.collect().foreach(println)
+    }
 
     val (stagingSql, tabSql) =
       ( s"""CREATE TABLE $stagingTableName(strcol STRING, bytecol String, shortcol String, intcol String,
@@ -73,6 +96,7 @@ trait CreateTableAndLoadData {
             shortcol=cf1.hshortcol, longcol=cf2.hlongcol, floatcol=cf2.hfloatcol])"""
           .stripMargin
         )
+    println(stagingSql)
     var executeSql1 = hbc.executeSql(stagingSql)
     executeSql1.toRdd.collect().foreach(println)
 
@@ -81,6 +105,7 @@ trait CreateTableAndLoadData {
       s" tableDescriptor= ${hbaseAdmin.getTableDescriptor(s2b(hbaseStagingTable))}")
 
 
+    println(tabSql)
     executeSql1 = hbc.executeSql(tabSql)
     executeSql1.toRdd.collect().foreach(println)
 

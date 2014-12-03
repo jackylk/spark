@@ -61,8 +61,11 @@ abstract class HBaseIntegrationTestBase(useMiniCluster: Boolean = true,
 //  }
 //
 
+  val useMiniClusterInt = useMiniCluster // false
   def ctxSetup() {
-    if (useMiniCluster) {
+
+    println(s"useMiniCluster=$useMiniClusterInt")
+    if (useMiniClusterInt) {
       logger.debug(s"Spin up hbase minicluster w/ $nMasters mast, $nRegionServers RS, $nDataNodes dataNodes")
       testUtil = new HBaseTestingUtility
       config = testUtil.getConfiguration
@@ -70,44 +73,76 @@ abstract class HBaseIntegrationTestBase(useMiniCluster: Boolean = true,
       config = HBaseConfiguration.create
     }
 
-    if (useMiniCluster) {
+    val sconf = new SparkConf()
+    if (useMiniClusterInt) {
+      config.set("dfs.client.socket-timeout", "480000")
+      config.set("dfs.datanode.socket.write.timeout", "480000")
+      config.set("zookeeper.session.timeout", "480000")
+      config.set("zookeeper.minSessionTimeout", "10")
+      config.set("zookeeper.tickTime", "10")
+      config.set("hbase.rpc.timeout", "480000")
+      config.set("ipc.client.connect.timeout", "480000")
+      config.set("dfs.namenode.stale.datanode.interval", "480000")
+      config.set("hbase.rpc.shortoperation.timeout", "480000")
+      config.set("hbase.regionserver.lease.period", "480000")
+      config.set("hbase.master.port", "50001")
+      config.set("hbase.master.info.port", "50002")
+      config.set("hbase.regionserver.port", "50001")
+      config.set("hbase.regionserver.info.port", "50003")
+      config.set("hbase.regionserver.thrift.port", "50004")
+      config.set("hbase.rest.port", "50005")
+      config.set("hbase.rest.info.port", "50006")
+      config.set("hbase.thrift.info.port", "50007")
+
+
       cluster = testUtil.startMiniCluster(nMasters, nRegionServers, nDataNodes)
       println(s"# of region servers = ${cluster.countServedRegions}")
-    }
-    // Need to retrieve zkPort AFTER mini cluster is started
-    val zkPort = config.get("hbase.zookeeper.property.clientPort")
-    println(s"After testUtil.getConfiguration the hbase.zookeeper.quorum="
-      + s"${config.get("hbase.zookeeper.quorum")} port=$zkPort")
 
-    val sconf = new SparkConf()
-    // Inject the zookeeper port/quorum obtained from the HBaseMiniCluster
-    // into the SparkConf.
-    // The motivation: the SparkContext searches the SparkConf values for entries
-    // that start with "spark.hadoop" and then copies those values to the
-    // sparkContext.hadoopConfiguration (after stripping the "spark.hadoop" from the key/name)
-    sconf.set("spark.hadoop.hbase.zookeeper.property.clientPort", zkPort)
-    sconf.set("spark.hadoop.hbase.zookeeper.quorum",
-      "%s:%s".format(config.get("hbase.zookeeper.quorum"), zkPort))
-    // Do not use the default ui port: helps avoid BindException's
-    sconf.set("spark.ui.port", sparkUiPort.toString)
-    sconf.set("spark.hadoop.hbase.regionserver.info.port", "-1")
-    sconf.set("spark.hadoop.hbase.master.info.port", "-1")
-//    // Increase the various timeout's to allow for debugging/breakpoints. If we simply
-//    // leave default values then ZK connection timeouts tend to occur
-    sconf.set("spark.hadoop.dfs.client.socket-timeout", "480000")
-    sconf.set("spark.hadoop.dfs.datanode.socket.write.timeout", "480000")
-    sconf.set("spark.hadoop.zookeeper.session.timeout", "480000")
-    sconf.set("spark.hadoop.zookeeper.minSessionTimeout", "10")
-    sconf.set("spark.hadoop.zookeeper.tickTime", "10")
-    sconf.set("spark.hadoop.hbase.rpc.timeout", "480000")
-    sconf.set("spark.hadoop.ipc.client.connect.timeout", "480000")
-    sconf.set("spark.hadoop.dfs.namenode.stale.datanode.interval", "480000")
-    sconf.set("spark.hadoop.hbase.rpc.shortoperation.timeout", "480000")
-    sconf.set("spark.hadoop.hbase.regionserver.lease.period", "480000")
-    sconf.set("spark.hadoop.hbase.client.scanner.timeout.period", "480000")
+      // Need to retrieve zkPort AFTER mini cluster is started
+      val zkPort = config.get("hbase.zookeeper.property.clientPort")
+      println(s"After testUtil.getConfiguration the hbase.zookeeper.quorum="
+        + s"${config.get("hbase.zookeeper.quorum")} port=$zkPort")
+
+      // Inject the zookeeper port/quorum obtained from the HBaseMiniCluster
+      // into the SparkConf.
+      // The motivation: the SparkContext searches the SparkConf values for entries
+      // that start with "spark.hadoop" and then copies those values to the
+      // sparkContext.hadoopConfiguration (after stripping the "spark.hadoop" from the key/name)
+      sconf.set("spark.hadoop.hbase.zookeeper.property.clientPort", zkPort)
+      sconf.set("spark.hadoop.hbase.zookeeper.quorum",
+        "%s:%s".format(config.get("hbase.zookeeper.quorum"), zkPort))
+      // Do not use the default ui port: helps avoid BindException's
+      sconf.set("spark.ui.port", sparkUiPort.toString)
+//      sconf.set("spark.hadoop.hbase.regionserver.info.port", "-1")
+//      sconf.set("spark.hadoop.hbase.master.info.port", "-1")
+      //    // Increase the various timeout's to allow for debugging/breakpoints. If we simply
+      //    // leave default values then ZK connection timeouts tend to occur
+      sconf.set("spark.hadoop.dfs.client.socket-timeout", "480000")
+      sconf.set("spark.hadoop.dfs.datanode.socket.write.timeout", "480000")
+      sconf.set("spark.hadoop.zookeeper.session.timeout", "480000")
+      sconf.set("spark.hadoop.zookeeper.minSessionTimeout", "10")
+      sconf.set("spark.hadoop.zookeeper.tickTime", "10")
+      sconf.set("spark.hadoop.hbase.rpc.timeout", "480000")
+      sconf.set("spark.hadoop.ipc.client.connect.timeout", "480000")
+      sconf.set("spark.hadoop.dfs.namenode.stale.datanode.interval", "480000")
+      sconf.set("spark.hadoop.hbase.rpc.shortoperation.timeout", "480000")
+      sconf.set("spark.hadoop.hbase.regionserver.lease.period", "480000")
+      sconf.set("spark.hadoop.hbase.master.port", "50001")
+      sconf.set("spark.hadoop.hbase.master.info.port", "50002")
+      sconf.set("spark.hadoop.hbase.regionserver.port", "50001")
+      sconf.set("spark.hadoop.hbase.regionserver.info.port", "50003")
+      sconf.set("spark.hadoop.hbase.regionserver.thrift.port", "50004")
+      sconf.set("spark.hadoop.hbase.rest.port", "50005")
+      sconf.set("spark.hadoop.hbase.rest.info.port", "50006")
+      sconf.set("spark.hadoop.hbase.thrift.info.port", "50007")
+
+      hbaseAdmin = testUtil.getHBaseAdmin
+    } else {
+      hbaseAdmin = new HBaseAdmin(config)
+    }
+
     sc = new SparkContext("local[2]", "TestSQLContext", sconf)
 
-    hbaseAdmin = testUtil.getHBaseAdmin
     hbc = new HBaseSQLContext(sc, Some(config))
 //    hbc.catalog.hBaseAdmin = hbaseAdmin
     logger.debug(s"In testbase: HBaseAdmin.configuration zkPort="
