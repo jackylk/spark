@@ -17,12 +17,11 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.spark.sql.catalyst.SqlParser
-import org.apache.spark.sql.catalyst.types.{IntegerType, NativeType}
 import org.apache.spark.sql.hbase.TestHbase._
 
-import scala.collection.immutable.HashMap
-
+/**
+ * Test insert / query against the table created by HBaseMainTest
+ */
 class HBaseBasicOperationSuite extends QueryTest {
 
   test("create table") {
@@ -52,43 +51,43 @@ class HBaseBasicOperationSuite extends QueryTest {
     //    sql("""CREATE TABLE t2 (t2c1 STRING, t2c2 STRING)
     //      MAPPED BY (ht2, KEYS=[t2c1], COLS=[t2c2=cf2.cq21])""".stripMargin
     //    )
-    sql( """INSERT INTO tableName SELECT * FROM myTable""")
+    sql( """INSERT INTO tableName SELECT * FROM TestTable""")
   }
 
   test("Select test 0") {
-    sql( """SELECT * FROM myTable ORDER BY col7 DESC""").foreach(println)
+    sql( """SELECT * FROM TestTable""").foreach(println)
   }
 
   test("Select test 1") {
-    sql( """SELECT * FROM myTable WHERE col7 > 1024.0""").foreach(println)
+    sql( """SELECT * FROM TestTable WHERE col7 > 1024.0""").foreach(println)
   }
 
   test("Select test 2") {
-    sql( """SELECT col6, col7 FROM tableName ORDER BY col6 DESC""").foreach(println)
+    sql( """SELECT col6, col7 FROM TestTable ORDER BY col6 DESC""").foreach(println)
   }
 
   test("Select test 3") {
-    sql( """SELECT col6, col6 FROM myTable""").foreach(println)
+    sql( """SELECT col6, col6 FROM TestTable""").foreach(println)
   }
 
   test("Select test 4") {
-    sql( """SELECT * FROM myTable WHERE col7 = 1024 OR col7 = 2048""").foreach(println)
+    sql( """SELECT * FROM TestTable WHERE col7 = 1024 OR col7 = 2048""").foreach(println)
   }
 
   test("Select test 5") {
-    sql( """SELECT * FROM myTable WHERE col7 < 1025 AND col1 ='Upen'""").foreach(println)
+    sql( """SELECT * FROM TestTable WHERE col7 < 1025 AND col1 ='Upen'""").foreach(println)
   }
 
   test("Alter Add column") {
-    sql( """ALTER TABLE tableName ADD col8 STRING MAPPED BY (col8 = cf1.cf13)""")
+    sql( """ALTER TABLE TestTable ADD col8 STRING MAPPED BY (col8 = cf1.cf13)""")
   }
 
   test("Alter Drop column") {
-    sql( """ALTER TABLE tableName DROP col6""")
+    sql( """ALTER TABLE TestTable DROP col6""")
   }
 
   test("Drop table") {
-    sql( """DROP TABLE myTable""")
+    sql( """DROP TABLE TestTable""")
   }
 
   test("SPARK-3176 Added Parser of SQL ABS()") {
