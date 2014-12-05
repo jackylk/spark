@@ -107,4 +107,23 @@ class HBasePartitionerSuite extends FunSuite with HBaseTestSparkContext {
 
     hbr.getPrunedPartitions(Option(predicate5))
   }
+
+  test("row key encode / decode") {
+    val rowkey = HBaseKVHelper.encodingRawKeyColumns(
+      ListBuffer[Byte](),
+      Seq(((new BytesUtils).toBytes(123.456), DoubleType),
+        ((new BytesUtils).toBytes("abcdef"), StringType),
+        ((new BytesUtils).toBytes(1234), IntegerType))
+    )
+
+    assert(rowkey.length === 8 + 6 + 1 + 4)
+
+    val keys = HBaseKVHelper.decodingRawKeyColumns(new ListBuffer[HBaseRawType], rowkey,
+      Seq(KeyColumn("col1", DoubleType, 0), KeyColumn("col2", StringType, 1),
+        KeyColumn("col3", IntegerType, 2)))
+
+    assert((new BytesUtils).toDouble(keys(0)) === 123.456)
+    assert((new BytesUtils).toString(keys(1)) === "abcdef")
+    assert((new BytesUtils).toInt(keys(2)) === 1234)
+  }
 }
