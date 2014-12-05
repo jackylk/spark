@@ -161,8 +161,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     }
     else {
       val hbaseRelation = HBaseRelation(tableName, hbaseNamespace, hbaseTableName,
-        allColumns, Some(configuration))
-//      hbaseRelation.config = configuration
+        allColumns)
+      hbaseRelation.setConfig(configuration)
 
       writeObjectToTable(hbaseRelation)
 
@@ -176,8 +176,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       val relation = result.get
       val allColumns = relation.allColumns.filter(!_.sqlName.equals(columnName))
       val hbaseRelation = HBaseRelation(relation.tableName,
-        relation.hbaseNamespace, relation.hbaseTableName, allColumns, Some(configuration))
-//      hbaseRelation.config = configuration
+        relation.hbaseNamespace, relation.hbaseTableName, allColumns)
+      hbaseRelation.setConfig(configuration)
 
       writeObjectToTable(hbaseRelation)
 
@@ -191,8 +191,8 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
       val relation = result.get
       val allColumns = relation.allColumns :+ column
       val hbaseRelation = HBaseRelation(relation.tableName,
-        relation.hbaseNamespace, relation.hbaseTableName, allColumns, Some(configuration))
-//      hbaseRelation.config = configuration
+        relation.hbaseNamespace, relation.hbaseTableName, allColumns)
+      hbaseRelation.setConfig(configuration)
 
       writeObjectToTable(hbaseRelation)
 
@@ -234,17 +234,17 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     result
   }
 
-  private def getRelationFromResult(result: Result) : HBaseRelation = {
+  private def getRelationFromResult(result: Result): HBaseRelation = {
     val value = result.getValue(ColumnFamily, QualData)
     val byteArrayInputStream = new ByteArrayInputStream(value)
     val objectInputStream = new ObjectInputStream(byteArrayInputStream)
     val hbaseRelation: HBaseRelation
     = objectInputStream.readObject().asInstanceOf[HBaseRelation]
-//    hbaseRelation.config = configuration
+    hbaseRelation.setConfig(configuration)
     hbaseRelation
   }
 
-  def getAllTableName() : Seq[String] = {
+  def getAllTableName(): Seq[String] = {
     val tables = new ArrayBuffer[String]()
     val table = new HTable(configuration, MetaData)
     val scanner = table.getScanner(ColumnFamily)
@@ -318,7 +318,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     } else if (dataType.equalsIgnoreCase(ShortType.typeName)) {
       ShortType
     } else if (dataType.equalsIgnoreCase(IntegerType.typeName) ||
-               dataType.equalsIgnoreCase("int")) {
+      dataType.equalsIgnoreCase("int")) {
       IntegerType
     } else if (dataType.equalsIgnoreCase(LongType.typeName)) {
       LongType

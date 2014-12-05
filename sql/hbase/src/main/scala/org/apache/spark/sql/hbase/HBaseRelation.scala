@@ -28,9 +28,9 @@ import org.apache.spark.Partition
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
 import org.apache.spark.sql.catalyst.types._
+import org.apache.spark.sql.hbase.catalyst.NOTPusher
 import org.apache.spark.sql.hbase.catalyst.expressions.PartialPredicateOperations._
 import org.apache.spark.sql.hbase.catalyst.types.PartitionRange
-import org.apache.spark.sql.hbase.catalyst.NOTPusher
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
@@ -40,11 +40,8 @@ private[hbase] case class HBaseRelation(
     tableName: String,
     hbaseNamespace: String,
     hbaseTableName: String,
-    allColumns: Seq[AbstractColumn],
-   @transient optConfiguration: Option[Configuration] = None)
+    allColumns: Seq[AbstractColumn])
   extends LeafNode {
-
-  allColumns.zipWithIndex.foreach(pi=> pi._1.ordinal = pi._2)
 
   @transient lazy val logger = Logger.getLogger(getClass.getName)
 
@@ -59,21 +56,28 @@ private[hbase] case class HBaseRelation(
     case nonKey: NonKeyColumn => (nonKey.sqlName, nonKey)
   }.toMap
 
-  // Read the configuration from (a) the serialized version if available
-  //  (b) the constructor parameter if available
-  //  (c) otherwise create a default one using HBaseConfiguration.create
-  private var serializedConfiguration: Array[Byte] = optConfiguration.map
-    { conf => Util.serializeHBaseConfiguration(conf)}.orNull
-  @transient private var config: Configuration = _
+  allColumns.zipWithIndex.foreach(pi=> pi._1.ordinal = pi._2)
 
-  def configuration() = getConf()
+  private var serializedConfiguration: Array[Byte] = _
 
-  private def getConf(): Configuration = {
+  def setConfig(inconfig: Configuration) = {
+    config = inconfig
+    if (inconfig != null) {
+      serializedConfiguration = Util.serializeHBaseConfiguration(inconfig)
+    }
+  }
+
+  @transient var config: Configuration = _
+
+  def configuration() = getConf
+
+  private def getConf: Configuration = {
     if (config == null) {
-      config = if (serializedConfiguration != null) {
-        Util.deserializeHBaseConfiguration(serializedConfiguration)
-      } else {
-        optConfiguration.getOrElse {
+      config = {
+        if (serializedConfiguration != null) {
+          Util.deserializeHBaseConfiguration(serializedConfiguration)
+        }
+        else {
           HBaseConfiguration.create
         }
       }
@@ -100,6 +104,7 @@ private[hbase] case class HBaseRelation(
     // -1 if nonexistent
     partitionKeys.indexWhere(_.exprId == attr.exprId)
   }
+
   def closeHTable() = htable.close
 
   val output: Seq[Attribute] = {
@@ -221,7 +226,7 @@ private[hbase] case class HBaseRelation(
   }
 
   def getPrunedPartitions2(partitionPred: Option[Expression] = None)
-     : Option[Seq[HBasePartition]] = {
+  : Option[Seq[HBasePartition]] = {
     def getPrunedRanges(pred: Expression): Seq[PartitionRange[_]] = {
       val predRefs = pred.references.toSeq
       val boundPruningPred = BindReferences.bindReference(pred, predRefs)
@@ -265,8 +270,8 @@ private[hbase] case class HBaseRelation(
       case None => Some(partitions)
       case Some(pred) => if (pred.references.intersect(AttributeSet(partitionKeys)).isEmpty) {
         // the predicate does not apply to the partitions at all; just push down the filtering
-        Some(partitions.map(p=>new HBasePartition(p.idx, p.mappedIndex, p.keyPartialEvalIndex,
-                             p.lowerBound, p.upperBound, p.server, Some(pred))))
+        Some(partitions.map(p => new HBasePartition(p.idx, p.mappedIndex, p.keyPartialEvalIndex,
+          p.lowerBound, p.upperBound, p.server, Some(pred))))
       } else {
         val prunedRanges: Seq[PartitionRange[_]] = getPrunedRanges(pred)
         println("prunedRanges: " + prunedRanges.length)
@@ -278,10 +283,10 @@ private[hbase] case class HBaseRelation(
           // "canonical" index
           if (p.pred == null) {
             new HBasePartition(idx, par.mappedIndex, par.keyPartialEvalIndex, par.lowerBound,
-                               par.upperBound, par.server, None)
+              par.upperBound, par.server, None)
           } else {
             new HBasePartition(idx, par.mappedIndex, par.keyPartialEvalIndex, par.lowerBound,
-                               par.upperBound, par.server, Some(p.pred))
+              par.upperBound, par.server, Some(p.pred))
           }
         }))
         // TODO: remove/modify the following debug info
@@ -336,8 +341,8 @@ private[hbase] case class HBaseRelation(
   }
 
   def buildFilter2(
-                   projList: Seq[NamedExpression],
-                   pred: Option[Expression]): (Option[FilterList], Option[Expression])  = {
+                    projList: Seq[NamedExpression],
+                    pred: Option[Expression]): (Option[FilterList], Option[Expression]) = {
     var distinctProjList = projList.distinct
     if (pred.isDefined) {
       distinctProjList = distinctProjList.filterNot(_.references.subsetOf(pred.get.references))

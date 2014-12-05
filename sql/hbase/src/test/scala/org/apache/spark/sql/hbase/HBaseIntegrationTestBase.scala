@@ -84,7 +84,6 @@ abstract class HBaseIntegrationTestBase(useMiniCluster: Boolean = true,
       config.set("ipc.client.connect.timeout", "480000")
       config.set("dfs.namenode.stale.datanode.interval", "480000")
       config.set("hbase.rpc.shortoperation.timeout", "480000")
-      config.set("hbase.regionserver.lease.period", "480000")
       config.set("hbase.master.port", "50001")
       config.set("hbase.master.info.port", "50002")
       config.set("hbase.regionserver.port", "50001")
@@ -96,7 +95,7 @@ abstract class HBaseIntegrationTestBase(useMiniCluster: Boolean = true,
 
 
       cluster = testUtil.startMiniCluster(nMasters, nRegionServers, nDataNodes)
-      println(s"# of region servers = ${cluster.countServedRegions}")
+      println(s"Started HBaseMiniCluster with region servers = ${cluster.countServedRegions}")
 
       // Need to retrieve zkPort AFTER mini cluster is started
       val zkPort = config.get("hbase.zookeeper.property.clientPort")
@@ -126,7 +125,6 @@ abstract class HBaseIntegrationTestBase(useMiniCluster: Boolean = true,
       sconf.set("spark.hadoop.ipc.client.connect.timeout", "480000")
       sconf.set("spark.hadoop.dfs.namenode.stale.datanode.interval", "480000")
       sconf.set("spark.hadoop.hbase.rpc.shortoperation.timeout", "480000")
-      sconf.set("spark.hadoop.hbase.regionserver.lease.period", "480000")
       sconf.set("spark.hadoop.hbase.master.port", "50001")
       sconf.set("spark.hadoop.hbase.master.info.port", "50002")
       sconf.set("spark.hadoop.hbase.regionserver.port", "50001")
