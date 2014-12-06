@@ -1,3 +1,5 @@
+package org.apache.spark.sql.hbase
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,28 +17,10 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.hbase
-
-import org.apache.log4j.Logger
-import org.scalatest.ConfigMap
-
-class JoinsSuiteBase extends QueriesSuiteBase with CreateTableAndLoadData {
-  self: HBaseIntegrationTestBase =>
-
-  override protected def beforeAll(configMap: ConfigMap): Unit = {
-    super.beforeAll(configMap)
-    for (tx <- 1 to 0) {
-      val JoinTable = s"JoinTable$tx"
-      val HBaseJoinTable = s"Hb$JoinTable"
-      val JoinTableStg = s"JoinTableStg$tx"
-      val HBaseJoinTableStg = s"Hb$JoinTableStg"
-      val JoinTableCsv: String = s"$CsvPath/JoinTable$tx.csv"
-      createTables(hbc, JoinTableStg, JoinTable, HBaseJoinTableStg, HBaseJoinTable)
-      loadData(hbc, JoinTableStg, JoinTable, JoinTableCsv)
-    }
-  }
-
-  private val logger = Logger.getLogger(getClass.getName)
+/**
+ * SparkSQLJoinSuite
+ *
+ */
+class SparkSQLJoinSuite {
 
 }
-

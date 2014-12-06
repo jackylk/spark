@@ -20,7 +20,7 @@ package org.apache.spark.sql.hbase
 class BasicQueriesSuite extends QueriesSuiteBase {
 
   var testnm = "StarOperator * with limit"
-  test(testnm) {
+  test("StarOperator * with limit") {
     val query1 =
       s"""select * from $tabName limit 3"""
         .stripMargin
@@ -60,7 +60,7 @@ class BasicQueriesSuite extends QueriesSuiteBase {
   }
 
   testnm = "Select all cols with filter"
-  test(testnm) {
+  test("Select all cols with filter") {
     val query1 =
       s"""select * from $tabName where shortcol < 12345 limit 2"""
         .stripMargin
@@ -87,7 +87,7 @@ class BasicQueriesSuite extends QueriesSuiteBase {
   }
 
   testnm = "Select all cols with order by"
-  test(testnm) {
+  test("Select all cols with order by") {
     val query1 =
       s"""select * from $tabName where shortcol < 12344 order by strcol desc limit 2"""
 //      s"""select * from $tabName order by strcol desc"""
@@ -115,7 +115,7 @@ class BasicQueriesSuite extends QueriesSuiteBase {
   }
 
   testnm = "Select same column twice"
-  test(testnm) {
+  test("Select same column twice") {
     val query1 =
       s"""select doublecol as double1, doublecol as doublecol
              | from $tabName
@@ -143,7 +143,7 @@ class BasicQueriesSuite extends QueriesSuiteBase {
   }
 
   testnm = "Select specific cols with filter"
-  test(testnm) {
+  test("Select specific cols with filter") {
     val query1 =
       s"""select doublecol as double1, -1 * doublecol as minusdouble,
          | substr(strcol, 2) as substrcol, doublecol, strcol,

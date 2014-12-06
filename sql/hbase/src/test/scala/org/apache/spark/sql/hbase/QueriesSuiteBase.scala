@@ -18,23 +18,46 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.log4j.Logger
+import org.apache.spark.sql.SQLContext
 import org.scalatest.ConfigMap
 
 class QueriesSuiteBase() extends HBaseIntegrationTestBase(
-    System.getProperty("spark.testing.use-external-hbase","false") == "false")
-    with CreateTableAndLoadData {
+  System.getProperty("spark.testing.use-external-hbase", "false") == "false")
+with CreateTableAndLoadData {
   self: HBaseIntegrationTestBase =>
 
+  val tabName = DefaultTableName
   var AvoidByteDataTypeBug = true
+  private val logger = Logger.getLogger(getClass.getName)
 
   override protected def beforeAll(configMap: ConfigMap): Unit = {
     super.beforeAll(configMap)
     createTableAndLoadData(hbc)
   }
 
-  val tabName = DefaultTableName
+  def run(sqlCtx : SQLContext, testName: String, sql: String, exparr: Seq[Seq[Any]]) = {
+    val execQuery1 = sqlCtx.executeSql(sql)
+    val result1 = execQuery1.toRdd.collect()
+    assert(result1.size == exparr.length, s"$testName failed on size")
+    verify(testName,
+      sql,
+      for (rx <- 0 until exparr.size)
+        yield result1(rx).toSeq, exparr
+    )
+  }
 
-  private val logger = Logger.getLogger(getClass.getName)
+  def verify(testName: String, sql: String, result1: Seq[Seq[Any]], exparr: Seq[Seq[Any]]) = {
+    var res = {
+      for (rx <- 0 until exparr.size)
+      yield compareWithTol(result1(rx).toSeq, exparr(rx), s"Row$rx failed")
+    }.foldLeft(true) { case (res1, newres) => res1 && newres}
+
+    println(s"$sql came back with ${result1.size} results")
+    println(result1.mkString)
+    assert(res, "One or more rows did not match expected")
+
+    println(s"Test $testName completed successfully")
+  }
 
   val CompareTol = 1e-6
 
