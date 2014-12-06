@@ -35,13 +35,13 @@ import org.apache.spark.sql.hbase.catalyst.types.PartitionRange
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
-
+@SerialVersionUID(1529873946227428789L)
 private[hbase] case class HBaseRelation(
     tableName: String,
     hbaseNamespace: String,
     hbaseTableName: String,
     allColumns: Seq[AbstractColumn])
-  extends LeafNode {
+  extends LeafNode with Serializable {
 
   @transient lazy val logger = Logger.getLogger(getClass.getName)
 
