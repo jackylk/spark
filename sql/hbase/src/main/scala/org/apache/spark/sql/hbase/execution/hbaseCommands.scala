@@ -19,7 +19,7 @@ package org.apache.spark.sql.hbase.execution
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.{Command, LeafNode}
-import org.apache.spark.sql.hbase.{HBaseRelation, HBaseSQLContext, KeyColumn, NonKeyColumn}
+import org.apache.spark.sql.hbase.{HBaseSQLContext, KeyColumn, NonKeyColumn}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -135,8 +135,9 @@ case class DescribeTableCommand(tableName: String)
           buffer.append(Row(nonKeyColumn.sqlName, nonKeyColumn.dataType,
             "NON KEY COLUMN", nonKeyColumn.family, nonKeyColumn.qualifier))
       }
+      buffer.toSeq
     }
-    buffer.toSeq
+    sys.error(s"can not find table $tableName")
   }
 
   override def output: Seq[Attribute] = Seq.empty
