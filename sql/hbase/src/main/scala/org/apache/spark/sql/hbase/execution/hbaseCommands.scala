@@ -136,8 +136,9 @@ case class DescribeTableCommand(tableName: String)
             "NON KEY COLUMN", nonKeyColumn.family, nonKeyColumn.qualifier))
       }
       buffer.toSeq
+    } else {
+      sys.error(s"can not find table $tableName")
     }
-    sys.error(s"can not find table $tableName")
   }
 
   override def output: Seq[Attribute] = Seq.empty
