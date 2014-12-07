@@ -78,6 +78,11 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
   lazy val admin = new HBaseAdmin(configuration)
 
+  if (!admin.tableExists(MetaData)) {
+    // create table
+    createMetadataTable()
+  }
+
   private def processTableName(tableName: String): String = {
     if (!caseSensitive) {
       tableName.toLowerCase
