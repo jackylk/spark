@@ -124,7 +124,7 @@
     <protobuf.version>2.4.1</protobuf.version>
     <yarn.version>${hadoop.version}</yarn.version>
     <flume.version>1.4.0</flume.version>
-    <hbase.version>0.94.6</hbase.version>
+    <hbase.version>0.98.5-hadoop1</hbase.version>
     <zookeeper.version>3.4.5</zookeeper.version>
     <!-- Version used in Maven Hive dependency -->
     <hive.version>0.13.1a</hive.version>
@@ -1434,6 +1434,19 @@
       </modules>
     </profile>
 
+    <profile> 
+      <id>scala-2.11</id> 
+      <activation> 
+        <property><name>scala-2.11</name></property> 
+      </activation> 
+      <properties> 
+        <scala.version>2.11.2</scala.version> 
+        <scala.binary.version>2.11</scala.binary.version> 
+        <jline.version>2.12</jline.version> 
+        <jline.groupid>jline</jline.groupid> 
+      </properties> 
+    </profile> 
+    
     <profile>
       <id>hbase</id>
       <activation>

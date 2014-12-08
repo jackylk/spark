@@ -92,12 +92,4 @@ class HBaseSQLContext(@transient val sc: SparkContext,
     println(sql)
     super.executeSql(sql)
   }
-
-  // TODO: can we use SparkSQLParser directly instead of HBaseSparkSQLParser?
-  @transient
-  override protected[sql] val sqlParser = {
-    val fallback = new HBaseSQLParser
-    new HBaseSparkSQLParser(fallback(_))
-  }
-
 }
