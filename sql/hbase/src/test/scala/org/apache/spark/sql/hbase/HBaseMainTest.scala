@@ -8,10 +8,10 @@ import org.apache.hadoop.hbase.util.Bytes
 import org.apache.log4j.Logger
 import org.apache.spark.Logging
 import org.apache.spark.sql.SchemaRDD
-import org.apache.spark.sql.catalyst.expressions.{Row, _}
+import org.apache.spark.sql.catalyst.expressions.{Row, GenericRow}
 import org.apache.spark.sql.catalyst.types._
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ListBuffer
 
 /**
  * HBaseMainTest
@@ -97,8 +97,6 @@ with Logging {
     htable.close()
   }
 
-  val runMultiTests: Boolean = false
-
   def testQuery() {
     ctxSetup()
     createTable()
@@ -124,61 +122,31 @@ with Logging {
         }")
     }
 
-  val allColumns: Seq[AbstractColumn] = Seq(
-    KeyColumn("col1", StringType, 1),
-    NonKeyColumn("col2", ByteType, "cf1", "cq11"),
-    KeyColumn("col3", ShortType, 2),
-    NonKeyColumn("col4", IntegerType, "cf1", "cq12"),
-    NonKeyColumn("col5", LongType, "cf2", "cq21"),
-    NonKeyColumn("col6", FloatType, "cf2", "cq22"),
-    KeyColumn("col7", DoubleType, 0)
-  )
-
-  val keyColumns = allColumns.filter(_.isInstanceOf[KeyColumn])
-    .asInstanceOf[Seq[KeyColumn]].sortBy(_.order)
-
-
   def makeRowKey(row: Row, dataTypeOfKeys: Seq[DataType]) = {
     val rawKeyCol = dataTypeOfKeys.zipWithIndex.map {
       case (dataType, index) =>
-        DataTypeUtils.getRowColumnFromHBaseRawType(row, index, dataType, new BytesUtils)
+        (DataTypeUtils.getRowColumnFromHBaseRawType(row, index, dataType, new BytesUtils),
+          dataType)
     }
 
-    encodingRawKeyColumns(rawKeyCol)
+    val buffer = ListBuffer[Byte]()
+    HBaseKVHelper.encodingRawKeyColumns(buffer, rawKeyCol)
   }
 
-  /**
-   * create row key based on key columns information
-   * @param rawKeyColumns sequence of byte array representing the key columns
-   * @return array of bytes
-   */
-  def encodingRawKeyColumns(rawKeyColumns: Seq[HBaseRawType]): HBaseRawType = {
-    var buffer = ArrayBuffer[Byte]()
-    val delimiter: Byte = 0
-    var index = 0
-    for (rawKeyColumn <- rawKeyColumns) {
-      val keyColumn = keyColumns(index)
-      buffer = buffer ++ rawKeyColumn
-      if (keyColumn.dataType == StringType) {
-        buffer += delimiter
-      }
-      index = index + 1
-    }
-    buffer.toArray
-  }
-
-  def addRowVals(put: Put, rowValue: Any, rowType: DataType, colFamily: String, colQulifier: String) = {
+  def addRowVals(put: Put, rowValue: Any, rowType: DataType,
+                 colFamily: String, colQulifier: String) = {
     val bos = new ByteArrayOutputStream()
     val dos = new DataOutputStream(bos)
+    val bu = new BytesUtils
     rowType match {
-      case StringType => dos.writeChars(rowValue.asInstanceOf[String])
-      case IntegerType => dos.writeInt(rowValue.asInstanceOf[Int])
-      case BooleanType => dos.writeBoolean(rowValue.asInstanceOf[Boolean])
-      case ByteType => dos.writeByte(rowValue.asInstanceOf[Byte])
-      case DoubleType => dos.writeDouble(rowValue.asInstanceOf[Double])
-      case FloatType => dos.writeFloat(rowValue.asInstanceOf[Float])
-      case LongType => dos.writeLong(rowValue.asInstanceOf[Long])
-      case ShortType => dos.writeShort(rowValue.asInstanceOf[Short])
+      case StringType => dos.write(bu.toBytes(rowValue.asInstanceOf[String]))
+      case IntegerType => dos.write(bu.toBytes(rowValue.asInstanceOf[Int]))
+      case BooleanType => dos.write(bu.toBytes(rowValue.asInstanceOf[Boolean]))
+      case ByteType => dos.write(bu.toBytes(rowValue.asInstanceOf[Byte]))
+      case DoubleType => dos.write(bu.toBytes(rowValue.asInstanceOf[Double]))
+      case FloatType => dos.write(bu.toBytes(rowValue.asInstanceOf[Float]))
+      case LongType => dos.write(bu.toBytes(rowValue.asInstanceOf[Long]))
+      case ShortType => dos.write(bu.toBytes(rowValue.asInstanceOf[Short]))
       case _ => throw new Exception("Unsupported HBase SQL Data Type")
     }
     put.add(Bytes.toBytes(colFamily), Bytes.toBytes(colQulifier), bos.toByteArray)
