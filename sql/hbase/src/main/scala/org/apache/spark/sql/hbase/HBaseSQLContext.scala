@@ -35,7 +35,6 @@ class HBaseSQLContext(@transient val sc: SparkContext,
 
   private val logger = Logger.getLogger(getClass.getName)
 
-  // TODO: do we need a analyzer?
   override protected[sql] lazy val catalog: HBaseCatalog = new HBaseCatalog(this)
 
   // Change the default SQL dialect to HiveQL
@@ -56,6 +55,12 @@ class HBaseSQLContext(@transient val sc: SparkContext,
     } else {
       sys.error(s"Unsupported SQL dialect: $dialect.  Try 'sql' or 'hbaseql'")
     }
+  }
+
+  override protected[sql] def executeSql(sql: String): QueryExecution = {
+    logger.debug(sql)
+    println(sql)
+    super.executeSql(sql)
   }
 
   protected[sql] class HBasePlanner extends SparkPlanner with HBaseStrategies {
@@ -83,13 +88,4 @@ class HBaseSQLContext(@transient val sc: SparkContext,
   @transient
   override protected[sql] val planner = new HBasePlanner
 
-//  /** Extends QueryExecution with HBase specific features. */
-//  protected[sql] abstract class QueryExecution extends super.QueryExecution {
-//  }
-
-  override protected[sql] def executeSql(sql: String): QueryExecution = {
-    logger.debug(sql)
-    println(sql)
-    super.executeSql(sql)
-  }
 }

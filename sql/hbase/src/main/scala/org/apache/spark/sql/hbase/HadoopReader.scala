@@ -22,7 +22,6 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.catalyst.types._
 
 import scala.collection.mutable.ListBuffer
-import scala.collection.mutable.ArrayBuffer
 
 /**
  * Helper class for scanning files stored in Hadoop - e.g., to read text file when bulk loading.

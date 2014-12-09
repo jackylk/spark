@@ -17,6 +17,7 @@
 package org.apache.spark.sql.hbase
 
 import java.io._
+import java.util.zip._
 
 import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase.util.Bytes
@@ -211,8 +212,11 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
 
     val put = new Put(Bytes.toBytes(tableName))
     val byteArrayOutputStream = new ByteArrayOutputStream()
-    val objectOutputStream = new ObjectOutputStream(byteArrayOutputStream)
+    val deflatorOutputStream = new DeflaterOutputStream(byteArrayOutputStream)
+    val objectOutputStream = new ObjectOutputStream(deflatorOutputStream)
+
     objectOutputStream.writeObject(hbaseRelation)
+    objectOutputStream.close()
 
     put.add(ColumnFamily, QualData, byteArrayOutputStream.toByteArray)
 
@@ -242,9 +246,10 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
   private def getRelationFromResult(result: Result): HBaseRelation = {
     val value = result.getValue(ColumnFamily, QualData)
     val byteArrayInputStream = new ByteArrayInputStream(value)
-    val objectInputStream = new ObjectInputStream(byteArrayInputStream)
+    val inflaterInputStream = new InflaterInputStream(byteArrayInputStream)
+    val objectInputStream = new ObjectInputStream(inflaterInputStream)
     val hbaseRelation: HBaseRelation
-    = objectInputStream.readObject().asInstanceOf[HBaseRelation]
+      = objectInputStream.readObject().asInstanceOf[HBaseRelation]
     hbaseRelation.setConfig(configuration)
     hbaseRelation
   }

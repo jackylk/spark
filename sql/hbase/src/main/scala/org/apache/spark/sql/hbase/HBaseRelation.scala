@@ -41,7 +41,7 @@ private[hbase] case class HBaseRelation(
     hbaseNamespace: String,
     hbaseTableName: String,
     allColumns: Seq[AbstractColumn])
-  extends LeafNode {
+  extends LeafNode with Serializable {
 
   @transient lazy val logger = Logger.getLogger(getClass.getName)
 

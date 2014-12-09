@@ -65,6 +65,10 @@ object DataTypeUtils {
                                    src: HBaseRawType,
                                    dt: DataType,
                                    bu: BytesUtils): Unit = {
+    if (src == null){
+      row.setNullAt(index)
+      return
+    }
     dt match {
       case StringType => row.setString(index, bu.toString(src))
       case IntegerType => row.setInt(index, bu.toInt(src))
