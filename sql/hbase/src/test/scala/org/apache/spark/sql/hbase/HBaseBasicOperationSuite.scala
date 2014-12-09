@@ -41,7 +41,7 @@ class HBaseBasicOperationSuite extends QueryTest {
   }
 
   test("Insert Into table0") {
-        sql( """INSERT INTO testTable SELECT col4,col4,col6,col3 FROM myTable""")
+        sql( """INSERT INTO testTable SELECT col4,col4,col6,col3 FROM ta""")
   }
 
   test("Insert Into table") {
@@ -55,39 +55,39 @@ class HBaseBasicOperationSuite extends QueryTest {
   }
 
   test("Select test 0") {
-    sql( """SELECT * FROM TestTable""").foreach(println)
+    sql( """SELECT * FROM ta""").foreach(println)
   }
 
   test("Select test 1") {
-    sql( """SELECT * FROM TestTable WHERE col7 > 1024.0""").foreach(println)
+    sql( """SELECT * FROM ta WHERE col7 > 1024.0""").foreach(println)
   }
 
   test("Select test 2") {
-    sql( """SELECT col6, col7 FROM TestTable ORDER BY col6 DESC""").foreach(println)
+    sql( """SELECT col6, col7 FROM ta ORDER BY col6 DESC""").foreach(println)
   }
 
   test("Select test 3") {
-    sql( """SELECT col6, col6 FROM TestTable""").foreach(println)
+    sql( """SELECT col6, col6 FROM ta""").foreach(println)
   }
 
   test("Select test 4") {
-    sql( """SELECT * FROM TestTable WHERE col7 = 1024 OR col7 = 2048""").foreach(println)
+    sql( """SELECT * FROM ta WHERE col7 = 1024 OR col7 = 2048""").foreach(println)
   }
 
   test("Select test 5") {
-    sql( """SELECT * FROM TestTable WHERE col7 < 1025 AND col1 ='Upen'""").foreach(println)
+    sql( """SELECT * FROM ta WHERE col7 < 1025 AND col1 ='Upen'""").foreach(println)
   }
 
   test("Alter Add column") {
-    sql( """ALTER TABLE TestTable ADD col8 STRING MAPPED BY (col8 = cf1.cf13)""")
+    sql( """ALTER TABLE ta ADD col8 STRING MAPPED BY (col8 = cf1.cf13)""")
   }
 
   test("Alter Drop column") {
-    sql( """ALTER TABLE TestTable DROP col6""")
+    sql( """ALTER TABLE ta DROP col6""")
   }
 
   test("Drop table") {
-    sql( """DROP TABLE TestTable""")
+    sql( """DROP TABLE ta""")
   }
 
   test("SPARK-3176 Added Parser of SQL ABS()") {

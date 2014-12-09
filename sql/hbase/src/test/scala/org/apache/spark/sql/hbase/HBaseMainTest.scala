@@ -21,8 +21,8 @@ object HBaseMainTest extends HBaseIntegrationTestBase(false) with CreateTableAnd
 with Logging {
   @transient val logger = Logger.getLogger(getClass.getName)
 
-  val TabName = DefaultTableName
-  val HbaseTabName = DefaultHbaseTabName
+  val TabName: String = "ta"
+  val HbaseTabName: String = "hta"
 
   def tableSetup() = {
     createTable()
@@ -31,7 +31,7 @@ with Logging {
   def createTable() = {
     try {
       try {
-        hbc.sql( s"""CREATE TABLE $TabName(col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
+        hbc.sql(s"""CREATE TABLE $TabName(col1 STRING, col2 BYTE, col3 SHORT, col4 INTEGER,
           col5 LONG, col6 FLOAT, col7 DOUBLE, PRIMARY KEY(col7, col1, col3))
           MAPPED BY ($HbaseTabName, COLS=[col2=cf1.cq11,
           col4=cf1.cq12, col5=cf2.cq21, col6=cf2.cq22])"""
