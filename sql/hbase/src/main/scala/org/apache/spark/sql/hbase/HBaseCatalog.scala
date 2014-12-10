@@ -42,7 +42,7 @@ sealed abstract class AbstractColumn extends Serializable {
   val dataType: DataType
   var ordinal: Int = -1
 
-  def isKeyColumn(): Boolean = false
+  def isKeyColumn: Boolean
 
   override def toString: String = {
     s"$sqlName , $dataType.typeName"
@@ -51,7 +51,7 @@ sealed abstract class AbstractColumn extends Serializable {
 
 case class KeyColumn(val sqlName: String, val dataType: DataType, val order: Int)
   extends AbstractColumn {
-  override def isKeyColumn() = true
+  override def isKeyColumn: Boolean = true
 }
 
 case class NonKeyColumn(
@@ -62,6 +62,7 @@ case class NonKeyColumn(
   @transient lazy val familyRaw = Bytes.toBytes(family)
   @transient lazy val qualifierRaw = Bytes.toBytes(qualifier)
 
+  override def isKeyColumn: Boolean = false
   override def toString = {
     s"$sqlName , $dataType.typeName , $family:$qualifier"
   }
@@ -97,8 +98,7 @@ private[hbase] class HBaseCatalog(@transient hbaseContext: HBaseSQLContext)
     //    val row = new GenericRow(Array(col7, col1, col3))
     val rawKeyCol = dataTypeOfKeys.zipWithIndex.map {
       case (dataType, index) => {
-        (DataTypeUtils.getRowColumnFromHBaseRawType(row, index, dataType, new BytesUtils),
-          dataType)
+        (DataTypeUtils.getRowColumnFromHBaseRawType(row, index, dataType), dataType)
       }
     }
 

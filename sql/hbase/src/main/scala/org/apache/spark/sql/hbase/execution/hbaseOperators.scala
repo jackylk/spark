@@ -95,9 +95,6 @@ case class InsertIntoHBaseTable(
 
     def writeToHbase(context: TaskContext, iterator: Iterator[Row]) = {
       val htable = relation.htable
-      val bu = Array.fill[BytesUtils](BatchMaxSize, relation.allColumns.length) {
-        new BytesUtils
-      }
       var rowIndexInBatch = 0
       var colIndexInBatch = 0
 
@@ -108,7 +105,7 @@ case class InsertIntoHBaseTable(
         val rawKeyCol = relation.keyColumns.map (
           kc => {
             val rowColumn = DataTypeUtils.getRowColumnFromHBaseRawType(
-              row, kc.ordinal, kc.dataType, bu(rowIndexInBatch)(colIndexInBatch))
+              row, kc.ordinal, kc.dataType)
             colIndexInBatch += 1
             (rowColumn, kc.dataType)
           }
@@ -118,7 +115,7 @@ case class InsertIntoHBaseTable(
         relation.nonKeyColumns.foreach (
           nkc => {
             val rowVal = DataTypeUtils.getRowColumnFromHBaseRawType(
-              row, nkc.ordinal, nkc.dataType, bu(rowIndexInBatch)(colIndexInBatch))
+              row, nkc.ordinal, nkc.dataType)
             colIndexInBatch += 1
             put.add(Bytes.toBytes(nkc.family), Bytes.toBytes(nkc.qualifier), rowVal)
           }
@@ -148,7 +145,8 @@ case class InsertValueIntoHBaseTable(relation: HBaseRelation, valueSeq: Seq[Stri
     val buffer = ListBuffer[Byte]()
     val keyBytes = ListBuffer[(Array[Byte], DataType)]()
     val valueBytes = ListBuffer[(Array[Byte], Array[Byte], Array[Byte])]()
-    HBaseKVHelper.string2KV(valueSeq, relation.allColumns, keyBytes, valueBytes)
+    val lineBuffer = HBaseKVHelper.createLineBuffer(relation)
+    HBaseKVHelper.string2KV(valueSeq, relation.allColumns, lineBuffer, keyBytes, valueBytes)
     val rowKey = HBaseKVHelper.encodingRawKeyColumns(buffer, keyBytes)
     val put = new Put(rowKey)
     valueBytes.foreach { case (family, qualifier, value) =>
@@ -176,9 +174,9 @@ case class BulkLoadIntoTable(path: String, relation: HBaseRelation,
   val hadoopReader = if (isLocal) {
     val fs = FileSystem.getLocal(conf)
     val pathString = fs.pathToFile(new Path(path)).getCanonicalPath
-    new HadoopReader(hbContext.sparkContext, pathString, delimiter)(relation.allColumns)
+    new HadoopReader(hbContext.sparkContext, pathString, delimiter)(relation)
   } else {
-    new HadoopReader(hbContext.sparkContext, path, delimiter)(relation.allColumns)
+    new HadoopReader(hbContext.sparkContext, path, delimiter)(relation)
   }
 
   // tmp path for storing HFile

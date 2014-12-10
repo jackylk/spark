@@ -17,13 +17,12 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.hbase.client.Result
-import org.apache.spark.sql.hbase.catalyst.expressions.PartialPredicateOperations._
 import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.expressions.codegen.GeneratePredicate
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.codegen.GeneratePredicate
 import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.hbase.catalyst.types.PartitionRange
+import org.apache.spark.sql.hbase.catalyst.expressions.PartialPredicateOperations._
 import org.apache.spark.{InterruptibleIterator, Logging, Partition, TaskContext}
 
 
@@ -62,7 +61,6 @@ class HBaseSQLReaderRDD(
 
     val row = new GenericMutableRow(output.size)
     val projections = output.zipWithIndex
-    val bytesUtils = new BytesUtils
 
     var finished: Boolean = false
     var gotNext: Boolean = false
@@ -86,7 +84,7 @@ class HBaseSQLReaderRDD(
       override def next(): Row = {
         if (hasNext) {
           gotNext = false
-          relation.buildRow(projections, result, row, bytesUtils)
+          relation.buildRow(projections, result, row)
         } else {
           null
         }
@@ -120,7 +118,6 @@ class HBaseSQLReaderRDD(
 
     val row = new GenericMutableRow(output.size)
     val projections = output.zipWithIndex
-    val bytesUtils = new BytesUtils
 
     var finished: Boolean = false
     var gotNext: Boolean = false
@@ -144,7 +141,7 @@ class HBaseSQLReaderRDD(
       override def next(): Row = {
         if (hasNext) {
           gotNext = false
-          relation.buildRow(projections, result, row, bytesUtils)
+          relation.buildRow(projections, result, row)
         } else {
           null
         }
@@ -201,7 +198,6 @@ class HBaseSQLReaderRDD(
 
     val row = new GenericMutableRow(output.size)
     val projections = output.zipWithIndex
-    val bytesUtils = new BytesUtils
 
     var finished: Boolean = false
     var gotNext: Boolean = false
@@ -225,7 +221,7 @@ class HBaseSQLReaderRDD(
       override def next(): Row = {
         if (hasNext) {
           gotNext = false
-          relation.buildRow(projections, result, row, bytesUtils)
+          relation.buildRow(projections, result, row)
         } else {
           null
         }

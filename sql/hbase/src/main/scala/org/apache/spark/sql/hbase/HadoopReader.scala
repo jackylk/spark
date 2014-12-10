@@ -17,33 +17,32 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.hadoop.mapreduce.Job
+import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.catalyst.types._
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 /**
  * Helper class for scanning files stored in Hadoop - e.g., to read text file when bulk loading.
  */
 private[hbase]
 class HadoopReader(
-                   @transient sc: SparkContext,
-                   path: String,
-                   delimiter: Option[String])(columns: Seq[AbstractColumn]) {
+                    @transient sc: SparkContext,
+                    path: String,
+                    delimiter: Option[String])(relation: HBaseRelation) {
   // make RDD[(SparkImmutableBytesWritable, SparkKeyValue)] from text file
   private[hbase] def makeBulkLoadRDDFromTextFile = {
 
     val rdd = sc.textFile(path)
     val splitRegex = delimiter.getOrElse(",")
-    // use to fix serialize issue
-    val cls = columns
     // Todo: use mapPartitions more better
     val keyBytes = ListBuffer[(Array[Byte], DataType)]()
     val valueBytes = ListBuffer[(Array[Byte], Array[Byte], Array[Byte])]()
     val buffer = ListBuffer[Byte]()
+    val lineBuffer = HBaseKVHelper.createLineBuffer(relation)
     rdd.map { line =>
-      HBaseKVHelper.string2KV(line.split(splitRegex), cls, keyBytes, valueBytes)
+      HBaseKVHelper.string2KV(line.split(splitRegex), relation.allColumns, lineBuffer, keyBytes, valueBytes)
       val rowKeyData = HBaseKVHelper.encodingRawKeyColumns(buffer, keyBytes)
       val rowKey = new ImmutableBytesWritableWrapper(rowKeyData)
       val put = new PutWrapper(rowKeyData)

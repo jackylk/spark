@@ -28,8 +28,8 @@ import org.apache.spark.sql.catalyst.types._
 object DataTypeUtils {
   //  TODO: more data types support?
   def bytesToData (src: HBaseRawType,
-                  dt: DataType,
-                  bu: BytesUtils): Any = {
+                  dt: DataType): Any = {
+    val bu = BytesUtils.create(dt)
     dt match {
       case StringType => bu.toString(src)
       case IntegerType => bu.toInt(src)
@@ -46,7 +46,7 @@ object DataTypeUtils {
   def dataToBytes (src: Any,
                   dt: DataType): HBaseRawType = {
     // TODO: avoid new instance per invocation
-    val bu = new BytesUtils
+    val bu = BytesUtils.create(dt)
     dt match {
       case StringType => bu.toBytes(src.asInstanceOf[String])
       case IntegerType => bu.toBytes(src.asInstanceOf[Int])
@@ -63,12 +63,12 @@ object DataTypeUtils {
   def setRowColumnFromHBaseRawType(row: MutableRow,
                                    index: Int,
                                    src: HBaseRawType,
-                                   dt: DataType,
-                                   bu: BytesUtils): Unit = {
+                                   dt: DataType): Unit = {
     if (src == null){
       row.setNullAt(index)
       return
     }
+    val bu = BytesUtils.create(dt)
     dt match {
       case StringType => row.setString(index, bu.toString(src))
       case IntegerType => row.setInt(index, bu.toInt(src))
@@ -84,8 +84,8 @@ object DataTypeUtils {
 
   def getRowColumnFromHBaseRawType(row: Row,
                                    index: Int,
-                                   dt: DataType,
-                                   bu: BytesUtils): HBaseRawType = {
+                                   dt: DataType): HBaseRawType = {
+    val bu = BytesUtils.create(dt)
     dt match {
       case StringType => bu.toBytes(row.getString(index))
       case IntegerType => bu.toBytes(row.getInt(index))
