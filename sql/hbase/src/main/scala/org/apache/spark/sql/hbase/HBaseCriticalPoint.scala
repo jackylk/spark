@@ -100,28 +100,28 @@ object RangeCriticalPoint {
         }
       }
       expression transform {
-        case a@EqualTo(AttributeReference(_, _, _), Literal(value, _)) =>
+        case a@EqualTo(AttributeReference(_, _, _, _), Literal(value, _)) =>
           if (a.left.equals(key)) checkAndAdd(value, CriticalPointType.bothInclusive)
           a
-        case a@EqualTo(Literal(value, _), AttributeReference(_, _, _)) =>
+        case a@EqualTo(Literal(value, _), AttributeReference(_, _, _, _)) =>
           if (a.right.equals(key)) checkAndAdd(value, CriticalPointType.bothInclusive)
           a
-        case a@LessThan(AttributeReference(_, _, _), Literal(value, _)) =>
+        case a@LessThan(AttributeReference(_, _, _, _), Literal(value, _)) =>
           if (a.left.equals(key)) checkAndAdd(value, CriticalPointType.upInclusive)
           a
-        case a@LessThan(Literal(value, _), AttributeReference(_, _, _)) =>
+        case a@LessThan(Literal(value, _), AttributeReference(_, _, _, _)) =>
           if (a.right.equals(key)) checkAndAdd(value, CriticalPointType.lowInclusive)
           a
-        case a@LessThanOrEqual(AttributeReference(_, _, _), Literal(value, _)) =>
+        case a@LessThanOrEqual(AttributeReference(_, _, _, _), Literal(value, _)) =>
           if (a.left.equals(key)) checkAndAdd(value, CriticalPointType.lowInclusive)
           a
-        case a@LessThanOrEqual(Literal(value, _), AttributeReference(_, _, _)) =>
+        case a@LessThanOrEqual(Literal(value, _), AttributeReference(_, _, _, _)) =>
           if (a.right.equals(key)) checkAndAdd(value, CriticalPointType.upInclusive)
           a
-        case a@GreaterThanOrEqual(AttributeReference(_, _, _), Literal(value, _)) =>
+        case a@GreaterThanOrEqual(AttributeReference(_, _, _, _), Literal(value, _)) =>
           if (a.left.equals(key)) checkAndAdd(value, CriticalPointType.upInclusive)
           a
-        case a@GreaterThanOrEqual(Literal(value, _), AttributeReference(_, _, _)) =>
+        case a@GreaterThanOrEqual(Literal(value, _), AttributeReference(_, _, _, _)) =>
           if (a.right.equals(key)) checkAndAdd(value, CriticalPointType.lowInclusive)
           a
       }

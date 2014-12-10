@@ -86,7 +86,7 @@ object PartialPredicateOperations {
             }
           }
         }
-        case InSet(value, hset, child) => {
+        case InSet(value, hset) => {
           val evaluatedValue = value.partialEval(input)
           if (evaluatedValue == null) {
             null
@@ -286,10 +286,10 @@ object PartialPredicateOperations {
             }
           }
         }
-        case InSet(value, hset, child) => {
+        case InSet(value, hset) => {
           val evaluatedValue = value.partialReduce(input, schema)
           if (evaluatedValue.isInstanceOf[Expression]) {
-            InSet(evaluatedValue.asInstanceOf[Expression], hset, child)
+            InSet(evaluatedValue.asInstanceOf[Expression], hset)
           } else {
             hset.contains(evaluatedValue)
           }

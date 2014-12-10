@@ -59,7 +59,6 @@ class RangeType[T] extends PartiallyOrderingDataType {
     case s: Short => new Range[Short](Some(s), true, Some(s), true, ShortType)
     case s: String => new Range[String](Some(s), true, Some(s), true, StringType)
     case b: Boolean => new Range[Boolean](Some(b), true, Some(b), true, BooleanType)
-    case d: BigDecimal => new Range[BigDecimal](Some(d), true, Some(d), true, DecimalType)
     case t: Timestamp => new Range[Timestamp](Some(t), true, Some(t), true, TimestampType)
     case _ => s
   }
@@ -194,7 +193,6 @@ object RangeType {
       ByteType -> ByteRangeType,
       ShortType -> ShortRangeType,
       BooleanType -> BooleanRangeType,
-      DecimalType -> DecimalRangeType,
       TimestampType -> TimestampRangeType,
       StringType -> StringRangeType
     )
