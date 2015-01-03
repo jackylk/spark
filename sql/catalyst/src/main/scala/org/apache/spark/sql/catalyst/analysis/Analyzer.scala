@@ -45,11 +45,13 @@ class Analyzer(catalog: Catalog,
                maxIterations: Int = 100)
   extends RuleExecutor[LogicalPlan] with HiveTypeCoercion {
 
-  val resolver = if (conf.getConf(CatalystConf.CASE_SENSITIVE, "true").toBoolean) {
-                  caseSensitiveResolution
-                } else {
-                  caseInsensitiveResolution
-                }
+  def resolver: Resolver = {
+    if (conf.getConf(CatalystConf.CASE_SENSITIVE, "true").toBoolean) {
+      caseSensitiveResolution
+    } else {
+      caseInsensitiveResolution
+    }
+  }
 
   val fixedPoint = FixedPoint(maxIterations)
 
