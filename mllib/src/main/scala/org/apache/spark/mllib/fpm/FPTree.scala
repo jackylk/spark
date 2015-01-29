@@ -17,6 +17,8 @@
 
 package org.apache.spark.mllib.fpm
 
+import scala.collection.mutable.ArrayBuffer
+
 class FPTree {
 
   private val root: FPTreeNode = new FPTreeNode(null, 0)
@@ -43,47 +45,30 @@ class FPTree {
   }
 
   def merge(tree: FPTree): this.type = {
-    /*
-    val thisTree = this.root
-    val compTree = tree.root
-    while ( compTree.children != null){
-      if (thisTree.children == null){
-
-      }else{
-        val thisKeyIterator = thisTree.children.keysIterator
-        val compKeyIterator = compTree.children.keys
-        if (compKeyIterator(0) != null) {
-          val compKey = compKeyIterator.next()
-          var k = 0
-          while (thisKeyIterator.hasNext) {
-            val thisKey = thisKeyIterator.next()
-            if (thisKey.equals(compKey)) {
-              thisTree.children(thisKey).count = thisTree.children(thisKey).count
-              k = k + 1
-            }
-          }
-          if (k == 0){
-
-          }
-        }
+    // simply merge all children of the input tree to this.root
+    if (tree.root.children != null) {
+      val it = tree.root.children.iterator
+      while (it.hasNext) {
+        this.root.children + it.next
       }
     }
-    */
-
-    val left: Seq = Seq[(String, Long)]()
-    val right: Seq = Seq()
-    var curr = root
-    while (curr != null) {
-
-    }
-
     this
   }
 
-  def extract(threshold: Double, prefix: String): Iterator[(Array[String], Long)] = {
+  def extract(threshold: Double, prefix: String): Array[(Array[String],Long)] = {
+    val condPattBase = unfold(this)
+    combine(condPattBase, threshold)
+  }
+
+  private def combine(
+    condPattBase: (String, Iterable[Array[String]]),
+    minCount: Double): Array[(Array[String],Long)] = {
 
   }
 
+  private def unfold(tree: FPTree): (String, Iterable[Array[String]]) = {
+
+  }
 }
 
 class FPTreeNode(val item: String, var count: Int) {
