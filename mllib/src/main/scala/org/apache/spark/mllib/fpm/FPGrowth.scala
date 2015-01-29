@@ -18,28 +18,30 @@
 package org.apache.spark.mllib.fpm
 
 import org.apache.spark.Logging
-import org.apache.spark.SparkContext._
-import org.apache.spark.broadcast._
 import org.apache.spark.rdd.RDD
 
-import scala.collection.mutable.{ArrayBuffer, Map}
+import scala.collection.mutable.ArrayBuffer
 
 /**
- * This class implements Parallel FPGrowth algorithm to do frequent pattern matching on input data.
+ * This class implements Parallel FP-growth algorithm to do frequent pattern matching on input data.
  * Parallel FPGrowth (PFP) partitions computation in such a way that each machine executes an
  * independent group of mining tasks. More detail of this algorithm can be found at
- * http://infolab.stanford.edu/~echang/recsys08-69.pdf
+ * [[http://dx.doi.org/10.1145/1454008.1454027, PFP]], and the original FP-growth paper can be found at
+ * [[http://dx.doi.org/10.1145/335191.335372, FP-growth]]
+ *
+ * @param minSupport the minimal support level of the frequent pattern, any pattern appears more than
+ *                   (minSupport * size-of-the-dataset) times will be output
  */
 class FPGrowth private(private var minSupport: Double) extends Logging with Serializable {
 
   /**
    * Constructs a FPGrowth instance with default parameters:
-   * {minSupport: 0.5}
+   * {minSupport: 0.3}
    */
-  def this() = this(0.5)
+  def this() = this(0.3)
 
   /**
-   * set the minimal support level, default is 0.5
+   * set the minimal support level, default is 0.3
    * @param minSupport minimal support level
    */
   def setMinSupport(minSupport: Double): this.type = {
@@ -53,80 +55,73 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
    * @return FPGrowth Model
    */
   def run(data: RDD[Array[String]]): FPGrowthModel = {
-    val model = runAlgorithm(data)
-    model
-  }
-
-  /**
-   * Implementation of PFP.
-   */
-  private def runAlgorithm(data: RDD[Array[String]]): FPGrowthModel = {
     val count = data.count()
     val minCount = minSupport * count
     val single = generateSingleItem(data, minCount)
     val combinations = generateCombinations(data, minCount, single)
-    new FPGrowthModel(single ++ combinations)
+    val single2 = single.map(v => (Array[String](v._1), v._2))
+    new FPGrowthModel(single2 ++ combinations)
   }
 
   /**
    * Generate single item pattern by filtering the input data using minimal support level
+   * @return array of frequent pattern with its count
    */
   private def generateSingleItem(
-                                  data: RDD[Array[String]],
-                                  minCount: Double): Array[(String, Int)] = {
-    data.flatMap(v => v)
-      .map(v => (v, 1))
+      data: RDD[Array[String]],
+      minCount: Double): RDD[(String, Long)] = {
+    val single = data.flatMap(v => v.toSet)
+      .map(v => (v, 1L))
       .reduceByKey(_ + _)
       .filter(_._2 >= minCount)
-      .collect()
-      .distinct
-      .sortWith(_._2 > _._2)
+      .sortBy(_._2)
+    single
   }
 
   /**
-   * Generate combination of items by computing on FPTree,
+   * Generate combination of frequent pattern by computing on FPTree,
    * the computation is done on each FPTree partitions.
+   * @return array of frequent pattern with its count
    */
   private def generateCombinations(
-                                    data: RDD[Array[String]],
-                                    minCount: Double,
-                                    singleItem: Array[(String, Int)]): Array[(Array[String], Int)] = {
-    val single = data.context.broadcast(singleItem)
+      data: RDD[Array[String]],
+      minCount: Double,
+      singleItem: RDD[(String, Long)]): RDD[(Array[String], Long)] = {
+    val single = data.context.broadcast(singleItem.collect())
     data.flatMap(transaction => createConditionPatternBase(transaction, single.value))
       .aggregateByKey(new FPTree)(
-        (aggregator, transaction) => aggregator.add(transaction),
+        (aggregator, condPattBase) => aggregator.add(condPattBase),
         (aggregator1, aggregator2) => aggregator1.merge(aggregator2))
-      .flatMap(partition => mineFPTree(partition, minCount))
-      .collect()
+      .flatMap(partition => partition._2.extract(minCount, partition._1))
   }
 
   /**
    * Create FP-Tree partition for the giving basket
+   * @return an array contains a tuple, whose first element is the single
+   *         item (hash key) and second element is its condition pattern base
    */
   private def createConditionPatternBase(
-                                          basket: Array[String],
-                                          single: Array[(String, Int)]): Array[(String, Array[String])] = {
+      transaction: Array[String],
+      single: Array[(String, Long)): Array[(String, Array[String])] = {
     var output = ArrayBuffer[(String, Array[String])]()
     var combination = ArrayBuffer[String]()
-    var items = ArrayBuffer[(String, Int)]()
+    var items = ArrayBuffer[(String, Long)]()
+    val singleMap = single.toMap
 
-    // Filter the basket by single item pattern
-    val iterator = basket.iterator
-    while (iterator.hasNext) {
-      val item = iterator.next
-      val opt = single.find(_._1.equals(item))
-      if (opt != None) {
-        items ++= opt
-      }
-    }
+    // Filter the basket by single item pattern and sort
+    // by single item and its count
+    val candidates = transaction
+      .filter(single.contains)
+      .map(item => (item, singleMap(item)))
+      .sortBy(_._1)
+      .sortBy(_._2)
+      .toArray
 
-    // Sort it and create the item combinations
-    val sortedItems = items.sortWith(_._1 > _._1).sortWith(_._2 > _._2).toArray
-    val itemIterator = sortedItems.iterator
+    val itemIterator = candidates.iterator
     while (itemIterator.hasNext) {
       combination.clear()
       val item = itemIterator.next
-      val firstNItems = sortedItems.take(sortedItems.indexOf(item))
+      val firstNItems = candidates.take(candidates.indexOf(item))
       if (firstNItems.length > 0) {
         val iterator = firstNItems.iterator
         while (iterator.hasNext) {

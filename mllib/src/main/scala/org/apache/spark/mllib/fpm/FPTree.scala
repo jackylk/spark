@@ -36,15 +36,51 @@ class FPTree {
       }
       index = index + 1
     }
+
+    // TODO: in oder to further reduce the amount of data for shuffle,
+    // remove the same pattern which has the same hash number
     this
   }
 
   def merge(tree: FPTree): this.type = {
+    /*
+    val thisTree = this.root
+    val compTree = tree.root
+    while ( compTree.children != null){
+      if (thisTree.children == null){
+
+      }else{
+        val thisKeyIterator = thisTree.children.keysIterator
+        val compKeyIterator = compTree.children.keys
+        if (compKeyIterator(0) != null) {
+          val compKey = compKeyIterator.next()
+          var k = 0
+          while (thisKeyIterator.hasNext) {
+            val thisKey = thisKeyIterator.next()
+            if (thisKey.equals(compKey)) {
+              thisTree.children(thisKey).count = thisTree.children(thisKey).count
+              k = k + 1
+            }
+          }
+          if (k == 0){
+
+          }
+        }
+      }
+    }
+    */
+
+    val left: Seq = Seq[(String, Long)]()
+    val right: Seq = Seq()
+    var curr = root
+    while (curr != null) {
+
+    }
 
     this
   }
 
-  def extract(threshold: Int, validateSuffix: String => Boolean): Iterator[Array[String]] = {
+  def extract(threshold: Double, prefix: String): Iterator[(Array[String], Long)] = {
 
   }
 
