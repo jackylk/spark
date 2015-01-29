@@ -72,8 +72,8 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
    * Generate single item pattern by filtering the input data using minimal support level
    */
   private def generateSingleItem(
-      data: RDD[Array[String]],
-      minCount: Double): Array[(String, Int)] = {
+                                  data: RDD[Array[String]],
+                                  minCount: Double): Array[(String, Int)] = {
     data.flatMap(v => v)
       .map(v => (v, 1))
       .reduceByKey(_ + _)
@@ -88,30 +88,31 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
    * the computation is done on each FPTree partitions.
    */
   private def generateCombinations(
-      data: RDD[Array[String]],
-      minCount: Double,
-      singleItem: Array[(String, Int)]): Array[(String, Int)] = {
+                                    data: RDD[Array[String]],
+                                    minCount: Double,
+                                    singleItem: Array[(String, Int)]): Array[(Array[String], Int)] = {
     val single = data.context.broadcast(singleItem)
-    data.flatMap(basket => createFPTree(basket, single))
-      .groupByKey()
-      .flatMap(partition => runFPTree(partition, minCount))
+    data.flatMap(transaction => createConditionPatternBase(transaction, single.value))
+      .aggregateByKey(new FPTree)(
+        (aggregator, transaction) => aggregator.add(transaction),
+        (aggregator1, aggregator2) => aggregator1.merge(aggregator2))
+      .flatMap(partition => mineFPTree(partition, minCount))
       .collect()
   }
 
   /**
    * Create FP-Tree partition for the giving basket
    */
-  private def createFPTree(
-      basket: Array[String],
-      singleItem: Broadcast[Array[(String, Int)]]): Array[(String, Array[String])] = {
+  private def createConditionPatternBase(
+                                          basket: Array[String],
+                                          single: Array[(String, Int)]): Array[(String, Array[String])] = {
     var output = ArrayBuffer[(String, Array[String])]()
     var combination = ArrayBuffer[String]()
-    val single = singleItem.value
     var items = ArrayBuffer[(String, Int)]()
 
     // Filter the basket by single item pattern
     val iterator = basket.iterator
-    while (iterator.hasNext){
+    while (iterator.hasNext) {
       val item = iterator.next
       val opt = single.find(_._1.equals(item))
       if (opt != None) {
@@ -139,11 +140,16 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
   }
 
   /**
-   * Generate frequent pattern by walking through the FPTree
+   * Generate the frequent pattern by mining the FPTree recursively
    */
-  private def runFPTree(
-      partition: (String, Iterable[Array[String]]),
-      minCount: Double): Array[(String, Int)] = {
+  private def mineFPTree(
+                          partition: (String, FPTree),
+                          minCount: Double): Array[(Array[String], Int)] = {
+    // recursive implementation
+
+  }
+
+  /*
     val key = partition._1
     val value = partition._2
     val output = ArrayBuffer[(String, Int)]()
@@ -188,6 +194,7 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
     }
     output.toArray
   }
+  */
 }
 
 /**
