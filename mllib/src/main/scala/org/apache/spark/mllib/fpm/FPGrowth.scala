@@ -20,6 +20,8 @@ package org.apache.spark.mllib.fpm
 import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
 
+import org.apache.spark.broadcast.Broadcast
+
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -88,7 +90,7 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
       minCount: Double,
       singleItem: RDD[(String, Long)]): RDD[(Array[String], Long)] = {
     val single = data.context.broadcast(singleItem.collect())
-    data.flatMap(transaction => createConditionPatternBase(transaction, single.value))
+    data.flatMap(transaction => createConditionPatternBase(transaction, single))
       .aggregateByKey(new FPTree)(
         (aggregator, condPattBase) => aggregator.add(condPattBase),
         (aggregator1, aggregator2) => aggregator1.merge(aggregator2))
@@ -102,10 +104,12 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
    */
   private def createConditionPatternBase(
       transaction: Array[String],
-      single: Array[(String, Long)]): Array[(String, Array[String])] = {
+      singleBC: Broadcast[Array[(String, Long)]]): Array[(String, Array[String])] = {
     var output = ArrayBuffer[(String, Array[String])]()
     var combination = ArrayBuffer[String]()
     var items = ArrayBuffer[(String, Long)]()
+    val single = singleBC.value
+
     val singleMap = single.toMap
 
     // Filter the basket by single item pattern and sort

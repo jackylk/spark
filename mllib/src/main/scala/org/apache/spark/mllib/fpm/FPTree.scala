@@ -17,25 +17,25 @@
 
 package org.apache.spark.mllib.fpm
 
-import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+import scala.collection.mutable.{ListBuffer, ArrayBuffer, Map}
 
-class FPTree {
+class FPTree extends Serializable {
 
   val root: FPTreeNode = new FPTreeNode(null, 0)
 
   def add(transaction: Array[String]): this.type = {
     var index = 0
     val size = transaction.size
-    var curr: FPTreeNode = root
+    var curr = root
     while (index < size) {
-      val node = curr.children(transaction(index))
-      if (node != null) {
+      if (curr.children.contains(transaction(index))) {
+        val node = curr.children(transaction(index))
         node.count = node.count + 1
         curr = node
       } else {
         val newNode = new FPTreeNode(transaction(index), 1)
         newNode.parent = curr
-        curr.children + ((transaction(index), newNode))
+        curr.children(transaction(index)) = newNode
         curr = newNode
       }
       index = index + 1
@@ -53,28 +53,33 @@ class FPTree {
    */
   def merge(tree: FPTree): this.type = {
     // merge two trees recursively to remove all duplicated nodes
-    mergeRoot(this.root, tree.root)
+    mergeTree(this.root, tree.root)
     this
   }
 
   /**
    * merge two trees from their root node
-   * @param root1 root node of the tree one
-   * @param root2 root node of the tree two
+   * @param tree1 root node of the tree one
+   * @param tree2 root node of the tree two
    * @return root node after merge
    */
-  private def mergeRoot(root1: FPTreeNode, root2: FPTreeNode): FPTreeNode = {
+  private def mergeTree(tree1: FPTreeNode, tree2: FPTreeNode): FPTreeNode = {
     // firstly merge two roots, then iterate on the second tree, merge all children of it to the first tree
-    if (root2 == null) return root1
-    require(root1.item.equals(root2.item))
-    root1.count = root1.count + root2.count
-    if (!root2.isLeaf) {
-      val it = root2.children.iterator
+    require(tree1 != null)
+    require(tree2 != null)
+    if (!tree2.isRoot) {
+      require(tree1.item.equals(tree2.item))
+      tree1.count = tree1.count + tree2.count
+    }
+    if (!tree2.isLeaf) {
+      val it = tree2.children.iterator
       while (it.hasNext) {
-        mergeSubTree(root1, it.next()._2)
+        val node = mergeSubTree(tree1, it.next()._2)
+        tree1.children(node.item) = node
+        node.parent = tree1
       }
     }
-    root1
+    tree1
   }
 
   /**
@@ -84,51 +89,59 @@ class FPTree {
    * @return root node after merge
    */
   private def mergeSubTree(tree1Root: FPTreeNode, subTree2: FPTreeNode): FPTreeNode = {
-    val matchedNode = tree1Root.children(subTree2.item)
-    if (matchedNode != null) {
-      mergeRoot(matchedNode, subTree2)
+    if (tree1Root.children.contains(subTree2.item)) {
+      mergeTree(tree1Root.children(subTree2.item), subTree2)
     } else {
-      tree1Root
+      subTree2
     }
   }
 
   /**
    * Generate all frequent patterns by mining the FPTree recursively
-   * @param threshold minimal count
+   * @param minCount minimal count
    * @param suffix
    * @return
    */
-  def mine(threshold: Double, suffix: String): Array[(Array[String], Long)] = {
-    val condPattBase = expandFPTree(this.root)
-    mineFPTree(condPattBase, threshold, suffix)
+  def mine(minCount: Double, suffix: String): Array[(Array[String], Long)] = {
+    val condPattBase = expandFPTree(this)
+    mineFPTree(condPattBase, minCount, suffix)
   }
 
   /**
    * This function will walk through the tree and build all conditional pattern base out of it
-   * @param node root node of the target tree to expand
+   * @param tree the tree to expand
    * @return conditional pattern base, whose last element is the input suffix
    */
-  private def expandFPTree(node: FPTreeNode): ArrayBuffer[ArrayBuffer[String]] = {
-    // Iterate on all children and build the output recursively
-    require(node != null)
-    if (node.isLeaf) {
-      val buffer = new ArrayBuffer[ArrayBuffer[String]]()
-      buffer.append(new ArrayBuffer[String]() += node.item)
-      buffer
-    } else {
-      val it = node.children.iterator
-      var output: ArrayBuffer[ArrayBuffer[String]] = null
+  def expandFPTree(tree: FPTree): ArrayBuffer[ArrayBuffer[String]] = {
+    var output: ArrayBuffer[ArrayBuffer[String]] = null
+    if (!tree.root.isLeaf) {
+      val it = tree.root.children.iterator
       while (it.hasNext) {
-        val child = it.next()
-        val childOutput = expandFPTree(child._2)
-        require(childOutput != null)
-        for (buffer <- childOutput) {
-          buffer.append(child._1)
-        }
-        if (output == null) output = childOutput else output ++= childOutput
+        val childOuput = expandFPTreeNode(it.next()._2)
+        if (output == null) output = childOuput else output ++= childOuput
       }
-      output
     }
+    output
+  }
+
+  private def expandFPTreeNode(node: FPTreeNode): ArrayBuffer[ArrayBuffer[String]] = {
+    // Iterate on all children and build the output recursively
+    val output = new ArrayBuffer[ArrayBuffer[String]]()
+    for (i <- 0 to node.count - 1) {
+      output.append(ArrayBuffer[String](node.item))
+    }
+    val it = node.children.iterator
+    var i = 0
+    while (it.hasNext) {
+      val child = it.next()
+      val childOutput = expandFPTreeNode(child._2)
+      require(childOutput.size <= output.size)
+      for (buffer <- childOutput) {
+        output(i) ++= buffer
+        i = i + 1
+      }
+    }
+    output
   }
   
   /**
@@ -146,6 +159,14 @@ class FPTree {
     val key = suffix
     // the set of construction CPFTree
     val value = condPattBase
+
+    println(key + "::")
+    for (i <- value) {
+      print(" ")
+      i.foreach(x => print(x + " "))
+      println
+    }
+
     // tree step.start 2th
     var k = 1
     // save all frequently item set
@@ -210,8 +231,9 @@ class FPTree {
   }
 }
 
-class FPTreeNode(val item: String, var count: Int) {
+class FPTreeNode(val item: String, var count: Int) extends Serializable {
   var parent: FPTreeNode = null
   val children: Map[String, FPTreeNode] = Map[String, FPTreeNode]()
   def isLeaf: Boolean = children.size == 0
+  def isRoot: Boolean = parent == null
 }

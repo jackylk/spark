@@ -19,13 +19,45 @@ package org.apache.spark.mllib.fpm
 import org.scalatest.FunSuite
 import org.apache.spark.mllib.util.MLlibTestSparkContext
 
-class FPGrowthSuite  extends FunSuite with MLlibTestSparkContext {
+class FPGrowthSuite extends FunSuite with MLlibTestSparkContext {
 
   test("test FPGrowth algorithm")
   {
-    val arr = FPGrowthSuite.createFIMDataSet1()
+    val arr = FPGrowthSuite.createFIMDataSet4()
+    val dataSet = sc.parallelize(arr)
+    val rdd = dataSet.map(line => line.split(" "))
 
-    assert(arr.length === 6)
+    val algorithm = new FPGrowth()
+    algorithm.setMinSupport(0.5)
+
+    FPGrowthSuite.printFrequentPattern(algorithm.run(rdd).frequentPattern)
+    //assert(algorithm.run(rdd).frequentPattern.length == 2)
+
+        /*
+    algorithm.setMinSupport(0.8)
+    assert(algorithm.run(rdd).frequentPattern.length == 2)
+    algorithm.setMinSupport(0.7)
+    assert(algorithm.run(rdd).frequentPattern.length == 2)
+    algorithm.setMinSupport(0.6)
+    assert(algorithm.run(rdd).frequentPattern.length == 2)
+    algorithm.setMinSupport(0.5)
+    assert(algorithm.run(rdd).frequentPattern.length == 3)
+    algorithm.setMinSupport(0.4)
+    assert(algorithm.run(rdd).frequentPattern.length == 3)
+    algorithm.setMinSupport(0.3)
+    assert(algorithm.run(rdd).frequentPattern.length == 3)
+    algorithm.setMinSupport(0.2)
+    assert(algorithm.run(rdd).frequentPattern.length == 3)
+    algorithm.setMinSupport(0.1)
+    assert(algorithm.run(rdd).frequentPattern.length == 3)
+    FPGrowthSuite.printFrequentPattern(algorithm.run(rdd).frequentPattern) */
+  }
+  /*
+  test("test FPGrowth algorithm")
+  {
+    val arr = FPGrowthSuite.createFIMDataSet()
+
+    assert(arr.length == 6)
     val dataSet = sc.parallelize(arr)
     assert(dataSet.count() == 6)
     val rdd = dataSet.map(line => line.split(" "))
@@ -51,7 +83,8 @@ class FPGrowthSuite  extends FunSuite with MLlibTestSparkContext {
     algorithm.setMinSupport(0.1)
     assert(algorithm.run(rdd).frequentPattern.length == 625)
   }
-
+  */
+/*
   test("test FIM with FPTree")
   {
     val data = FPGrowthSuite.createFIMDataSet()
@@ -60,13 +93,15 @@ class FPGrowthSuite  extends FunSuite with MLlibTestSparkContext {
     val data3 = FPGrowthSuite.createFIMDataSet3()
 
     val rdd = sc.parallelize(data)
-    val l1Map = rdd.flatMap(v => v.split(" ")).map(v => (v,1)).reduceByKey(_+_).sortBy(_._2).collect().toMap
+    val l1Map = rdd.flatMap(v => v.split(" ")).map(v => (v, 1)).reduceByKey(_+_).collect().toMap
+    println(l1Map)
 
     val tree = new FPTree()
     for (transaction <- data){
-      tree.add(
-        transaction.split(" ").map(item => (item, l1Map(item))).sortBy(_._2).map(x => x._1)
-      )
+      val transactionsort = transaction.split(" ").map(item => (item, l1Map(item))).sortWith(_._2 > _._2).map(x => x._1)
+      transactionsort.foreach(x => print(x + " "))
+      tree.add(transactionsort)
+      println()
     }
     FPGrowthSuite.printTree(tree)
 
@@ -96,6 +131,7 @@ class FPGrowthSuite  extends FunSuite with MLlibTestSparkContext {
 
     assert(mergeTree.root.children.keySet.size == tree.root.children.keySet.size)
   }
+*/
 }
 
 object FPGrowthSuite
@@ -115,43 +151,63 @@ object FPGrowthSuite
     arr
   }
 
+  def createFIMDataSet4():Array[String] =
+  {
+    val arr = Array[String](
+      "r z h j p",
+      "z y x w v u t s",
+      "z",
+      "r x n o s",
+      "y r x z q t p",
+      "y z x e q s t m")
+    arr
+  }
+
   def createFIMDataSet1():Array[String] =
   {
     Array[String](
-      "r z h j p",
-      "z y x w v u t s")
+      "a b c",
+      "a b")
   }
 
   def createFIMDataSet2():Array[String] =
   {
     Array[String](
-      "z",
-      "r x n o s")
+      "s x o n r",
+      "x z y m t s q e")
   }
 
   def createFIMDataSet3():Array[String] =
   {
     Array[String](
-      "y r x z q t p",
-      "y z x e q s t m")
+      "z",
+      "x z y r q t p")
   }
 
   def printTree(tree: FPTree) = printTreeRoot(tree.root, 0)
 
-  def printTreeRoot(tree: FPTreeNode, level: Int)
-  {
-    val curr = tree
-    while (!curr.isLeaf) {
-      val keysIterator = curr.children.keysIterator
-      while (keysIterator.hasNext) {
-        val key = keysIterator.next()
-        val node = curr.children(key)
-        for (0 <- level) {
-          print("\t")
-        }
-        println("(${node.item} ${node.count})")
-        printTreeRoot(node, level + 1)
-      }
+  private def printTreeRoot(tree: FPTreeNode, level: Int): Unit = {
+    printNode(tree, level)
+    if (tree.isLeaf) return
+    val it = tree.children.iterator
+    while (it.hasNext) {
+      val child = it.next()
+      printTreeRoot(child._2, level + 1)
+    }
+  }
+
+  private def printNode(node: FPTreeNode, level: Int) = {
+    for (i <- 0 to level) {
+      print("\t")
+    }
+    println(node.item + " " + node.count)
+  }
+
+  def printFrequentPattern(pattern: Array[(Array[String], Long)]) = {
+    for (a <- pattern) {
+      a._1.foreach(x => print(x + " "))
+      print(a._2)
+      println
     }
   }
 }
