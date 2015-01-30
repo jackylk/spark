@@ -59,8 +59,8 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
     val minCount = minSupport * count
     val single = generateSingleItem(data, minCount)
     val combinations = generateCombinations(data, minCount, single)
-    val single2 = single.map(v => (Array[String](v._1), v._2))
-    new FPGrowthModel(single2 ++ combinations)
+    val all = single.map(v => (Array[String](v._1), v._2)).union(combinations)
+    new FPGrowthModel(all.collect())
   }
 
   /**
@@ -92,7 +92,7 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
       .aggregateByKey(new FPTree)(
         (aggregator, condPattBase) => aggregator.add(condPattBase),
         (aggregator1, aggregator2) => aggregator1.merge(aggregator2))
-      .flatMap(partition => partition._2.extract(minCount, partition._1))
+      .flatMap(partition => partition._2.mine(minCount, partition._1))
   }
 
   /**
@@ -102,7 +102,7 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
    */
   private def createConditionPatternBase(
       transaction: Array[String],
-      single: Array[(String, Long)): Array[(String, Array[String])] = {
+      single: Array[(String, Long)]): Array[(String, Array[String])] = {
     var output = ArrayBuffer[(String, Array[String])]()
     var combination = ArrayBuffer[String]()
     var items = ArrayBuffer[(String, Long)]()
@@ -120,12 +120,12 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
     val itemIterator = candidates.iterator
     while (itemIterator.hasNext) {
       combination.clear()
-      val item = itemIterator.next
+      val item = itemIterator.next()
       val firstNItems = candidates.take(candidates.indexOf(item))
       if (firstNItems.length > 0) {
         val iterator = firstNItems.iterator
         while (iterator.hasNext) {
-          val elem = iterator.next
+          val elem = iterator.next()
           combination += elem._1
         }
         output += ((item._1, combination.toArray))
@@ -134,62 +134,6 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
     output.toArray
   }
 
-  /**
-   * Generate the frequent pattern by mining the FPTree recursively
-   */
-  private def mineFPTree(
-                          partition: (String, FPTree),
-                          minCount: Double): Array[(Array[String], Int)] = {
-    // recursive implementation
-
-  }
-
-  /*
-    val key = partition._1
-    val value = partition._2
-    val output = ArrayBuffer[(String, Int)]()
-    val map = Map[String, Int]()
-
-    // Walk through the FPTree partition to generate all combinations that satisfy
-    // the minimal support level.
-    var k = 1
-    while (k > 0) {
-      map.clear()
-      val iterator = value.iterator
-      while (iterator.hasNext) {
-        val pattern = iterator.next
-        if (pattern.length >= k) {
-          val combination = pattern.toList.combinations(k).toList
-          val itemIterator = combination.iterator
-          while (itemIterator.hasNext){
-            val item = itemIterator.next
-            val list2key: List[String] = (item :+ key).sortWith(_ > _)
-            val newKey = list2key.mkString(" ")
-            if (map.get(newKey) == None) {
-              map(newKey) = 1
-            } else {
-              map(newKey) = map.apply(newKey) + 1
-            }
-          }
-        }
-      }
-      var eligible: Array[(String, Int)] = null
-      if (map.size != 0) {
-        val candidate = map.filter(_._2 >= minCount)
-        if (candidate.size != 0) {
-          eligible = candidate.toArray
-          output ++= eligible
-        }
-      }
-      if ((eligible == null) || (eligible.length == 0)) {
-        k = 0
-      } else {
-        k = k + 1
-      }
-    }
-    output.toArray
-  }
-  */
 }
 
 /**
