@@ -99,7 +99,7 @@ class FPTree extends Serializable {
   /**
    * Generate all frequent patterns by mining the FPTree recursively
    * @param minCount minimal count
-   * @param suffix
+   * @param suffix key of this tree
    * @return
    */
   def mine(minCount: Double, suffix: String): Array[(Array[String], Long)] = {
@@ -110,9 +110,9 @@ class FPTree extends Serializable {
   /**
    * This function will walk through the tree and build all conditional pattern base out of it
    * @param tree the tree to expand
-   * @return conditional pattern base, whose last element is the input suffix
+   * @return conditional pattern base
    */
-  def expandFPTree(tree: FPTree): ArrayBuffer[ArrayBuffer[String]] = {
+  private def expandFPTree(tree: FPTree): ArrayBuffer[ArrayBuffer[String]] = {
     var output: ArrayBuffer[ArrayBuffer[String]] = null
     if (!tree.root.isLeaf) {
       val it = tree.root.children.iterator
@@ -124,6 +124,11 @@ class FPTree extends Serializable {
     output
   }
 
+  /**
+   * Expand from the input node
+   * @param node tree node
+   * @return conditional pattern base
+   */
   private def expandFPTreeNode(node: FPTreeNode): ArrayBuffer[ArrayBuffer[String]] = {
     // Iterate on all children and build the output recursively
     val output = new ArrayBuffer[ArrayBuffer[String]]()
@@ -145,7 +150,10 @@ class FPTree extends Serializable {
   }
   
   /**
-   * generate fim set by FPTree,everyone node have a CPFTree that can combination frequent item
+   * Generate all frequent patterns by combinations of condition pattern base.
+   * This implementation is different from classical fp-growth algorithm which generate
+   * FPTree recursively.
+   *
    * @param condPattBase condition pattern base
    * @param minCount the minimum count
    * @param suffix key of the condition pattern base
@@ -159,13 +167,6 @@ class FPTree extends Serializable {
     val key = suffix
     // the set of construction CPFTree
     val value = condPattBase
-
-    println(key + "::")
-    for (i <- value) {
-      print(" ")
-      i.foreach(x => print(x + " "))
-      println
-    }
 
     // tree step.start 2th
     var k = 1

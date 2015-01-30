@@ -17,12 +17,13 @@
 
 package org.apache.spark.mllib.fpm
 
+import scala.collection.mutable.ArrayBuffer
+
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
 
-import org.apache.spark.broadcast.Broadcast
 
-import scala.collection.mutable.ArrayBuffer
 
 /**
  * This class implements Parallel FP-growth algorithm to do frequent pattern matching on input data.
@@ -53,7 +54,7 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
 
   /**
    * Compute a FPGrowth Model that contains frequent pattern result.
-   * @param data input data set
+   * @param data input data set, each element contains a transaction
    * @return FPGrowth Model
    */
   def run(data: RDD[Array[String]]): FPGrowthModel = {
@@ -109,13 +110,12 @@ class FPGrowth private(private var minSupport: Double) extends Logging with Seri
     var combination = ArrayBuffer[String]()
     var items = ArrayBuffer[(String, Long)]()
     val single = singleBC.value
-
     val singleMap = single.toMap
 
     // Filter the basket by single item pattern and sort
     // by single item and its count
     val candidates = transaction
-      .filter(single.contains)
+      .filter(singleMap.contains)
       .map(item => (item, singleMap(item)))
       .sortBy(_._1)
       .sortBy(_._2)
