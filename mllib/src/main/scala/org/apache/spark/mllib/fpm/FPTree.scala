@@ -21,7 +21,7 @@ import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 
 class FPTree {
 
-  private val root: FPTreeNode = new FPTreeNode(null, 0)
+  val root: FPTreeNode = new FPTreeNode(null, 0)
 
   def add(transaction: Array[String]): this.type = {
     var index = 0
