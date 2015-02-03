@@ -22,8 +22,8 @@ import org.apache.spark.mllib.util.MLlibTestSparkContext
 
 class FPGrowthSuite extends FunSuite with MLlibTestSparkContext {
 
-  test("FP-Growth using String type") {
 
+  test("FP-Growth using String type") {
     val transactions = Seq(
       "r z h k p",
       "z y x w v u t s",

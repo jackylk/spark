@@ -20,14 +20,14 @@ package org.apache.spark.mllib.fpm
 import java.lang.{Iterable => JavaIterable}
 import java.{util => ju}
 
+import scala.collection.JavaConverters._
+import scala.collection.mutable
+import scala.reflect.ClassTag
+
 import org.apache.spark.api.java.JavaRDD
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{HashPartitioner, Logging, Partitioner, SparkException}
-
-import scala.collection.JavaConverters._
-import scala.collection.mutable
-import scala.reflect.ClassTag
 
 class FPGrowthModel[Item](val freqItemsets: RDD[(Array[Item], Long)]) extends Serializable {
   def javaFreqItemsets(): JavaRDD[(Array[Item], Long)] = {
@@ -158,7 +158,6 @@ class FPGrowth private (
     val output = mutable.Map.empty[Int, Array[Int]]
     // Filter the basket by frequent items pattern and sort their ranks.
     val filtered = transaction.flatMap(itemToRank.get).toArray
-
     ju.Arrays.sort(filtered)
     val n = filtered.length
     var i = n - 1
