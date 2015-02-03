@@ -20,12 +20,13 @@ package org.apache.spark.mllib.fpm
 import java.{util => ju}
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
-import org.apache.spark.{SparkException, HashPartitioner, Logging, Partitioner}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
+import org.apache.spark.{HashPartitioner, Logging, Partitioner, SparkException}
 
-class FPGrowthModel(val freqItemsets: RDD[(Array[String], Long)]) extends Serializable
+class FPGrowthModel[Item](val freqItemsets: RDD[(Array[Item], Long)]) extends Serializable
 
 /**
  * This class implements Parallel FP-growth algorithm to do frequent pattern matching on input data.
@@ -38,7 +39,7 @@ class FPGrowthModel(val freqItemsets: RDD[(Array[String], Long)]) extends Serial
  *                   more than (minSupport * size-of-the-dataset) times will be output
  * @param numPartitions number of partitions used by parallel FP-growth
  */
-class FPGrowth private (
+class FPGrowth[Item: ClassTag, Basket <: Iterable[Item]] private (
     private var minSupport: Double,
     private var numPartitions: Int) extends Logging with Serializable {
 
@@ -69,7 +70,7 @@ class FPGrowth private (
    * @param data input data set, each element contains a transaction
    * @return an [[FPGrowthModel]]
    */
-  def run(data: RDD[Array[String]]): FPGrowthModel = {
+  def run(data: RDD[Basket]): FPGrowthModel[Item] = {
     if (data.getStorageLevel == StorageLevel.NONE) {
       logWarning("Input data is not cached.")
     }
@@ -89,12 +90,12 @@ class FPGrowth private (
    * @return array of frequent pattern ordered by their frequencies
    */
   private def genFreqItems(
-      data: RDD[Array[String]],
+      data: RDD[Basket],
       minCount: Long,
-      partitioner: Partitioner): Array[String] = {
+      partitioner: Partitioner): Array[Item] = {
     data.flatMap { t =>
       val uniq = t.toSet
-      if (t.length != uniq.size) {
+      if (t.size != uniq.size) {
         throw new SparkException(s"Items in a transaction must be unique but got ${t.toSeq}.")
       }
       t
@@ -115,10 +116,10 @@ class FPGrowth private (
    * @return an RDD of (frequent itemset, count)
    */
   private def genFreqItemsets(
-      data: RDD[Array[String]],
+      data: RDD[Basket],
       minCount: Long,
-      freqItems: Array[String],
-      partitioner: Partitioner): RDD[(Array[String], Long)] = {
+      freqItems: Array[Item],
+      partitioner: Partitioner): RDD[(Array[Item], Long)] = {
     val itemToRank = freqItems.zipWithIndex.toMap
     data.flatMap { transaction =>
       genCondTransactions(transaction, itemToRank, partitioner)
@@ -140,12 +141,13 @@ class FPGrowth private (
    * @return a map of (target partition, conditional transaction)
    */
   private def genCondTransactions(
-      transaction: Array[String],
-      itemToRank: Map[String, Int],
+      transaction: Basket,
+      itemToRank: Map[Item, Int],
       partitioner: Partitioner): mutable.Map[Int, Array[Int]] = {
     val output = mutable.Map.empty[Int, Array[Int]]
     // Filter the basket by frequent items pattern and sort their ranks.
-    val filtered = transaction.flatMap(itemToRank.get)
+    val filtered = transaction.flatMap(itemToRank.get).toArray
+
     ju.Arrays.sort(filtered)
     val n = filtered.length
     var i = n - 1
