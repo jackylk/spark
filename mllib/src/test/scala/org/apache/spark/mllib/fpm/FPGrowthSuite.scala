@@ -23,6 +23,7 @@ import org.apache.spark.mllib.util.MLlibTestSparkContext
 class FPGrowthSuite extends FunSuite with MLlibTestSparkContext {
 
   test("FP-Growth using String type") {
+
     val transactions = Seq(
       "r z h k p",
       "z y x w v u t s",
@@ -30,21 +31,21 @@ class FPGrowthSuite extends FunSuite with MLlibTestSparkContext {
       "x z y m t s q e",
       "z",
       "x z y r q t p")
-      .map(_.split(" "))
+      .map(_.split(" ").toSeq)
     val rdd = sc.parallelize(transactions, 2).cache()
 
-    val fpg = new FPGrowth[String, Array[String]]()
+    val fpg = new FPGrowth()
 
     val model6 = fpg
       .setMinSupport(0.9)
       .setNumPartitions(1)
-      .run(rdd)
+      .run[String, Seq[String]](rdd)
     assert(model6.freqItemsets.count() === 0)
 
     val model3 = fpg
       .setMinSupport(0.5)
       .setNumPartitions(2)
-      .run(rdd)
+      .run[String, Seq[String]](rdd)
     val freqItemsets3 = model3.freqItemsets.collect().map { case (items, count) =>
       (items.toSet, count)
     }
@@ -61,13 +62,13 @@ class FPGrowthSuite extends FunSuite with MLlibTestSparkContext {
     val model2 = fpg
       .setMinSupport(0.3)
       .setNumPartitions(4)
-      .run(rdd)
+      .run[String, Seq[String]](rdd)
     assert(model2.freqItemsets.count() === 54)
 
     val model1 = fpg
       .setMinSupport(0.1)
       .setNumPartitions(8)
-      .run(rdd)
+      .run[String, Seq[String]](rdd)
     assert(model1.freqItemsets.count() === 625)
   }
 
@@ -80,21 +81,21 @@ class FPGrowthSuite extends FunSuite with MLlibTestSparkContext {
       "2 4",
       "1 3",
       "1 7")
-      .map(_.split(" ").map(_.toInt))
+      .map(_.split(" ").map(_.toInt).toList)
     val rdd = sc.parallelize(transactions, 2).cache()
 
-    val fpg = new FPGrowth[Int, Array[Int]]()
+    val fpg = new FPGrowth()
 
     val model6 = fpg
       .setMinSupport(0.9)
       .setNumPartitions(1)
-      .run(rdd)
+      .run[Int, List[Int]](rdd)
     assert(model6.freqItemsets.count() === 0)
 
     val model3 = fpg
       .setMinSupport(0.5)
       .setNumPartitions(2)
-      .run(rdd)
+      .run[Int, List[Int]](rdd)
     val freqItemsets3 = model3.freqItemsets.collect().map { case (items, count) =>
       (items.toSet, count)
     }
@@ -107,13 +108,13 @@ class FPGrowthSuite extends FunSuite with MLlibTestSparkContext {
     val model2 = fpg
       .setMinSupport(0.3)
       .setNumPartitions(4)
-      .run(rdd)
+      .run[Int, List[Int]](rdd)
     assert(model2.freqItemsets.count() === 15)
 
     val model1 = fpg
       .setMinSupport(0.1)
       .setNumPartitions(8)
-      .run(rdd)
+      .run[Int, List[Int]](rdd)
     assert(model1.freqItemsets.count() === 65)
   }
 }

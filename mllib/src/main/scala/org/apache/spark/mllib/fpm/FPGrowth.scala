@@ -17,16 +17,23 @@
 
 package org.apache.spark.mllib.fpm
 
+import java.lang.{Iterable => JavaIterable}
 import java.{util => ju}
 
-import scala.collection.mutable
-import scala.reflect.ClassTag
-
+import org.apache.spark.api.java.JavaRDD
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{HashPartitioner, Logging, Partitioner, SparkException}
 
-class FPGrowthModel[Item](val freqItemsets: RDD[(Array[Item], Long)]) extends Serializable
+import scala.collection.JavaConverters._
+import scala.collection.mutable
+import scala.reflect.ClassTag
+
+class FPGrowthModel[Item](val freqItemsets: RDD[(Array[Item], Long)]) extends Serializable {
+  def javaFreqItemsets(): JavaRDD[(Array[Item], Long)] = {
+    freqItemsets.toJavaRDD()
+  }
+}
 
 /**
  * This class implements Parallel FP-growth algorithm to do frequent pattern matching on input data.
@@ -39,7 +46,7 @@ class FPGrowthModel[Item](val freqItemsets: RDD[(Array[Item], Long)]) extends Se
  *                   more than (minSupport * size-of-the-dataset) times will be output
  * @param numPartitions number of partitions used by parallel FP-growth
  */
-class FPGrowth[Item: ClassTag, Basket <: Iterable[Item]] private (
+class FPGrowth private (
     private var minSupport: Double,
     private var numPartitions: Int) extends Logging with Serializable {
 
@@ -70,7 +77,7 @@ class FPGrowth[Item: ClassTag, Basket <: Iterable[Item]] private (
    * @param data input data set, each element contains a transaction
    * @return an [[FPGrowthModel]]
    */
-  def run(data: RDD[Basket]): FPGrowthModel[Item] = {
+  def run[Item: ClassTag, Basket <: Iterable[Item]](data: RDD[Basket]): FPGrowthModel[Item] = {
     if (data.getStorageLevel == StorageLevel.NONE) {
       logWarning("Input data is not cached.")
     }
@@ -78,9 +85,13 @@ class FPGrowth[Item: ClassTag, Basket <: Iterable[Item]] private (
     val minCount = math.ceil(minSupport * count).toLong
     val numParts = if (numPartitions > 0) numPartitions else data.partitions.length
     val partitioner = new HashPartitioner(numParts)
-    val freqItems = genFreqItems(data, minCount, partitioner)
-    val freqItemsets = genFreqItemsets(data, minCount, freqItems, partitioner)
+    val freqItems = genFreqItems[Item, Basket](data, minCount, partitioner)
+    val freqItemsets = genFreqItemsets[Item, Basket](data, minCount, freqItems, partitioner)
     new FPGrowthModel(freqItemsets)
+  }
+
+  def run[Item: ClassTag, Basket <: JavaIterable[Item]](data: JavaRDD[Basket]): FPGrowthModel[Item] = {
+    this.run(data.rdd.map(_.asScala))
   }
 
   /**
@@ -89,7 +100,7 @@ class FPGrowth[Item: ClassTag, Basket <: Iterable[Item]] private (
    * @param partitioner partitioner used to distribute items
    * @return array of frequent pattern ordered by their frequencies
    */
-  private def genFreqItems(
+  private def genFreqItems[Item: ClassTag, Basket <: Iterable[Item]](
       data: RDD[Basket],
       minCount: Long,
       partitioner: Partitioner): Array[Item] = {
@@ -115,7 +126,7 @@ class FPGrowth[Item: ClassTag, Basket <: Iterable[Item]] private (
    * @param partitioner partitioner used to distribute transactions
    * @return an RDD of (frequent itemset, count)
    */
-  private def genFreqItemsets(
+  private def genFreqItemsets[Item: ClassTag, Basket <: Iterable[Item]](
       data: RDD[Basket],
       minCount: Long,
       freqItems: Array[Item],
@@ -140,7 +151,7 @@ class FPGrowth[Item: ClassTag, Basket <: Iterable[Item]] private (
    * @param partitioner partitioner used to distribute transactions
    * @return a map of (target partition, conditional transaction)
    */
-  private def genCondTransactions(
+  private def genCondTransactions[Item: ClassTag, Basket <: Iterable[Item]](
       transaction: Basket,
       itemToRank: Map[Item, Int],
       partitioner: Partitioner): mutable.Map[Int, Array[Int]] = {
